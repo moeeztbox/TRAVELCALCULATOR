@@ -7,10 +7,10 @@ const AdminCard = () => {
 
   return (
     <button
-      onClick={() => navigate("/admin/login")}
-      className="group bg-white rounded-2xl p-6 sm:p-8 md:p-10 flex flex-col items-center justify-center border border-gray-200 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
+      onClick={() => navigate("/login", { state: { type: "admin" } })}
+      className="group bg-white rounded-2xl cursor-pointer p-6 sm:p-8 md:p-10 flex flex-col items-center justify-center border border-gray-200 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
     >
-      <div className="w-full h-1 bg-gradient-to-r from-yellow-500 to-yellow-600 mb-4"></div>
+      <div className="w-full h-1 bg-yellow-500 mb-4"></div>
       <div className="text-center">
         <div className="inline-block p-3 sm:p-4 bg-yellow-50 rounded-full mb-4 group-hover:bg-yellow-100 transition-colors">
           <Shield className="w-10 h-10 sm:w-12 sm:h-12 text-yellow-600" />

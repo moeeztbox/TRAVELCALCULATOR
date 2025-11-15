@@ -4,7 +4,7 @@ import UserCard from "../Components/Home/UserCard";
 
 const Home = () => {
   return (
-    <div className="min-h-[80vh] flex flex-col justify-center items-center bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 px-4 py-8 md:py-16">
+    <div className="min-h-[80vh] flex flex-col justify-center items-center bg-linear-to-br from-gray-50 via-gray-100 to-gray-50 px-4 py-8 md:py-16">
       <div className="w-full max-w-6xl text-center">
         <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-4">
           Welcome to Your Travel Hub

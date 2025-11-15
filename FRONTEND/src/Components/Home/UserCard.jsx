@@ -7,10 +7,10 @@ const UserCard = () => {
 
   return (
     <button
-      onClick={() => navigate("/user/login")}
-      className="group bg-white rounded-2xl p-6 sm:p-8 md:p-10 flex flex-col items-center justify-center border border-gray-200 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
+      onClick={() => navigate("/login", { state: { type: "user" } })}
+      className="group bg-white rounded-2xl cursor-pointer p-6 sm:p-8 md:p-10 flex flex-col items-center justify-center border border-gray-200 transition-all duration-300 hover:shadow-lg hover:scale-[1.02]"
     >
-      <div className="w-full h-1 bg-gradient-to-r from-blue-500 to-blue-600 mb-4"></div>
+      <div className="w-full h-1 bg-blue-500 mb-4"></div>
       <div className="text-center">
         <div className="inline-block p-3 sm:p-4 bg-blue-50 rounded-full mb-4 group-hover:bg-blue-100 transition-colors">
           <Users className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600" />
@@ -23,7 +23,7 @@ const UserCard = () => {
         </p>
         <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200 mb-5">
           <p className="text-yellow-900 font-semibold text-xs sm:text-sm">
-            🔒 Login required to access booking features
+            🔒 Login required to access limited features
           </p>
         </div>
         <div className="inline-block px-6 py-2 sm:px-8 sm:py-3 bg-blue-600 text-white rounded-lg font-semibold group-hover:bg-blue-700 transition-colors text-sm sm:text-base">
