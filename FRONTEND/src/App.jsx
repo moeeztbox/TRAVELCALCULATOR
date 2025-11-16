@@ -16,6 +16,13 @@ import VisaForm from "./Components/Dashboard/DashboardForms/VisaForm";
 import TicketForm from "./Components/Dashboard/DashboardForms/TicketForm";
 import TransportForm from "./Components/Dashboard/DashboardForms/TransportForm";
 import PackageForm from "./Components/Dashboard/DashboardForms/PackageForm";
+import ListingsForm from "./Components/Dashboard/DashboardForms/ListingsForm";
+
+// Listing Pages
+import HotelList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/HotelList";
+import TransportList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/TransportList";
+import VisaList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/VisaList";
+import TicketList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/TicketList";
 
 import PrivateRoute from "./Routes/PrivateRoute";
 import PublicRoute from "./Routes/PublicRoute";
@@ -91,10 +98,55 @@ const App = () => {
               }
             />
             <Route
+              path="/dashboard/listings"
+              element={
+                <PrivateRoute>
+                  <ListingsForm />
+                </PrivateRoute>
+              }
+            />
+            <Route
               path="/dashboard/packages"
               element={
                 <PrivateRoute>
                   <PackageForm />
+                </PrivateRoute>
+              }
+            />
+
+            {/* LISTING SUB-ROUTES */}
+            <Route
+              path="/dashboard/listings/hotels"
+              element={
+                <PrivateRoute>
+                  <HotelList />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/listings/transport"
+              element={
+                <PrivateRoute>
+                  <TransportList />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/listings/visa"
+              element={
+                <PrivateRoute>
+                  <VisaList />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard/listings/tickets"
+              element={
+                <PrivateRoute>
+                  <TicketList />
                 </PrivateRoute>
               }
             />
