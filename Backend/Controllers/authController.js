@@ -1,20 +1,33 @@
 // Predefined credentials
-const fixedUser = {
-  email: "user@example.com", // fixed email
-  password: "123456", // fixed password
-};
+const users = [
+  {
+    email: "admin@example.com",
+    password: "admin123",
+    type: "admin",
+    name: "Admin User",
+  },
+  {
+    email: "user@example.com",
+    password: "123456",
+    type: "user",
+    name: "Demo User",
+  },
+];
 
 export const loginUser = (req, res) => {
   const { email, password } = req.body;
 
-  if (email === fixedUser.email && password === fixedUser.password) {
-    // On success, send back a dummy token
+  // Find user with matching email and password
+  const user = users.find((u) => u.email === email && u.password === password);
+
+  if (user) {
     return res.json({
       success: true,
       token: "dummy-token-123",
       user: {
-        email: fixedUser.email,
-        name: "Demo User",
+        email: user.email,
+        name: user.name,
+        type: user.type, // send type to frontend
       },
     });
   } else {

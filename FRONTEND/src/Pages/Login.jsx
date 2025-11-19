@@ -39,18 +39,17 @@ function Login() {
     setLoading(true);
 
     try {
-      const res = await axios.post("http://localhost:5000/api/login", {
+      const res = await axios.post("http://localhost:5000/api/auth/login", {
         email,
         password,
-        type, // send type to backend (optional)
       });
 
       if (res.data.success) {
-        // ✅ Save all info to localStorage
+        // ✅ Save everything from backend
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("token", res.data.token);
-        localStorage.setItem("email", email); // from backend
-        localStorage.setItem("type", type); // "admin" or "user"
+        localStorage.setItem("email", res.data.user.email); // backend email
+        localStorage.setItem("type", res.data.user.type); // backend type (admin/user)
 
         navigate("/dashboard");
       } else {
