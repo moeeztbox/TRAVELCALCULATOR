@@ -408,8 +408,26 @@ const HotelList = () => {
   };
 
   const hotels = [
-    { id: 1, name: "Al Haram Hotel", price: "250 SR" },
-    { id: 2, name: "Nawazi Ajyad Hotel", price: "180 SR" },
+    {
+      id: 1,
+      name: "Al Haram Hotel",
+      category: "5 Star",
+      room: "Double Sharing",
+      agent: "Al Safa Travels",
+      price: "250 SR",
+      agentCost: "220 SR",
+      companyCost: "270 SR",
+    },
+    {
+      id: 2,
+      name: "Nawazi Ajyad Hotel",
+      category: "4 Star",
+      room: "Triple Sharing",
+      agent: "Falcon Hajj Services",
+      price: "180 SR",
+      agentCost: "160 SR",
+      companyCost: "200 SR",
+    },
   ];
 
   // ROLE CHECK
@@ -431,25 +449,38 @@ const HotelList = () => {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-extrabold text-gray-900">Hotels List</h1>
 
-        {/* SHOW ADD BUTTON ONLY FOR ADMIN */}
-        {isAdmin && (
-          <button
-            className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 
-            rounded-lg shadow hover:bg-blue-700 transition"
-          >
-            <Plus size={20} />
-            Add
+        <div className="flex gap-2">
+          {/* PRINT BUTTON */}
+          <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition cursor-pointer">
+            Print
           </button>
-        )}
+
+          {/* SHOW ADD BUTTON ONLY FOR ADMIN */}
+          {isAdmin && (
+            <button
+              className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 
+              rounded-lg shadow hover:bg-blue-700 transition"
+            >
+              <Plus size={20} />
+              Add
+            </button>
+          )}
+        </div>
       </div>
 
       {/* TABLE */}
-      <div className="bg-white shadow-md rounded-xl overflow-hidden">
+      <div className="bg-white shadow-md rounded-xl overflow-hidden mt-6">
         <table className="w-full text-left">
           <thead className="bg-gray-100 text-gray-700">
             <tr>
               <th className="py-3 px-4 text-sm font-semibold">Hotel Name</th>
+              <th className="py-3 px-4 text-sm font-semibold">Category</th>
+              <th className="py-3 px-4 text-sm font-semibold">Room Type</th>
+              <th className="py-3 px-4 text-sm font-semibold">Agent Name</th>
+              <th className="py-3 px-4 text-sm font-semibold">Agent Cost</th>
+              <th className="py-3 px-4 text-sm font-semibold">Company Cost</th>
               <th className="py-3 px-4 text-sm font-semibold">Price</th>
+
               {/* Only show Actions column for Admin */}
               {isAdmin && (
                 <th className="py-3 px-4 text-sm font-semibold">Actions</th>
@@ -464,16 +495,23 @@ const HotelList = () => {
                 className="border-b hover:bg-gray-50 transition"
               >
                 <td className="py-3 px-4">{hotel.name}</td>
+                <td className="py-3 px-4">{hotel.category}</td>
+                <td className="py-3 px-4">{hotel.room}</td>
+                <td className="py-3 px-4">{hotel.agent}</td>
+                <td className="py-3 px-4">{hotel.agentCost}</td>
+                <td className="py-3 px-4">{hotel.companyCost}</td>
                 <td className="py-3 px-4">{hotel.price}</td>
+
+                {/* NEW FIELDS */}
 
                 {/* ACTION ICONS ONLY FOR ADMIN */}
                 {isAdmin && (
                   <td className="py-3 px-4 flex items-center gap-4">
-                    <button className="text-blue-600 cursor-pointer hover:text-blue-800">
+                    <button className="text-blue-600 hover:text-blue-800 cursor-pointer">
                       <Pencil size={20} />
                     </button>
 
-                    <button className="text-red-600 cursor-pointer hover:text-red-800">
+                    <button className="text-red-600 hover:text-red-800 cursor-pointer">
                       <Trash2 size={20} />
                     </button>
                   </td>
