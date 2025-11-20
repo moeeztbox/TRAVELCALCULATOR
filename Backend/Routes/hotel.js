@@ -7,12 +7,16 @@ import {
   deleteHotel,
 } from "../Controllers/hotel.js";
 
+import { verifyToken, requireAdmin } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
 
-// CRUD Routes
-router.post("/hotel", createHotel);        // Create
-router.get("/hotel", getHotels);           // Read
-router.put("/hotel/:id", updateHotel);     // Update
-router.delete("/hotel/:id", deleteHotel);  // Delete
+// Public route: anyone logged in (optional: can keep it public if needed)
+router.get("/hotel", verifyToken, getHotels); // Read all hotels
+
+// Admin-only routes
+router.post("/hotel", verifyToken, requireAdmin, createHotel);        // Create hotel
+router.put("/hotel/:id", verifyToken, requireAdmin, updateHotel);     // Update hotel
+router.delete("/hotel/:id", verifyToken, requireAdmin, deleteHotel);  // Delete hotel
 
 export default router;

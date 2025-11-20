@@ -1,38 +1,57 @@
-// Predefined credentials
-const users = [
-  {
-    email: "admin@example.com",
-    password: "admin123",
-    type: "admin",
-    name: "Admin User",
-  },
-  {
-    email: "user@example.com",
-    password: "123456",
-    type: "user",
-    name: "Demo User",
-  },
-];
+// controllers/authController.js
+import User from "../models/user.js";
+import jwt from "jsonwebtoken";
 
-export const loginUser = (req, res) => {
-  const { email, password } = req.body;
+/**
+ * POST /api/auth/login
+ * Body: { email, password }
+ */
+export const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-  // Find user with matching email and password
-  const user = users.find((u) => u.email === email && u.password === password);
+    // Validate input quickly
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password required" });
+    }
 
-  if (user) {
+    // Find user by email (MongoDB)
+    const user = await User.findOne({ email });
+
+    // If no user or password mismatch
+    // NOTE: This compares plain text. Replace with bcrypt.compare() if you hash passwords.
+    if (!user || user.password !== password) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+
+    // Choose secret and expiry based on role
+    const isAdmin = user.type === "admin";
+    const secret = isAdmin ? process.env.JWT_SECRET_ADMIN : process.env.JWT_SECRET_USER;
+    const expiresIn = isAdmin ? (process.env.JWT_EXPIRES_ADMIN || "7d") : (process.env.JWT_EXPIRES_USER || "1d");
+
+    // Payload — include minimal data
+    const payload = {
+      id: user._id,
+      email: user.email,
+      type: user.type,
+      name: user.name,
+    };
+
+    // Create token
+    const token = jwt.sign(payload, secret, { expiresIn });
+
+    // Return token and user info
     return res.json({
       success: true,
-      token: "dummy-token-123",
+      token,
       user: {
+        id: user._id,
         email: user.email,
         name: user.name,
-        type: user.type, // send type to frontend
+        type: user.type,
       },
     });
-  } else {
-    return res
-      .status(401)
-      .json({ success: false, message: "Invalid credentials" });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
