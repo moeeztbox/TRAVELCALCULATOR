@@ -5,9 +5,17 @@ import Hotel from "../models/hotel.js";
 // ➤ CREATE HOTEL
 export const createHotel = async (req, res) => {
   try {
-    const { hotelName, price } = req.body;
+    const { hotelName, category, roomType, agentName, agentCost, companyCost, price } = req.body;
 
-    const hotel = new Hotel({ hotelName, price });
+    const hotel = new Hotel({ 
+      hotelName, 
+      category, 
+      roomType, 
+      agentName, 
+      agentCost, 
+      companyCost, 
+      price 
+    });
     await hotel.save();
 
     res.status(201).json({

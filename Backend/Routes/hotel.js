@@ -10,9 +10,9 @@ import {
 const router = express.Router();
 
 // CRUD Routes
-router.post("/hotel", createHotel);        // Create
-router.get("/hotel", getHotels);           // Read
-router.put("/hotel/:id", updateHotel);     // Update
-router.delete("/hotel/:id", deleteHotel);  // Delete
+router.post("/hotels", createHotel);        // Create
+router.get("/hotels", getHotels);           // Read
+router.put("/hotels/:id", updateHotel);     // Update
+router.delete("/hotels/:id", deleteHotel);  // Delete
 
 export default router;

@@ -10,6 +10,7 @@ import connectDB from "./config/db.js";
 // Routes
 import authRoutes from "./Routes/auth.js";
 import hotelRoutes from "./Routes/hotel.js";
+import transportRoutes from "./Routes/transport.js";
 
 const app = express();
 
@@ -22,7 +23,8 @@ connectDB();
 
 // API Routes
 app.use("/api/auth", authRoutes);
-app.use("/api", hotelRoutes);   // <-- Your added line
+app.use("/api", hotelRoutes);
+app.use("/api", transportRoutes);
 
 // Start Server
 const PORT = process.env.PORT || 5000;

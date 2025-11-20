@@ -1,434 +1,161 @@
-// import React, { useEffect, useState } from "react";
-// import { useNavigate } from "react-router-dom";
-
-// const ManageHotels = () => {
-//   const [hotels, setHotels] = useState([]);
-//   const [showAddModal, setShowAddModal] = useState(false);
-//   const [showEditModal, setShowEditModal] = useState(false);
-
-//   const [newHotel, setNewHotel] = useState({ hotelName: "", price: "" });
-
-//   const [editHotel, setEditHotel] = useState({
-//     _id: "",
-//     hotelName: "",
-//     price: "",
-//   });
-
-//   const navigate = useNavigate();
-
-//   // ---------------- FETCH HOTELS ----------------
-//   const fetchHotels = async () => {
-//     try {
-//       const res = await fetch("http://localhost:5000/api/hotel");
-//       const data = await res.json();
-
-//       if (data.success && Array.isArray(data.data)) {
-//         setHotels(data.data);
-//       } else {
-//         setHotels([]);
-//       }
-//     } catch (err) {
-//       console.error("Error fetching hotels:", err);
-//       setHotels([]);
-//     }
-//   };
-
-//   // ---------------- ADD NEW HOTEL ----------------
-//   const saveHotel = async () => {
-//     if (!newHotel.hotelName || !newHotel.price) {
-//       alert("Please fill all fields");
-//       return;
-//     }
-
-//     try {
-//       const res = await fetch("http://localhost:5000/api/hotel", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify(newHotel),
-//       });
-
-//       const data = await res.json();
-
-//       if (data.success) {
-//         alert("Hotel added successfully!");
-//         setShowAddModal(false);
-//         setNewHotel({ hotelName: "", price: "" });
-//         fetchHotels();
-//       } else {
-//         alert("Error adding hotel");
-//       }
-//     } catch (err) {
-//       console.error("Error adding hotel:", err);
-//     }
-//   };
-
-//   // ---------------- DELETE HOTEL ----------------
-//   const deleteHotel = async (id) => {
-//     if (!window.confirm("Are you sure you want to delete this hotel?")) return;
-
-//     try {
-//       await fetch(`http://localhost:5000/api/hotel/${id}`, {
-//         method: "DELETE",
-//       });
-//       fetchHotels();
-//     } catch (err) {
-//       console.error("Error deleting hotel", err);
-//     }
-//   };
-
-//   // ---------------- OPEN EDIT MODAL ----------------
-//   const openEditModal = (hotel) => {
-//     setEditHotel({
-//       _id: hotel._id,
-//       hotelName: hotel.hotelName,
-//       price: hotel.price,
-//     });
-//     setShowEditModal(true);
-//   };
-
-//   // ---------------- UPDATE HOTEL ----------------
-//   const updateHotel = async () => {
-//     try {
-//       const res = await fetch(
-//         `http://localhost:5000/api/hotel/${editHotel._id}`,
-//         {
-//           method: "PUT",
-//           headers: { "Content-Type": "application/json" },
-//           body: JSON.stringify({
-//             hotelName: editHotel.hotelName,
-//             price: editHotel.price,
-//           }),
-//         }
-//       );
-
-//       const data = await res.json();
-
-//       if (data.success) {
-//         alert("Hotel updated successfully!");
-//         setShowEditModal(false);
-//         fetchHotels();
-//       } else {
-//         alert(data.message || "Error updating hotel");
-//       }
-//     } catch (err) {
-//       console.error("Error updating hotel:", err);
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchHotels();
-//   }, []);
-
-//   return (
-//     <div style={styles.container}>
-//       <h1 style={styles.heading}>Manage Hotels</h1>
-
-//       <button style={styles.backBtn} onClick={() => navigate(-1)}>
-//         ⬅ Back
-//       </button>
-
-//       <button style={styles.addBtn} onClick={() => setShowAddModal(true)}>
-//         ➕ Add New Hotel
-//       </button>
-
-//       {/* ---------------- TABLE ---------------- */}
-//       <table style={styles.table}>
-//         <thead>
-//           <tr>
-//             <th style={styles.th}>Hotel Name</th>
-//             <th style={styles.th}>Price</th>
-//             <th style={styles.th}>Actions</th>
-//           </tr>
-//         </thead>
-
-//         <tbody>
-//           {hotels.length > 0 ? (
-//             hotels.map((hotel) => (
-//               <tr key={hotel._id}>
-//                 <td style={styles.td}>{hotel.hotelName}</td>
-//                 <td style={styles.td}>${hotel.price}</td>
-
-//                 <td style={styles.actionTd}>
-//                   <button
-//                     style={styles.deleteBtn}
-//                     onClick={() => deleteHotel(hotel._id)}
-//                   >
-//                     Delete
-//                   </button>
-
-//                   <button
-//                     style={styles.editBtn}
-//                     onClick={() => openEditModal(hotel)}
-//                   >
-//                     Edit
-//                   </button>
-
-//                   <button
-//                     style={styles.viewBtn}
-//                     onClick={() => navigate(`/view-hotel/${hotel._id}`)}
-//                   >
-//                     View
-//                   </button>
-//                 </td>
-//               </tr>
-//             ))
-//           ) : (
-//             <tr>
-//               <td colSpan="3" style={styles.noData}>
-//                 No hotels found.
-//               </td>
-//             </tr>
-//           )}
-//         </tbody>
-//       </table>
-
-//       {/* ---------------- ADD HOTEL MODAL ---------------- */}
-//       {showAddModal && (
-//         <div style={styles.modalOverlay}>
-//           <div style={styles.modalBox}>
-//             <h2>Add Hotel</h2>
-
-//             <input
-//               type="text"
-//               placeholder="Hotel Name"
-//               value={newHotel.hotelName}
-//               onChange={(e) =>
-//                 setNewHotel({ ...newHotel, hotelName: e.target.value })
-//               }
-//               style={styles.input}
-//             />
-
-//             <input
-//               type="number"
-//               placeholder="Price"
-//               value={newHotel.price}
-//               onChange={(e) =>
-//                 setNewHotel({ ...newHotel, price: e.target.value })
-//               }
-//               style={styles.input}
-//             />
-
-//             <div style={styles.modalBtns}>
-//               <button style={styles.saveBtn} onClick={saveHotel}>
-//                 Save
-//               </button>
-//               <button
-//                 style={styles.cancelBtn}
-//                 onClick={() => setShowAddModal(false)}
-//               >
-//                 Cancel
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {/* ---------------- EDIT HOTEL MODAL ---------------- */}
-//       {showEditModal && (
-//         <div style={styles.modalOverlay}>
-//           <div style={styles.modalBox}>
-//             <h2>Edit Hotel</h2>
-
-//             <input
-//               type="text"
-//               placeholder="Hotel Name"
-//               value={editHotel.hotelName}
-//               onChange={(e) =>
-//                 setEditHotel({ ...editHotel, hotelName: e.target.value })
-//               }
-//               style={styles.input}
-//             />
-
-//             <input
-//               type="number"
-//               placeholder="Price"
-//               value={editHotel.price}
-//               onChange={(e) =>
-//                 setEditHotel({ ...editHotel, price: e.target.value })
-//               }
-//               style={styles.input}
-//             />
-
-//             <div style={styles.modalBtns}>
-//               <button style={styles.saveBtn} onClick={updateHotel}>
-//                 Update
-//               </button>
-//               <button
-//                 style={styles.cancelBtn}
-//                 onClick={() => setShowEditModal(false)}
-//               >
-//                 Cancel
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default ManageHotels;
-
-// //
-// // ---------- STYLES ----------
-// //
-// const styles = {
-//   container: {
-//     width: "90%",
-//     margin: "40px auto",
-//     fontFamily: "Arial, sans-serif",
-//   },
-//   heading: {
-//     fontSize: "28px",
-//     fontWeight: "bold",
-//     marginBottom: "20px",
-//   },
-//   addBtn: {
-//     padding: "10px 18px",
-//     background: "black",
-//     color: "white",
-//     borderRadius: "5px",
-//     cursor: "pointer",
-//     float: "right",
-//     marginBottom: "10px",
-//   },
-//   backBtn: {
-//     padding: "8px 15px",
-//     background: "#777",
-//     color: "white",
-//     borderRadius: "5px",
-//     cursor: "pointer",
-//     marginBottom: "10px",
-//   },
-//   table: {
-//     width: "100%",
-//     borderCollapse: "collapse",
-//     background: "white",
-//     marginTop: "20px",
-//   },
-//   th: {
-//     background: "#f4f4f4",
-//     padding: "12px",
-//     textAlign: "left",
-//     fontWeight: "bold",
-//     borderBottom: "2px solid #ddd",
-//   },
-//   td: {
-//     padding: "12px",
-//     borderBottom: "1px solid #eee",
-//   },
-//   actionTd: {
-//     padding: "12px",
-//     borderBottom: "1px solid #eee",
-//     display: "flex",
-//     gap: "10px",
-//   },
-//   deleteBtn: {
-//     color: "red",
-//     cursor: "pointer",
-//     background: "none",
-//     border: "none",
-//     fontWeight: "bold",
-//   },
-//   editBtn: {
-//     color: "purple",
-//     cursor: "pointer",
-//     background: "none",
-//     border: "none",
-//     fontWeight: "bold",
-//   },
-//   viewBtn: {
-//     color: "green",
-//     cursor: "pointer",
-//     background: "none",
-//     border: "none",
-//     fontWeight: "bold",
-//   },
-//   noData: {
-//     textAlign: "center",
-//     padding: "20px",
-//     color: "#888",
-//   },
-//   modalOverlay: {
-//     position: "fixed",
-//     top: 0,
-//     left: 0,
-//     width: "100%",
-//     height: "100%",
-//     background: "rgba(0,0,0,0.5)",
-//     display: "flex",
-//     alignItems: "center",
-//     justifyContent: "center",
-//   },
-//   modalBox: {
-//     width: "350px",
-//     padding: "20px",
-//     background: "white",
-//     borderRadius: "8px",
-//     boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
-//   },
-//   input: {
-//     width: "100%",
-//     padding: "10px",
-//     marginBottom: "10px",
-//     border: "1px solid #ccc",
-//     borderRadius: "4px",
-//   },
-//   modalBtns: {
-//     display: "flex",
-//     justifyContent: "space-between",
-//     marginTop: "10px",
-//   },
-//   saveBtn: {
-//     padding: "10px 15px",
-//     background: "green",
-//     color: "white",
-//     border: "none",
-//     borderRadius: "5px",
-//     cursor: "pointer",
-//   },
-//   cancelBtn: {
-//     padding: "10px 15px",
-//     background: "#999",
-//     color: "white",
-//     border: "none",
-//     borderRadius: "5px",
-//     cursor: "pointer",
-//   },
-// };
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const HotelList = () => {
   const navigate = useNavigate();
+  const [hotels, setHotels] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const [newHotel, setNewHotel] = useState({
+    hotelName: "",
+    category: "",
+    roomType: "",
+    agentName: "",
+    agentCost: "",
+    companyCost: "",
+    price: "",
+  });
+
+  const [editHotel, setEditHotel] = useState({
+    _id: "",
+    hotelName: "",
+    category: "",
+    roomType: "",
+    agentName: "",
+    agentCost: "",
+    companyCost: "",
+    price: "",
+  });
+
+  const categories = ["5-star", "4-star", "3-star", "2-star", "1-star"];
+  const roomTypes = ["sharing", "quad", "double", "single"];
+
+  // Fetch hotels from backend
+  useEffect(() => {
+    fetchHotels();
+  }, []);
+
+  const fetchHotels = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:5000/api/hotels");
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.data)) {
+        setHotels(data.data);
+      } else {
+        setHotels([]);
+      }
+    } catch (err) {
+      console.error("Error fetching hotels:", err);
+      setHotels([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add new hotel
+  const saveHotel = async () => {
+    if (!newHotel.hotelName || !newHotel.category || !newHotel.roomType || !newHotel.agentName || !newHotel.price) {
+      alert("Please fill all required fields");
+      return;
+    }
+
+    try {
+      const res = await fetch("http://localhost:5000/api/hotels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newHotel),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert("Hotel added successfully!");
+        setShowAddModal(false);
+        setNewHotel({
+          hotelName: "",
+          category: "",
+          roomType: "",
+          agentName: "",
+          agentCost: "",
+          companyCost: "",
+          price: "",
+        });
+        fetchHotels();
+      } else {
+        alert(data.message || "Error adding hotel");
+      }
+    } catch (err) {
+      console.error("Error adding hotel:", err);
+      alert("Error adding hotel");
+    }
+  };
+
+  // Delete hotel
+  const deleteHotel = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this hotel?")) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/hotels/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert("Hotel deleted successfully!");
+        fetchHotels();
+      } else {
+        alert(data.message || "Error deleting hotel");
+      }
+    } catch (err) {
+      console.error("Error deleting hotel:", err);
+      alert("Error deleting hotel");
+    }
+  };
+
+  // Open edit modal
+  const openEditModal = (hotel) => {
+    setEditHotel(hotel);
+    setShowEditModal(true);
+  };
+
+  // Update hotel
+  const updateHotel = async () => {
+    if (!editHotel.hotelName || !editHotel.category || !editHotel.roomType || !editHotel.agentName || !editHotel.price) {
+      alert("Please fill all required fields");
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/hotels/${editHotel._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editHotel),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert("Hotel updated successfully!");
+        setShowEditModal(false);
+        fetchHotels();
+      } else {
+        alert(data.message || "Error updating hotel");
+      }
+    } catch (err) {
+      console.error("Error updating hotel:", err);
+      alert("Error updating hotel");
+    }
+  };
 
   const handleBack = () => {
     navigate("/dashboard/listings");
   };
-
-  const hotels = [
-    {
-      id: 1,
-      name: "Al Haram Hotel",
-      category: "5 Star",
-      room: "Double Sharing",
-      agent: "Al Safa Travels",
-      price: "250 SR",
-      agentCost: "220 SR",
-      companyCost: "270 SR",
-    },
-    {
-      id: 2,
-      name: "Nawazi Ajyad Hotel",
-      category: "4 Star",
-      room: "Triple Sharing",
-      agent: "Falcon Hajj Services",
-      price: "180 SR",
-      agentCost: "160 SR",
-      companyCost: "200 SR",
-    },
-  ];
 
   // ROLE CHECK
   const type = localStorage.getItem("type");
@@ -458,6 +185,7 @@ const HotelList = () => {
           {/* SHOW ADD BUTTON ONLY FOR ADMIN */}
           {isAdmin && (
             <button
+              onClick={() => setShowAddModal(true)}
               className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 
               rounded-lg shadow hover:bg-blue-700 transition"
             >
@@ -489,38 +217,228 @@ const HotelList = () => {
           </thead>
 
           <tbody>
-            {hotels.map((hotel) => (
-              <tr
-                key={hotel.id}
-                className="border-b hover:bg-gray-50 transition"
-              >
-                <td className="py-3 px-4">{hotel.name}</td>
-                <td className="py-3 px-4">{hotel.category}</td>
-                <td className="py-3 px-4">{hotel.room}</td>
-                <td className="py-3 px-4">{hotel.agent}</td>
-                <td className="py-3 px-4">{hotel.agentCost}</td>
-                <td className="py-3 px-4">{hotel.companyCost}</td>
-                <td className="py-3 px-4">{hotel.price}</td>
-
-                {/* NEW FIELDS */}
-
-                {/* ACTION ICONS ONLY FOR ADMIN */}
-                {isAdmin && (
-                  <td className="py-3 px-4 flex items-center gap-4">
-                    <button className="text-blue-600 hover:text-blue-800 cursor-pointer">
-                      <Pencil size={20} />
-                    </button>
-
-                    <button className="text-red-600 hover:text-red-800 cursor-pointer">
-                      <Trash2 size={20} />
-                    </button>
-                  </td>
-                )}
+            {loading ? (
+              <tr>
+                <td colSpan={isAdmin ? 8 : 7} className="py-4 px-4 text-center text-gray-500">
+                  Loading...
+                </td>
               </tr>
-            ))}
+            ) : hotels.length === 0 ? (
+              <tr>
+                <td colSpan={isAdmin ? 8 : 7} className="py-4 px-4 text-center text-gray-500">
+                  No hotels found.
+                </td>
+              </tr>
+            ) : (
+              hotels.map((hotel) => (
+                <tr
+                  key={hotel._id}
+                  className="border-b hover:bg-gray-50 transition"
+                >
+                  <td className="py-3 px-4">{hotel.hotelName}</td>
+                  <td className="py-3 px-4">{hotel.category}</td>
+                  <td className="py-3 px-4">{hotel.roomType}</td>
+                  <td className="py-3 px-4">{hotel.agentName}</td>
+                  <td className="py-3 px-4">{hotel.agentCost}</td>
+                  <td className="py-3 px-4">{hotel.companyCost}</td>
+                  <td className="py-3 px-4">{hotel.price}</td>
+
+                  {/* ACTION ICONS ONLY FOR ADMIN */}
+                  {isAdmin && (
+                    <td className="py-3 px-4 flex items-center gap-4">
+                      <button 
+                        onClick={() => openEditModal(hotel)}
+                        className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                      >
+                        <Pencil size={20} />
+                      </button>
+
+                      <button 
+                        onClick={() => deleteHotel(hotel._id)}
+                        className="text-red-600 hover:text-red-800 cursor-pointer"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* ADD HOTEL MODAL */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+            <h2 className="text-2xl font-bold mb-4">Add Hotel</h2>
+
+            <input
+              type="text"
+              placeholder="Hotel Name"
+              value={newHotel.hotelName}
+              onChange={(e) => setNewHotel({ ...newHotel, hotelName: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <select
+              value={newHotel.category}
+              onChange={(e) => setNewHotel({ ...newHotel, category: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            >
+              <option value="">Select Category</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+
+            <select
+              value={newHotel.roomType}
+              onChange={(e) => setNewHotel({ ...newHotel, roomType: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            >
+              <option value="">Select Room Type</option>
+              {roomTypes.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+
+            <input
+              type="text"
+              placeholder="Agent Name"
+              value={newHotel.agentName}
+              onChange={(e) => setNewHotel({ ...newHotel, agentName: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <input
+              type="number"
+              placeholder="Agent Cost"
+              value={newHotel.agentCost}
+              onChange={(e) => setNewHotel({ ...newHotel, agentCost: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <input
+              type="number"
+              placeholder="Company Cost"
+              value={newHotel.companyCost}
+              onChange={(e) => setNewHotel({ ...newHotel, companyCost: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <input
+              type="number"
+              placeholder="Price"
+              value={newHotel.price}
+              onChange={(e) => setNewHotel({ ...newHotel, price: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+            />
+
+            <div className="flex justify-between gap-2">
+              <button
+                onClick={saveHotel}
+                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT HOTEL MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+            <h2 className="text-2xl font-bold mb-4">Edit Hotel</h2>
+
+            <input
+              type="text"
+              placeholder="Hotel Name"
+              value={editHotel.hotelName}
+              onChange={(e) => setEditHotel({ ...editHotel, hotelName: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <select
+              value={editHotel.category}
+              onChange={(e) => setEditHotel({ ...editHotel, category: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            >
+              <option value="">Select Category</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+
+            <select
+              value={editHotel.roomType}
+              onChange={(e) => setEditHotel({ ...editHotel, roomType: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            >
+              <option value="">Select Room Type</option>
+              {roomTypes.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+
+            <input
+              type="text"
+              placeholder="Agent Name"
+              value={editHotel.agentName}
+              onChange={(e) => setEditHotel({ ...editHotel, agentName: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <input
+              type="number"
+              placeholder="Agent Cost"
+              value={editHotel.agentCost}
+              onChange={(e) => setEditHotel({ ...editHotel, agentCost: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <input
+              type="number"
+              placeholder="Company Cost"
+              value={editHotel.companyCost}
+              onChange={(e) => setEditHotel({ ...editHotel, companyCost: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <input
+              type="number"
+              placeholder="Price"
+              value={editHotel.price}
+              onChange={(e) => setEditHotel({ ...editHotel, price: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+            />
+
+            <div className="flex justify-between gap-2">
+              <button
+                onClick={updateHotel}
+                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 
 export default function HotelCalculator() {
@@ -9,25 +9,48 @@ export default function HotelCalculator() {
   const today = new Date().toISOString().split("T")[0];
 
   const [hotelName, setHotelName] = useState("");
+  const [category, setCategory] = useState("");
   const [roomType, setRoomType] = useState("");
+  const [agentName, setAgentName] = useState("");
+  const [agentCost, setAgentCost] = useState("");
+  const [companyCost, setCompanyCost] = useState("");
+  const [price, setPrice] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [result, setResult] = useState(null);
+  const [hotels, setHotels] = useState([]);
 
-  const hotelPrices = {
-    "Al Haram Hotel": 200,
-    "Hilton Makkah": 350,
-    "Pullman Zamzam": 250,
+  const categories = ["5-star", "4-star", "3-star", "2-star", "1-star"];
+  const roomTypes = ["sharing", "quad", "double", "single"];
+
+  useEffect(() => {
+    fetchHotels();
+  }, []);
+
+  const fetchHotels = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/hotels");
+      const data = await response.json();
+      if (data.success) {
+        setHotels(data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching hotels:", err);
+    }
   };
 
-  const roomTypes = {
-    "Quad Sharing": 1,
-    "Triple Sharing": 1.2,
-    "Double Sharing": 1.5,
+  const handleHotelSelect = (hotel) => {
+    setHotelName(hotel.hotelName);
+    setCategory(hotel.category);
+    setRoomType(hotel.roomType);
+    setAgentName(hotel.agentName);
+    setAgentCost(hotel.agentCost);
+    setCompanyCost(hotel.companyCost);
+    setPrice(hotel.price);
   };
 
   const calculate = () => {
-    if (!hotelName || !roomType || !checkIn || !checkOut) return;
+    if (!hotelName || !roomType || !checkIn || !checkOut || !price) return;
 
     const nights =
       (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24);
@@ -37,21 +60,15 @@ export default function HotelCalculator() {
       return;
     }
 
-    const basePrice = hotelPrices[hotelName] || 0;
-    const roomMultiplier = roomTypes[roomType] || 1;
-
-    const perNight = basePrice * roomMultiplier;
-
-    const agentCost = perNight * nights;
-    const companyCost = agentCost * 1.1;
+    const perNightPrice = parseFloat(price);
+    const totalAgentCost = perNightPrice * nights;
+    const totalCompanyCost = parseFloat(companyCost) * nights;
 
     setResult({
       nights,
-      perNight,
-      agentCost,
-      totalAgent: agentCost,
-      companyCost,
-      totalCompany: companyCost,
+      perNight: perNightPrice,
+      agentCost: totalAgentCost,
+      companyCost: totalCompanyCost,
     });
   };
 
@@ -71,43 +88,106 @@ export default function HotelCalculator() {
 
       {/* Rest of your component continues here... */}
 
-      {/* Inputs (One Row) */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      {/* Inputs */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* Hotel Selection */}
         <select
           className="border p-2 rounded"
           value={hotelName}
-          onChange={(e) => setHotelName(e.target.value)}
+          onChange={(e) => {
+            const hotel = hotels.find(h => h.hotelName === e.target.value);
+            if (hotel) handleHotelSelect(hotel);
+          }}
         >
           <option value="">Select Hotel</option>
-          <option value="Al Haram Hotel">Al Haram Hotel</option>
-          <option value="Hilton Makkah">Hilton Makkah</option>
-          <option value="Pullman Zamzam">Pullman Zamzam</option>
+          {hotels.map((hotel) => (
+            <option key={hotel._id} value={hotel.hotelName}>
+              {hotel.hotelName}
+            </option>
+          ))}
         </select>
 
+        {/* Category */}
+        <select
+          className="border p-2 rounded"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          disabled
+        >
+          <option value="">Category</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+
+        {/* Room Type */}
         <select
           className="border p-2 rounded"
           value={roomType}
           onChange={(e) => setRoomType(e.target.value)}
+          disabled
         >
-          <option value="">Select Room Type</option>
-          <option value="Quad Sharing">Quad Sharing</option>
-          <option value="Triple Sharing">Triple Sharing</option>
-          <option value="Double Sharing">Double Sharing</option>
+          <option value="">Room Type</option>
+          {roomTypes.map((type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          ))}
         </select>
 
+        {/* Agent Name */}
+        <input
+          type="text"
+          className="border p-2 rounded"
+          placeholder="Agent Name"
+          value={agentName}
+          disabled
+        />
+
+        {/* Agent Cost */}
+        <input
+          type="number"
+          className="border p-2 rounded"
+          placeholder="Agent Cost"
+          value={agentCost}
+          disabled
+        />
+
+        {/* Company Cost */}
+        <input
+          type="number"
+          className="border p-2 rounded"
+          placeholder="Company Cost"
+          value={companyCost}
+          disabled
+        />
+
+        {/* Price */}
+        <input
+          type="number"
+          className="border p-2 rounded"
+          placeholder="Price"
+          value={price}
+          disabled
+        />
+
+        {/* Check In */}
         <input
           type="date"
           className="border p-2 rounded"
           value={checkIn}
-          min={today} // 🔥 restrict past dates
+          min={today}
           onChange={(e) => setCheckIn(e.target.value)}
         />
 
+        {/* Check Out */}
         <input
           type="date"
           className="border p-2 rounded"
           value={checkOut}
-          min={checkIn || today} // 🔥 checkout cannot be before check-in
+          min={checkIn || today}
           onChange={(e) => setCheckOut(e.target.value)}
         />
       </div>
@@ -131,27 +211,27 @@ export default function HotelCalculator() {
           <table className="w-full border-collapse border">
             <thead>
               <tr className="bg-gray-200">
-                <th className="border p-2">Hotel</th>
+                <th className="border p-2">Hotel Name</th>
+                <th className="border p-2">Category</th>
                 <th className="border p-2">Room Type</th>
-                <th className="border p-2">Per Night Price</th>
+                <th className="border p-2">Agent Name</th>
+                <th className="border p-2">Price Per Night</th>
                 <th className="border p-2">Total Nights</th>
                 <th className="border p-2">Agent Cost</th>
-                <th className="border p-2">Total Agent Cost</th>
                 <th className="border p-2">Company Cost</th>
-                <th className="border p-2">Total Company Cost</th>
               </tr>
             </thead>
 
             <tbody>
               <tr>
                 <td className="border p-2">{hotelName}</td>
+                <td className="border p-2">{category}</td>
                 <td className="border p-2">{roomType}</td>
+                <td className="border p-2">{agentName}</td>
                 <td className="border p-2">{result.perNight}</td>
                 <td className="border p-2">{result.nights}</td>
-                <td className="border p-2">{result.agentCost}</td>
-                <td className="border p-2">{result.totalAgent}</td>
-                <td className="border p-2">{result.companyCost}</td>
-                <td className="border p-2">{result.totalCompany}</td>
+                <td className="border p-2">{result.agentCost.toFixed(2)}</td>
+                <td className="border p-2">{result.companyCost.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
