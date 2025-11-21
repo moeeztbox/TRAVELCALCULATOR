@@ -7,6 +7,8 @@ import {
   deleteHotel,
 } from "../Controllers/hotel.js";
 
+import { verifyToken, requireAdmin } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
 
 // CRUD Routes
