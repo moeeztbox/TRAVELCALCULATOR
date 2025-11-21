@@ -33,7 +33,7 @@ const HotelList = () => {
   const categories = ["5-star", "4-star", "3-star", "2-star", "1-star"];
   const roomTypes = ["sharing", "quad", "double", "single"];
 
-  // Fetch hotels from backend
+  // Fetch hotels
   useEffect(() => {
     fetchHotels();
   }, []);
@@ -57,7 +57,6 @@ const HotelList = () => {
     }
   };
 
-  // Add new hotel
   const saveHotel = async () => {
     if (!newHotel.hotelName || !newHotel.category || !newHotel.roomType || !newHotel.agentName || !newHotel.price) {
       alert("Please fill all required fields");
@@ -95,7 +94,6 @@ const HotelList = () => {
     }
   };
 
-  // Delete hotel
   const deleteHotel = async (id) => {
     if (!window.confirm("Are you sure you want to delete this hotel?")) return;
 
@@ -118,13 +116,11 @@ const HotelList = () => {
     }
   };
 
-  // Open edit modal
   const openEditModal = (hotel) => {
     setEditHotel(hotel);
     setShowEditModal(true);
   };
 
-  // Update hotel
   const updateHotel = async () => {
     if (!editHotel.hotelName || !editHotel.category || !editHotel.roomType || !editHotel.agentName || !editHotel.price) {
       alert("Please fill all required fields");
@@ -161,24 +157,139 @@ const HotelList = () => {
   const type = localStorage.getItem("type");
   const isAdmin = type === "admin";
 
+  // PRINT FUNCTION - Hide navbar during print
+  const handlePrint = () => {
+    // Hide navbar elements before printing
+    const navElements = document.querySelectorAll('nav, header, [role="navigation"]');
+    navElements.forEach(el => {
+      el.style.display = 'none';
+    });
+
+    window.print();
+    
+    // Restore navbar elements after printing
+    setTimeout(() => {
+      navElements.forEach(el => {
+        el.style.display = '';
+      });
+    }, 100);
+  };
+
   return (
-    <div className="px-4 sm:px-8 py-6 w-full ">
+    <div className="px-4 sm:px-8 py-6 w-full">
+
+      {/* PRINT CSS */}
+      <style>
+        {`
+          @media print {
+            .no-print {
+              display: none !important;
+            }
+            nav, header, [role="navigation"] {
+              display: none !important;
+            }
+            body {
+              -webkit-print-color-adjust: exact;
+              margin: 0;
+              padding: 0;
+              background: white !important;
+            }
+            .print\:hidden {
+              display: none !important;
+            }
+            .print\:block {
+              display: block !important;
+            }
+            
+            /* Remove all background colors and shadows */
+            * {
+              background: white !important;
+              box-shadow: none !important;
+            }
+            
+            /* Remove border radius */
+            .rounded-xl, .rounded-lg, .rounded {
+              border-radius: 0 !important;
+            }
+            
+            /* Professional table styling for print only */
+            .print-table {
+              width: 100%;
+              border-collapse: collapse;
+              border: 1px solid #000 !important;
+            }
+            
+            .print-table th, 
+            .print-table td {
+              border: 1px solid #000 !important;
+              padding: 14px 10px !important;
+              background: white !important;
+              font-size: 14px;
+              height: 55px;
+              vertical-align: middle;
+              text-align: left;
+            }
+            
+            .print-table th {
+              background: white !important;
+              font-weight: bold;
+              border-bottom: 2px solid #000 !important;
+            }
+            
+            .print-table tr {
+              border-bottom: 1px solid #000 !important;
+            }
+            
+            /* Remove any footer */
+            footer {
+              display: none !important;
+            }
+            
+            /* Hide the copyright text */
+            .footer, [class*="footer"], [class*="copyright"] {
+              display: none !important;
+            }
+            
+            /* Ensure proper page breaks */
+            .print-table {
+              page-break-inside: auto;
+            }
+            
+            .print-table tr {
+              page-break-inside: avoid;
+              page-break-after: auto;
+            }
+            
+            /* Center the header */
+            .print-header {
+              text-align: center;
+              margin-bottom: 20px;
+              font-size: 24px;
+              font-weight: bold;
+            }
+          }
+        `}
+      </style>
+
       {/* BACK BUTTON */}
       <button
         onClick={handleBack}
-        className="flex items-center cursor-pointer gap-2 text-gray-700 hover:text-black mb-6"
+        className="no-print flex items-center cursor-pointer gap-2 text-gray-700 hover:text-black mb-6"
       >
         <ArrowLeft size={20} />
         <span className="font-medium">Back</span>
       </button>
 
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-8 no-print">
         <h1 className="text-3xl font-extrabold text-gray-900">Hotels List</h1>
 
         <div className="flex gap-2">
           {/* PRINT BUTTON */}
-          <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition cursor-pointer">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition cursor-pointer no-print"
+          >
             Print
           </button>
 
@@ -187,7 +298,7 @@ const HotelList = () => {
             <button
               onClick={() => setShowAddModal(true)}
               className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 
-              rounded-lg shadow hover:bg-blue-700 transition"
+              rounded-lg shadow hover:bg-blue-700 transition no-print"
             >
               <Plus size={20} />
               Add
@@ -196,81 +307,87 @@ const HotelList = () => {
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white shadow-md rounded-xl overflow-hidden mt-6">
-        <table className="w-full text-left">
-          <thead className="bg-gray-100 text-gray-700">
-            <tr>
-              <th className="py-3 px-4 text-sm font-semibold">Hotel Name</th>
-              <th className="py-3 px-4 text-sm font-semibold">Category</th>
-              <th className="py-3 px-4 text-sm font-semibold">Room Type</th>
-              <th className="py-3 px-4 text-sm font-semibold">Agent Name</th>
-              <th className="py-3 px-4 text-sm font-semibold">Agent Cost</th>
-              <th className="py-3 px-4 text-sm font-semibold">Company Cost</th>
-              <th className="py-3 px-4 text-sm font-semibold">Price</th>
+      {/* PRINTABLE AREA */}
+      <div id="print-area">
+        {/* PRINT-ONLY HEADER */}
+        <h1 className="print-header print:block hidden">
+          Hotels List
+        </h1>
 
-              {/* Only show Actions column for Admin */}
-              {isAdmin && (
-                <th className="py-3 px-4 text-sm font-semibold">Actions</th>
-              )}
-            </tr>
-          </thead>
-
-          <tbody>
-            {loading ? (
+        {/* TABLE - Different styling for screen vs print */}
+        <div className="bg-white shadow-md rounded-xl overflow-hidden mt-6 print:shadow-none print:rounded-none">
+          <table className="w-full text-left print-table">
+            <thead className="bg-gray-100 text-gray-700 print:bg-white">
               <tr>
-                <td colSpan={isAdmin ? 8 : 7} className="py-4 px-4 text-center text-gray-500">
-                  Loading...
-                </td>
-              </tr>
-            ) : hotels.length === 0 ? (
-              <tr>
-                <td colSpan={isAdmin ? 8 : 7} className="py-4 px-4 text-center text-gray-500">
-                  No hotels found.
-                </td>
-              </tr>
-            ) : (
-              hotels.map((hotel) => (
-                <tr
-                  key={hotel._id}
-                  className="border-b hover:bg-gray-50 transition"
-                >
-                  <td className="py-3 px-4">{hotel.hotelName}</td>
-                  <td className="py-3 px-4">{hotel.category}</td>
-                  <td className="py-3 px-4">{hotel.roomType}</td>
-                  <td className="py-3 px-4">{hotel.agentName}</td>
-                  <td className="py-3 px-4">{hotel.agentCost}</td>
-                  <td className="py-3 px-4">{hotel.companyCost}</td>
-                  <td className="py-3 px-4">{hotel.price}</td>
+                <th className="py-3 px-4 text-sm font-semibold">Hotel Name</th>
+                <th className="py-3 px-4 text-sm font-semibold">Category</th>
+                <th className="py-3 px-4 text-sm font-semibold">Room Type</th>
+                <th className="py-3 px-4 text-sm font-semibold">Agent Name</th>
+                <th className="py-3 px-4 text-sm font-semibold">Agent Cost</th>
+                <th className="py-3 px-4 text-sm font-semibold">Company Cost</th>
+                <th className="py-3 px-4 text-sm font-semibold">Price</th>
 
-                  {/* ACTION ICONS ONLY FOR ADMIN */}
-                  {isAdmin && (
-                    <td className="py-3 px-4 flex items-center gap-4">
-                      <button 
-                        onClick={() => openEditModal(hotel)}
-                        className="text-blue-600 hover:text-blue-800 cursor-pointer"
-                      >
-                        <Pencil size={20} />
-                      </button>
+                {isAdmin && (
+                  <th className="py-3 px-4 text-sm font-semibold no-print">Actions</th>
+                )}
+              </tr>
+            </thead>
 
-                      <button 
-                        onClick={() => deleteHotel(hotel._id)}
-                        className="text-red-600 hover:text-red-800 cursor-pointer"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    </td>
-                  )}
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={isAdmin ? 8 : 7} className="py-4 px-4 text-center text-gray-500">
+                    Loading...
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : hotels.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 8 : 7} className="py-4 px-4 text-center text-gray-500">
+                    No hotels found.
+                  </td>
+                </tr>
+              ) : (
+                hotels.map((hotel) => (
+                  <tr
+                    key={hotel._id}
+                    className="border-b hover:bg-gray-50 transition print:hover:bg-white"
+                  >
+                    <td className="py-3 px-4">{hotel.hotelName}</td>
+                    <td className="py-3 px-4">{hotel.category}</td>
+                    <td className="py-3 px-4">{hotel.roomType}</td>
+                    <td className="py-3 px-4">{hotel.agentName}</td>
+                    <td className="py-3 px-4">{hotel.agentCost}</td>
+                    <td className="py-3 px-4">{hotel.companyCost}</td>
+                    <td className="py-3 px-4">{hotel.price}</td>
+
+                    {isAdmin && (
+                      <td className="py-3 px-4 flex items-center gap-4 no-print">
+                        <button 
+                          onClick={() => openEditModal(hotel)}
+                          className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                        >
+                          <Pencil size={20} />
+                        </button>
+
+                        <button 
+                          onClick={() => deleteHotel(hotel._id)}
+                          className="text-red-600 hover:text-red-800 cursor-pointer"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ADD HOTEL MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
             <h2 className="text-2xl font-bold mb-4">Add Hotel</h2>
 
@@ -356,7 +473,7 @@ const HotelList = () => {
 
       {/* EDIT HOTEL MODAL */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
             <h2 className="text-2xl font-bold mb-4">Edit Hotel</h2>
 
@@ -439,6 +556,7 @@ const HotelList = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
