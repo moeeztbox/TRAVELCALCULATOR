@@ -126,76 +126,222 @@ const VisaList = () => {
   const type = localStorage.getItem("type");
   const isAdmin = type === "admin";
 
+  // PRINT FUNCTION - Hide navbar during print
+  const handlePrint = () => {
+    // Hide navbar elements before printing
+    const navElements = document.querySelectorAll('nav, header, [role="navigation"]');
+    navElements.forEach(el => {
+      el.style.display = 'none';
+    });
+
+    window.print();
+    
+    // Restore navbar elements after printing
+    setTimeout(() => {
+      navElements.forEach(el => {
+        el.style.display = '';
+      });
+    }, 100);
+  };
+
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
-      <button onClick={handleBack} className="flex items-center gap-2 text-gray-700 hover:text-black mb-6">
+
+      {/* PRINT CSS */}
+      <style>
+        {`
+          @media print {
+            .no-print {
+              display: none !important;
+            }
+            nav, header, [role="navigation"] {
+              display: none !important;
+            }
+            body {
+              -webkit-print-color-adjust: exact;
+              margin: 0;
+              padding: 0;
+              background: white !important;
+            }
+            .print\:hidden {
+              display: none !important;
+            }
+            .print\:block {
+              display: block !important;
+            }
+            
+            /* Remove all background colors and shadows */
+            * {
+              background: white !important;
+              box-shadow: none !important;
+            }
+            
+            /* Remove border radius */
+            .rounded-xl, .rounded-lg, .rounded {
+              border-radius: 0 !important;
+            }
+            
+            /* Professional table styling for print only */
+            .print-table {
+              width: 100%;
+              border-collapse: collapse;
+              border: 1px solid #000 !important;
+            }
+            
+            .print-table th, 
+            .print-table td {
+              border: 1px solid #000 !important;
+              padding: 14px 10px !important;
+              background: white !important;
+              font-size: 14px;
+              height: 55px;
+              vertical-align: middle;
+              text-align: left;
+            }
+            
+            .print-table th {
+              background: white !important;
+              font-weight: bold;
+              border-bottom: 2px solid #000 !important;
+            }
+            
+            .print-table tr {
+              border-bottom: 1px solid #000 !important;
+            }
+            
+            /* Remove any footer */
+            footer {
+              display: none !important;
+            }
+            
+            /* Hide the copyright text */
+            .footer, [class*="footer"], [class*="copyright"] {
+              display: none !important;
+            }
+            
+            /* Ensure proper page breaks */
+            .print-table {
+              page-break-inside: auto;
+            }
+            
+            .print-table tr {
+              page-break-inside: avoid;
+              page-break-after: auto;
+            }
+            
+            /* Center the header */
+            .print-header {
+              text-align: center;
+              margin-bottom: 20px;
+              font-size: 24px;
+              font-weight: bold;
+            }
+          }
+        `}
+      </style>
+
+      <button 
+        onClick={handleBack} 
+        className="no-print flex items-center gap-2 text-gray-700 hover:text-black mb-6"
+      >
         <ArrowLeft size={20} /> <span>Back</span>
       </button>
 
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-extrabold">Visa List</h1>
+      <div className="flex justify-between items-center mb-8 no-print">
+        <h1 className="text-3xl font-extrabold text-gray-900">Visa List</h1>
         <div className="flex gap-2">
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg shadow">Print</button>
+          {/* PRINT BUTTON */}
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition cursor-pointer no-print"
+          >
+            Print
+          </button>
           {isAdmin && (
-            <button onClick={() => setShowAddModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow flex items-center gap-2">
+            <button 
+              onClick={() => setShowAddModal(true)} 
+              className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition no-print"
+            >
               <Plus size={20} /> Add
             </button>
           )}
         </div>
       </div>
 
-      <div className="bg-white shadow-md rounded-xl overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="py-3 px-4">Category</th>
-              <th className="py-3 px-4">Passenger</th>
-              <th className="py-3 px-4">Agent Name</th>
-              <th className="py-3 px-4">Agent Cost</th>
-              <th className="py-3 px-4">Company Cost</th>
-              <th className="py-3 px-4">Price</th>
-              {isAdmin && <th className="py-3 px-4">Actions</th>}
-            </tr>
-          </thead>
+      {/* PRINTABLE AREA */}
+      <div id="print-area">
+        {/* PRINT-ONLY HEADER */}
+        <h1 className="print-header print:block hidden">
+          Visa List
+        </h1>
 
-          <tbody>
-            {loading ? (
+        {/* TABLE - Different styling for screen vs print */}
+        <div className="bg-white shadow-md rounded-xl overflow-hidden print:shadow-none print:rounded-none">
+          <table className="w-full text-left print-table">
+            <thead className="bg-gray-100 text-gray-700 print:bg-white">
               <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="text-center py-4 text-gray-500">Loading...</td>
+                <th className="py-3 px-4 text-sm font-semibold">Category</th>
+                <th className="py-3 px-4 text-sm font-semibold">Passenger</th>
+                <th className="py-3 px-4 text-sm font-semibold">Agent Name</th>
+                <th className="py-3 px-4 text-sm font-semibold">Agent Cost</th>
+                <th className="py-3 px-4 text-sm font-semibold">Company Cost</th>
+                <th className="py-3 px-4 text-sm font-semibold">Price</th>
+                {isAdmin && <th className="py-3 px-4 text-sm font-semibold no-print">Actions</th>}
               </tr>
-            ) : visas.length === 0 ? (
-              <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="text-center py-4 text-gray-500">No visas found.</td>
-              </tr>
-            ) : (
-              visas.map((v) => (
-                <tr key={v._id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-4">{v.category}</td>
-                  <td className="py-3 px-4">{v.passenger}</td>
-                  <td className="py-3 px-4">{v.agentName}</td>
-                  <td className="py-3 px-4">{v.agentCost}</td>
-                  <td className="py-3 px-4">{v.companyCost}</td>
-                  <td className="py-3 px-4">{v.price}</td>
-                  {isAdmin && (
-                    <td className="py-3 px-4 flex gap-4">
-                      <button className="text-blue-600" onClick={() => openEditModal(v)}>
-                        <Pencil size={20} />
-                      </button>
-                      <button className="text-red-600" onClick={() => deleteVisa(v._id)}>
-                        <Trash2 size={20} />
-                      </button>
-                    </td>
-                  )}
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={isAdmin ? 7 : 6} className="py-4 px-4 text-center text-gray-500">
+                    Loading...
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : visas.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 7 : 6} className="py-4 px-4 text-center text-gray-500">
+                    No visas found.
+                  </td>
+                </tr>
+              ) : (
+                visas.map((v) => (
+                  <tr 
+                    key={v._id} 
+                    className="border-b hover:bg-gray-50 transition print:hover:bg-white"
+                  >
+                    <td className="py-3 px-4">{v.category}</td>
+                    <td className="py-3 px-4">{v.passenger}</td>
+                    <td className="py-3 px-4">{v.agentName}</td>
+                    <td className="py-3 px-4">{v.agentCost}</td>
+                    <td className="py-3 px-4">{v.companyCost}</td>
+                    <td className="py-3 px-4">{v.price}</td>
+                    {isAdmin && (
+                      <td className="py-3 px-4 flex gap-4 no-print">
+                        <button 
+                          className="text-blue-600 hover:text-blue-800 cursor-pointer" 
+                          onClick={() => openEditModal(v)}
+                        >
+                          <Pencil size={20} />
+                        </button>
+                        <button 
+                          className="text-red-600 hover:text-red-800 cursor-pointer" 
+                          onClick={() => deleteVisa(v._id)}
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ADD MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
             <h2 className="text-2xl font-bold mb-4">Add Visa</h2>
 
@@ -231,7 +377,7 @@ const VisaList = () => {
 
       {/* EDIT MODAL */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
             <h2 className="text-2xl font-bold mb-4">Edit Visa</h2>
 
