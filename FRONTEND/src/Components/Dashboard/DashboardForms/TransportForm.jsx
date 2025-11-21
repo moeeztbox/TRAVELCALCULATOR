@@ -6,6 +6,7 @@ export default function TransportCalculator() {
   const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
 
+  const [selectedTransportId, setSelectedTransportId] = useState("");
   const [transportName, setTransportName] = useState("");
   const [vehicleType, setVehicleType] = useState("");
   const [agentName, setAgentName] = useState("");
@@ -39,13 +40,17 @@ export default function TransportCalculator() {
     
   };
 
-  const handleSelect = (transport) => {
-    setTransportName(transport.transportName);
-    setVehicleType(transport.vehicleType);
-    setAgentName(transport.agentName);
-    setAgentCost(transport.agentCost);
-    setCompanyCost(transport.companyCost);
-    setPrice(transport.price);
+  const handleSelect = (id) => {
+    const transport = transports.find((t) => t._id === id);
+    if (!transport) return;
+    // Use carType as the transport display/name
+    setSelectedTransportId(id);
+    setTransportName(transport.carType || "");
+    setVehicleType(transport.carType || "");
+    setAgentName(transport.agentName || "");
+    setAgentCost(transport.agentCost ?? "");
+    setCompanyCost(transport.companyCost ?? "");
+    setPrice(transport.price ?? "");
   };
 
   const calculate = () => {
@@ -88,18 +93,13 @@ export default function TransportCalculator() {
         {/* Transport Selection */}
         <select
           className="border p-2 rounded"
-          value={transportName}
-          onChange={(e) => {
-            const t = transports.find(
-              (tr) => tr.transportName === e.target.value
-            );
-            if (t) handleSelect(t);
-          }}
+          value={selectedTransportId}
+          onChange={(e) => handleSelect(e.target.value)}
         >
           <option value="">Select Transport</option>
           {transports.map((t) => (
-            <option key={t._id} value={t.transportName}>
-              {t.transportName}
+            <option key={t._id} value={t._id}>
+              {t.carType} {t.route ? `- ${t.route.from} → ${t.route.to}` : ""}
             </option>
           ))}
         </select>

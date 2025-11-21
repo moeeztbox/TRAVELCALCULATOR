@@ -11,6 +11,8 @@ import connectDB from "./config/db.js";
 import authRoutes from "./Routes/auth.js";
 import hotelRoutes from "./Routes/hotel.js";
 import transportRoutes from "./Routes/transport.js";
+import visaRoutes from "./Routes/visa.js";
+import ticketRoutes from "./Routes/ticket.js";
 
 const app = express();
 
@@ -25,6 +27,8 @@ connectDB();
 app.use("/api/auth", authRoutes);
 app.use("/api", hotelRoutes);
 app.use("/api", transportRoutes);
+app.use("/api", visaRoutes);
+app.use("/api", ticketRoutes);
 
 // Start Server
 const PORT = process.env.PORT || 5000;
