@@ -51,7 +51,12 @@ const VisaList = () => {
   };
 
   const saveVisa = async () => {
-    if (!newVisa.category || !newVisa.passenger || !newVisa.agentName || !newVisa.price) {
+    if (
+      !newVisa.category ||
+      !newVisa.passenger ||
+      !newVisa.agentName ||
+      !newVisa.price
+    ) {
       alert("Please fill all required fields");
       return;
     }
@@ -66,7 +71,15 @@ const VisaList = () => {
       if (data.success) {
         alert("Visa added successfully!");
         setShowAddModal(false);
-        setNewVisa({ category: "", passenger: "", agentName: "", price: "", companyCost: "", agentCost: "", notes: "" });
+        setNewVisa({
+          category: "",
+          passenger: "",
+          agentName: "",
+          price: "",
+          companyCost: "",
+          agentCost: "",
+          notes: "",
+        });
         fetchVisas();
       } else {
         alert(data.message || "Error adding visa");
@@ -80,7 +93,9 @@ const VisaList = () => {
   const deleteVisa = async (id) => {
     if (!window.confirm("Are you sure you want to delete this visa?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/visas/${id}`, { method: "DELETE" });
+      const res = await fetch(`http://localhost:5000/api/visas/${id}`, {
+        method: "DELETE",
+      });
       const data = await res.json();
       if (data.success) fetchVisas();
       else alert(data.message || "Error deleting visa");
@@ -96,17 +111,25 @@ const VisaList = () => {
   };
 
   const updateVisa = async () => {
-    if (!editVisa.category || !editVisa.passenger || !editVisa.agentName || !editVisa.price) {
+    if (
+      !editVisa.category ||
+      !editVisa.passenger ||
+      !editVisa.agentName ||
+      !editVisa.price
+    ) {
       alert("Please fill all required fields");
       return;
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/visas/${editVisa._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editVisa),
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/visas/${editVisa._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editVisa),
+        }
+      );
       const data = await res.json();
       if (data.success) {
         alert("Visa updated successfully!");
@@ -129,24 +152,25 @@ const VisaList = () => {
   // PRINT FUNCTION - Hide navbar during print
   const handlePrint = () => {
     // Hide navbar elements before printing
-    const navElements = document.querySelectorAll('nav, header, [role="navigation"]');
-    navElements.forEach(el => {
-      el.style.display = 'none';
+    const navElements = document.querySelectorAll(
+      'nav, header, [role="navigation"]'
+    );
+    navElements.forEach((el) => {
+      el.style.display = "none";
     });
 
     window.print();
-    
+
     // Restore navbar elements after printing
     setTimeout(() => {
-      navElements.forEach(el => {
-        el.style.display = '';
+      navElements.forEach((el) => {
+        el.style.display = "";
       });
     }, 100);
   };
 
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
-
       {/* PRINT CSS */}
       <style>
         {`
@@ -240,9 +264,9 @@ const VisaList = () => {
         `}
       </style>
 
-      <button 
-        onClick={handleBack} 
-        className="no-print flex items-center gap-2 text-gray-700 hover:text-black mb-6"
+      <button
+        onClick={handleBack}
+        className="no-print cursor-pointer flex items-center gap-2 text-gray-700 hover:text-black mb-6"
       >
         <ArrowLeft size={20} /> <span>Back</span>
       </button>
@@ -258,8 +282,8 @@ const VisaList = () => {
             Print
           </button>
           {isAdmin && (
-            <button 
-              onClick={() => setShowAddModal(true)} 
+            <button
+              onClick={() => setShowAddModal(true)}
               className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition no-print"
             >
               <Plus size={20} /> Add
@@ -271,9 +295,7 @@ const VisaList = () => {
       {/* PRINTABLE AREA */}
       <div id="print-area">
         {/* PRINT-ONLY HEADER */}
-        <h1 className="print-header print:block hidden">
-          Visa List
-        </h1>
+        <h1 className="print-header print:block hidden">Visa List</h1>
 
         {/* TABLE - Different styling for screen vs print */}
         <div className="bg-white shadow-md rounded-xl overflow-hidden print:shadow-none print:rounded-none">
@@ -284,29 +306,41 @@ const VisaList = () => {
                 <th className="py-3 px-4 text-sm font-semibold">Passenger</th>
                 <th className="py-3 px-4 text-sm font-semibold">Agent Name</th>
                 <th className="py-3 px-4 text-sm font-semibold">Agent Cost</th>
-                <th className="py-3 px-4 text-sm font-semibold">Company Cost</th>
+                <th className="py-3 px-4 text-sm font-semibold">
+                  Company Cost
+                </th>
                 <th className="py-3 px-4 text-sm font-semibold">Price</th>
-                {isAdmin && <th className="py-3 px-4 text-sm font-semibold no-print">Actions</th>}
+                {isAdmin && (
+                  <th className="py-3 px-4 text-sm font-semibold no-print">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="py-4 px-4 text-center text-gray-500">
+                  <td
+                    colSpan={isAdmin ? 7 : 6}
+                    className="py-4 px-4 text-center text-gray-500"
+                  >
                     Loading...
                   </td>
                 </tr>
               ) : visas.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="py-4 px-4 text-center text-gray-500">
+                  <td
+                    colSpan={isAdmin ? 7 : 6}
+                    className="py-4 px-4 text-center text-gray-500"
+                  >
                     No visas found.
                   </td>
                 </tr>
               ) : (
                 visas.map((v) => (
-                  <tr 
-                    key={v._id} 
+                  <tr
+                    key={v._id}
                     className="border-b hover:bg-gray-50 transition print:hover:bg-white"
                   >
                     <td className="py-3 px-4">{v.category}</td>
@@ -317,14 +351,14 @@ const VisaList = () => {
                     <td className="py-3 px-4">{v.price}</td>
                     {isAdmin && (
                       <td className="py-3 px-4 flex gap-4 no-print">
-                        <button 
-                          className="text-blue-600 hover:text-blue-800 cursor-pointer" 
+                        <button
+                          className="text-blue-600 hover:text-blue-800 cursor-pointer"
                           onClick={() => openEditModal(v)}
                         >
                           <Pencil size={20} />
                         </button>
-                        <button 
-                          className="text-red-600 hover:text-red-800 cursor-pointer" 
+                        <button
+                          className="text-red-600 hover:text-red-800 cursor-pointer"
                           onClick={() => deleteVisa(v._id)}
                         >
                           <Trash2 size={20} />
@@ -345,31 +379,92 @@ const VisaList = () => {
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
             <h2 className="text-2xl font-bold mb-4">Add Visa</h2>
 
-            <select value={newVisa.category} onChange={(e) => setNewVisa({ ...newVisa, category: e.target.value })} className="w-full border rounded px-3 py-2 mb-3">
+            <select
+              value={newVisa.category}
+              onChange={(e) =>
+                setNewVisa({ ...newVisa, category: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            >
               <option value="">Select Category</option>
               <option value="with massar">with massar</option>
               <option value="without massar">without massar</option>
             </select>
 
-            <select value={newVisa.passenger} onChange={(e) => setNewVisa({ ...newVisa, passenger: e.target.value })} className="w-full border rounded px-3 py-2 mb-3">
+            <select
+              value={newVisa.passenger}
+              onChange={(e) =>
+                setNewVisa({ ...newVisa, passenger: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            >
               <option value="">Select Passenger</option>
               <option value="adult">adult</option>
               <option value="infant">infant</option>
             </select>
 
-            <input type="text" placeholder="Agent Name" value={newVisa.agentName} onChange={(e) => setNewVisa({ ...newVisa, agentName: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="text"
+              placeholder="Agent Name"
+              value={newVisa.agentName}
+              onChange={(e) =>
+                setNewVisa({ ...newVisa, agentName: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Agent Cost" value={newVisa.agentCost} onChange={(e) => setNewVisa({ ...newVisa, agentCost: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Agent Cost"
+              value={newVisa.agentCost}
+              onChange={(e) =>
+                setNewVisa({ ...newVisa, agentCost: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Company Cost" value={newVisa.companyCost} onChange={(e) => setNewVisa({ ...newVisa, companyCost: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Company Cost"
+              value={newVisa.companyCost}
+              onChange={(e) =>
+                setNewVisa({ ...newVisa, companyCost: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Price" value={newVisa.price} onChange={(e) => setNewVisa({ ...newVisa, price: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Price"
+              value={newVisa.price}
+              onChange={(e) =>
+                setNewVisa({ ...newVisa, price: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <textarea placeholder="Notes" value={newVisa.notes} onChange={(e) => setNewVisa({ ...newVisa, notes: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <textarea
+              placeholder="Notes"
+              value={newVisa.notes}
+              onChange={(e) =>
+                setNewVisa({ ...newVisa, notes: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
             <div className="flex justify-between gap-2">
-              <button onClick={saveVisa} className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition">Save</button>
-              <button onClick={() => setShowAddModal(false)} className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition">Cancel</button>
+              <button
+                onClick={saveVisa}
+                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -381,31 +476,92 @@ const VisaList = () => {
           <div className="bg-white rounded-lg shadow-lg p-6 w-96">
             <h2 className="text-2xl font-bold mb-4">Edit Visa</h2>
 
-            <select value={editVisa.category} onChange={(e) => setEditVisa({ ...editVisa, category: e.target.value })} className="w-full border rounded px-3 py-2 mb-3">
+            <select
+              value={editVisa.category}
+              onChange={(e) =>
+                setEditVisa({ ...editVisa, category: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            >
               <option value="">Select Category</option>
               <option value="with massar">with massar</option>
               <option value="without massar">without massar</option>
             </select>
 
-            <select value={editVisa.passenger} onChange={(e) => setEditVisa({ ...editVisa, passenger: e.target.value })} className="w-full border rounded px-3 py-2 mb-3">
+            <select
+              value={editVisa.passenger}
+              onChange={(e) =>
+                setEditVisa({ ...editVisa, passenger: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            >
               <option value="">Select Passenger</option>
               <option value="adult">adult</option>
               <option value="infant">infant</option>
             </select>
 
-            <input type="text" placeholder="Agent Name" value={editVisa.agentName} onChange={(e) => setEditVisa({ ...editVisa, agentName: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="text"
+              placeholder="Agent Name"
+              value={editVisa.agentName}
+              onChange={(e) =>
+                setEditVisa({ ...editVisa, agentName: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Agent Cost" value={editVisa.agentCost} onChange={(e) => setEditVisa({ ...editVisa, agentCost: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Agent Cost"
+              value={editVisa.agentCost}
+              onChange={(e) =>
+                setEditVisa({ ...editVisa, agentCost: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Company Cost" value={editVisa.companyCost} onChange={(e) => setEditVisa({ ...editVisa, companyCost: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Company Cost"
+              value={editVisa.companyCost}
+              onChange={(e) =>
+                setEditVisa({ ...editVisa, companyCost: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Price" value={editVisa.price} onChange={(e) => setEditVisa({ ...editVisa, price: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Price"
+              value={editVisa.price}
+              onChange={(e) =>
+                setEditVisa({ ...editVisa, price: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <textarea placeholder="Notes" value={editVisa.notes} onChange={(e) => setEditVisa({ ...editVisa, notes: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <textarea
+              placeholder="Notes"
+              value={editVisa.notes}
+              onChange={(e) =>
+                setEditVisa({ ...editVisa, notes: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
             <div className="flex justify-between gap-2">
-              <button onClick={updateVisa} className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">Update</button>
-              <button onClick={() => setShowEditModal(false)} className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition">Cancel</button>
+              <button
+                onClick={updateVisa}
+                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
