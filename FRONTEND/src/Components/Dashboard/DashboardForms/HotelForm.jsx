@@ -1,11 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import React, { useState, useEffect } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Hotel, Calendar, Calculator, Building, Bed, User, DollarSign, Printer, Trash2 } from "lucide-react";
 
 export default function HotelCalculator() {
   const navigate = useNavigate();
-
-  // today date in yyyy-mm-dd format
   const today = new Date().toISOString().split("T")[0];
 
   const [hotelName, setHotelName] = useState("");
@@ -50,193 +48,286 @@ export default function HotelCalculator() {
   };
 
   const calculate = () => {
-    if (!hotelName || !roomType || !checkIn || !checkOut || !price) return;
+    if (!hotelName || !roomType || !checkIn || !checkOut || !price) {
+      alert("Please fill all required fields!");
+      return;
+    }
 
-    const nights =
-      (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24);
-
+    const nights = (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24);
     if (nights <= 0) {
       alert("Checkout date must be after check-in date!");
       return;
     }
 
     const perNightPrice = parseFloat(price);
-    const totalAgentCost = perNightPrice * nights;
-    const totalCompanyCost = parseFloat(companyCost) * nights;
+    const agentCostPerNight = parseFloat(agentCost);
+    const companyCostPerNight = parseFloat(companyCost);
+
+    // Calculate all costs
+    const totalNightsPrice = perNightPrice * nights;
+    const totalAgentCost = agentCostPerNight * nights;
+    const totalCompanyCost = companyCostPerNight * nights;
+    const totalFinalCost = totalNightsPrice + totalAgentCost + totalCompanyCost;
 
     setResult({
-      nights,
-      perNight: perNightPrice,
-      agentCost: totalAgentCost,
-      companyCost: totalCompanyCost,
+      // Basic information
+      hotelName,
+      category,
+      roomType,
+      agentName,
+      
+      // Per night costs
+      perNightPrice,
+      agentCost: agentCostPerNight,
+      companyCost: companyCostPerNight,
+      
+      // Stay information
+      checkIn,
+      checkOut,
+      totalNights: nights,
+      
+      // Total calculations
+      totalNightsPrice,
+      totalAgentCost,
+      totalCompanyCost,
+      totalFinalCost
     });
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const clearForm = () => {
+    setHotelName("");
+    setCategory("");
+    setRoomType("");
+    setAgentName("");
+    setAgentCost("");
+    setCompanyCost("");
+    setPrice("");
+    setCheckIn("");
+    setCheckOut("");
+    setResult(null);
+  };
+
+  const FieldWrapper = ({ children, className = "" }) => (
+    <div className={`space-y-1 ${className}`}>
+      {children}
+    </div>
+  );
+
   return (
-    <div className="p-6 w-full mx-auto">
-      {/* Header */}
-
-      <button
-        onClick={() => navigate("/dashboard")}
-        className="flex items-center cursor-pointer gap-2 text-gray-700 hover:text-black mb-6"
-      >
-        <ArrowLeft size={20} />
-        <span className="font-medium">Back</span>
-      </button>
-
-      <h1 className="text-2xl font-bold">Hotel Calculator</h1>
-
-      {/* Rest of your component continues here... */}
-
-      {/* Inputs */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        {/* Hotel Selection */}
-        <select
-          className="border p-2 rounded"
-          value={hotelName}
-          onChange={(e) => {
-            const hotel = hotels.find(h => h.hotelName === e.target.value);
-            if (hotel) handleHotelSelect(hotel);
-          }}
-        >
-          <option value="">Select Hotel</option>
-          {hotels.map((hotel) => (
-            <option key={hotel._id} value={hotel.hotelName}>
-              {hotel.hotelName}
-            </option>
-          ))}
-        </select>
-
-        {/* Category */}
-        <select
-          className="border p-2 rounded"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          disabled
-        >
-          <option value="">Category</option>
-          {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
-        </select>
-
-        {/* Room Type */}
-        <select
-          className="border p-2 rounded"
-          value={roomType}
-          onChange={(e) => setRoomType(e.target.value)}
-          disabled
-        >
-          <option value="">Room Type</option>
-          {roomTypes.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
-
-        {/* Agent Name */}
-        <input
-          type="text"
-          className="border p-2 rounded"
-          placeholder="Agent Name"
-          value={agentName}
-          disabled
-        />
-
-        {/* Agent Cost */}
-        <input
-          type="number"
-          className="border p-2 rounded"
-          placeholder="Agent Cost"
-          value={agentCost}
-          disabled
-        />
-
-        {/* Company Cost */}
-        <input
-          type="number"
-          className="border p-2 rounded"
-          placeholder="Company Cost"
-          value={companyCost}
-          disabled
-        />
-
-        {/* Price */}
-        <input
-          type="number"
-          className="border p-2 rounded"
-          placeholder="Price"
-          value={price}
-          disabled
-        />
-
-        {/* Check In */}
-        <input
-          type="date"
-          className="border p-2 rounded"
-          value={checkIn}
-          min={today}
-          onChange={(e) => setCheckIn(e.target.value)}
-        />
-
-        {/* Check Out */}
-        <input
-          type="date"
-          className="border p-2 rounded"
-          value={checkOut}
-          min={checkIn || today}
-          onChange={(e) => setCheckOut(e.target.value)}
-        />
-      </div>
-
-      {/* Submit */}
-      <button
-        className="bg-blue-600 text-white px-6 py-2 rounded"
-        onClick={calculate}
-      >
-        Submit
-      </button>
-
-      {/* Results Table */}
-      {result && (
-        <div className="mt-8">
-          {/* Dates */}
-          <p className="font-semibold mb-2">
-            Check-in: {checkIn} | Check-out: {checkOut}
-          </p>
-
-          <table className="w-full border-collapse border">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="border p-2">Hotel Name</th>
-                <th className="border p-2">Category</th>
-                <th className="border p-2">Room Type</th>
-                <th className="border p-2">Agent Name</th>
-                <th className="border p-2">Price Per Night</th>
-                <th className="border p-2">Total Nights</th>
-                <th className="border p-2">Agent Cost</th>
-                <th className="border p-2">Company Cost</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td className="border p-2">{hotelName}</td>
-                <td className="border p-2">{category}</td>
-                <td className="border p-2">{roomType}</td>
-                <td className="border p-2">{agentName}</td>
-                <td className="border p-2">{result.perNight}</td>
-                <td className="border p-2">{result.nights}</td>
-                <td className="border p-2">{result.agentCost.toFixed(2)}</td>
-                <td className="border p-2">{result.companyCost.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
+    <div className="p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header with Print Button */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-white transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Hotel Calculator</h1>
+              <p className="text-gray-500 text-sm">Calculate hotel costs and commissions</p>
+            </div>
+          </div>
+          
+          {/* Print Button - Only shown when there's a result */}
+          {result && (
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Printer size={18} />
+              Print Report
+            </button>
+          )}
         </div>
-      )}
+
+        {/* Input Section */}
+        <div className="space-y-2">
+          <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Hotel Selection */}
+              <FieldWrapper className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Select Hotel</label>
+                <select
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  value={hotelName}
+                  onChange={(e) => {
+                    const hotel = hotels.find(h => h.hotelName === e.target.value);
+                    if (hotel) handleHotelSelect(hotel);
+                  }}
+                >
+                  <option value="">Choose a hotel</option>
+                  {hotels.map((hotel) => (
+                    <option key={hotel._id} value={hotel.hotelName}>
+                      {hotel.hotelName}
+                    </option>
+                  ))}
+                </select>
+              </FieldWrapper>
+
+              {/* Dates */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">Check-in Date</label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  value={checkIn}
+                  min={today}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                />
+              </FieldWrapper>
+
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">Check-out Date</label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  value={checkOut}
+                  min={checkIn || today}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                />
+              </FieldWrapper>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                className="flex-1 bg-blue-600 text-white font-medium py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                onClick={calculate}
+              >
+                <Calculator size={18} />
+                Calculate Costs
+              </button>
+              <button
+                className="flex-1 bg-gray-500 text-white font-medium py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+                onClick={clearForm}
+              >
+                <Trash2 size={18} />
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {/* Results Section - Moved to bottom */}
+          {result && (
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Calculator size={20} className="text-green-600" />
+                Calculation Results
+              </h2>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column - Hotel Details & Stay Information */}
+                <div className="space-y-6">
+                  {/* Hotel Details */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">Hotel Details</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Hotel Name</span>
+                        <span className="font-medium text-right">{result.hotelName}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Category</span>
+                        <span className="font-medium">{result.category}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Room Type</span>
+                        <span className="font-medium">{result.roomType}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">Agent Name</span>
+                        <span className="font-medium">{result.agentName}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stay Information */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">Stay Information</h3>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Check-in Date:</span>
+                        <span className="font-medium">{result.checkIn}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Check-out Date:</span>
+                        <span className="font-medium">{result.checkOut}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Total Nights:</span>
+                        <span className="font-medium text-lg">{result.totalNights} night{result.totalNights !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Cost Breakdown */}
+                <div className="space-y-6">
+                  {/* Per Night Costs */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">Per Night Costs</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Price per night</span>
+                        <span className="font-medium">${result.perNightPrice.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Agent cost per night</span>
+                        <span className="font-medium text-orange-600">${result.agentCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">Company cost per night</span>
+                        <span className="font-medium text-purple-600">${result.companyCost.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Costs */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">Total Costs</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Total nights price</span>
+                        <span className="font-medium">${result.totalNightsPrice.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Total agent cost</span>
+                        <span className="font-medium text-red-600">${result.totalAgentCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Total company cost</span>
+                        <span className="font-medium text-green-600">${result.totalCompanyCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-3 bg-gray-50 rounded-lg px-3 mt-4">
+                        <span className="text-gray-700 font-semibold">Total final cost</span>
+                        <span className="font-bold text-lg text-blue-700">${result.totalFinalCost.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!result && (
+            <div className="bg-white rounded-xl p-8 border border-gray-200 text-center">
+              <Calculator size={48} className="mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-medium text-gray-500 mb-2">No Calculation Yet</h3>
+              <p className="text-sm text-gray-400">
+                Select a hotel and dates, then click "Calculate Costs" to see results
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
