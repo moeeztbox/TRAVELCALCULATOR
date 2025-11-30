@@ -1,21 +1,36 @@
-// crud fucn , read, update, delete , create 
+// crud fucn , read, update, delete , create
 // controllers/hotel.js
 import Hotel from "../models/hotel.js";
 
 // ➤ CREATE HOTEL
 export const createHotel = async (req, res) => {
   try {
-    const { hotelName, category, roomType, agentName, agentCost, companyCost, price } = req.body;
+    const {
+      hotelName,
+      category,
+      roomType,
+      agentName,
+      agentCost,
+      companyCost,
+      price,
+      area,
+      city,
+      distance,
+    } = req.body;
 
-    const hotel = new Hotel({ 
-      hotelName, 
-      category, 
-      roomType, 
-      agentName, 
-      agentCost, 
-      companyCost, 
-      price 
+    const hotel = new Hotel({
+      hotelName,
+      category,
+      roomType,
+      agentName,
+      agentCost,
+      companyCost,
+      price,
+      area,
+      city,
+      distance,
     });
+
     await hotel.save();
 
     res.status(201).json({
@@ -47,7 +62,10 @@ export const updateHotel = async (req, res) => {
     });
 
     if (!updatedHotel) {
-      return res.status(404).json({ success: false, message: "Hotel not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Hotel not found",
+      });
     }
 
     res.status(200).json({
@@ -68,7 +86,9 @@ export const deleteHotel = async (req, res) => {
     const hotel = await Hotel.findByIdAndDelete(id);
 
     if (!hotel) {
-      return res.status(404).json({ success: false, message: "Hotel not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Hotel not found" });
     }
 
     res.status(200).json({

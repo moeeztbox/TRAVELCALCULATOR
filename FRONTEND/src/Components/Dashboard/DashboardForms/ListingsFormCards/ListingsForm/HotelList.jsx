@@ -17,6 +17,9 @@ const HotelList = () => {
     agentCost: "",
     companyCost: "",
     price: "",
+    area: "",
+    city: "",
+    distance: "",
   });
 
   const [editHotel, setEditHotel] = useState({
@@ -28,6 +31,9 @@ const HotelList = () => {
     agentCost: "",
     companyCost: "",
     price: "",
+    area: "",
+    city: "",
+    distance: "",
   });
 
   const categories = ["5-star", "4-star", "3-star", "2-star", "1-star"];
@@ -58,7 +64,13 @@ const HotelList = () => {
   };
 
   const saveHotel = async () => {
-    if (!newHotel.hotelName || !newHotel.category || !newHotel.roomType || !newHotel.agentName || !newHotel.price) {
+    if (
+      !newHotel.hotelName ||
+      !newHotel.category ||
+      !newHotel.roomType ||
+      !newHotel.agentName ||
+      !newHotel.price
+    ) {
       alert("Please fill all required fields");
       return;
     }
@@ -122,17 +134,26 @@ const HotelList = () => {
   };
 
   const updateHotel = async () => {
-    if (!editHotel.hotelName || !editHotel.category || !editHotel.roomType || !editHotel.agentName || !editHotel.price) {
+    if (
+      !editHotel.hotelName ||
+      !editHotel.category ||
+      !editHotel.roomType ||
+      !editHotel.agentName ||
+      !editHotel.price
+    ) {
       alert("Please fill all required fields");
       return;
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/hotels/${editHotel._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editHotel),
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/hotels/${editHotel._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editHotel),
+        }
+      );
 
       const data = await res.json();
 
@@ -160,24 +181,25 @@ const HotelList = () => {
   // PRINT FUNCTION - Hide navbar during print
   const handlePrint = () => {
     // Hide navbar elements before printing
-    const navElements = document.querySelectorAll('nav, header, [role="navigation"]');
-    navElements.forEach(el => {
-      el.style.display = 'none';
+    const navElements = document.querySelectorAll(
+      'nav, header, [role="navigation"]'
+    );
+    navElements.forEach((el) => {
+      el.style.display = "none";
     });
 
     window.print();
-    
+
     // Restore navbar elements after printing
     setTimeout(() => {
-      navElements.forEach(el => {
-        el.style.display = '';
+      navElements.forEach((el) => {
+        el.style.display = "";
       });
     }, 100);
   };
 
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
-
       {/* PRINT CSS */}
       <style>
         {`
@@ -310,9 +332,7 @@ const HotelList = () => {
       {/* PRINTABLE AREA */}
       <div id="print-area">
         {/* PRINT-ONLY HEADER */}
-        <h1 className="print-header print:block hidden">
-          Hotels List
-        </h1>
+        <h1 className="print-header print:block hidden">Hotels List</h1>
 
         {/* TABLE - Different styling for screen vs print */}
         <div className="bg-white shadow-md rounded-xl overflow-hidden mt-6 print:shadow-none print:rounded-none">
@@ -322,13 +342,22 @@ const HotelList = () => {
                 <th className="py-3 px-4 text-sm font-semibold">Hotel Name</th>
                 <th className="py-3 px-4 text-sm font-semibold">Category</th>
                 <th className="py-3 px-4 text-sm font-semibold">Room Type</th>
+                <th className="py-3 px-4 text-sm font-semibold">Area</th>
+                <th className="py-3 px-4 text-sm font-semibold">City</th>
+                <th className="py-3 px-4 text-sm font-semibold">
+                  Distance (m)
+                </th>
                 <th className="py-3 px-4 text-sm font-semibold">Agent Name</th>
                 <th className="py-3 px-4 text-sm font-semibold">Agent Cost</th>
-                <th className="py-3 px-4 text-sm font-semibold">Company Cost</th>
+                <th className="py-3 px-4 text-sm font-semibold">
+                  Company Cost
+                </th>
                 <th className="py-3 px-4 text-sm font-semibold">Price</th>
 
                 {isAdmin && (
-                  <th className="py-3 px-4 text-sm font-semibold no-print">Actions</th>
+                  <th className="py-3 px-4 text-sm font-semibold no-print">
+                    Actions
+                  </th>
                 )}
               </tr>
             </thead>
@@ -336,13 +365,19 @@ const HotelList = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 7} className="py-4 px-4 text-center text-gray-500">
+                  <td
+                    colSpan={isAdmin ? 8 : 7}
+                    className="py-4 px-4 text-center text-gray-500"
+                  >
                     Loading...
                   </td>
                 </tr>
               ) : hotels.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 7} className="py-4 px-4 text-center text-gray-500">
+                  <td
+                    colSpan={isAdmin ? 8 : 7}
+                    className="py-4 px-4 text-center text-gray-500"
+                  >
                     No hotels found.
                   </td>
                 </tr>
@@ -355,6 +390,9 @@ const HotelList = () => {
                     <td className="py-3 px-4">{hotel.hotelName}</td>
                     <td className="py-3 px-4">{hotel.category}</td>
                     <td className="py-3 px-4">{hotel.roomType}</td>
+                    <td className="py-3 px-4">{hotel.area}</td>
+                    <td className="py-3 px-4">{hotel.city}</td>
+                    <td className="py-3 px-4">{hotel.distance}</td>
                     <td className="py-3 px-4">{hotel.agentName}</td>
                     <td className="py-3 px-4">{hotel.agentCost}</td>
                     <td className="py-3 px-4">{hotel.companyCost}</td>
@@ -362,14 +400,14 @@ const HotelList = () => {
 
                     {isAdmin && (
                       <td className="py-3 px-4 flex items-center gap-4 no-print">
-                        <button 
+                        <button
                           onClick={() => openEditModal(hotel)}
                           className="text-blue-600 hover:text-blue-800 cursor-pointer"
                         >
                           <Pencil size={20} />
                         </button>
 
-                        <button 
+                        <button
                           onClick={() => deleteHotel(hotel._id)}
                           className="text-red-600 hover:text-red-800 cursor-pointer"
                         >
@@ -395,37 +433,80 @@ const HotelList = () => {
               type="text"
               placeholder="Hotel Name"
               value={newHotel.hotelName}
-              onChange={(e) => setNewHotel({ ...newHotel, hotelName: e.target.value })}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, hotelName: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             />
 
             <select
               value={newHotel.category}
-              onChange={(e) => setNewHotel({ ...newHotel, category: e.target.value })}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, category: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             >
               <option value="">Select Category</option>
               {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
               ))}
             </select>
 
             <select
               value={newHotel.roomType}
-              onChange={(e) => setNewHotel({ ...newHotel, roomType: e.target.value })}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, roomType: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             >
               <option value="">Select Room Type</option>
               {roomTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
             </select>
+            <input
+              type="text"
+              placeholder="Area"
+              value={newHotel.area}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, area: e.target.value })
+              }
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <select
+              value={newHotel.city}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, city: e.target.value })
+              }
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            >
+              <option value="">Select City</option>
+              <option value="Makkah">Makkah</option>
+              <option value="Madinah">Madinah</option>
+            </select>
+
+            <input
+              type="number"
+              placeholder="Distance from Haram (meters)"
+              value={newHotel.distance}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, distance: e.target.value })
+              }
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+            />
 
             <input
               type="text"
               placeholder="Agent Name"
               value={newHotel.agentName}
-              onChange={(e) => setNewHotel({ ...newHotel, agentName: e.target.value })}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, agentName: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             />
 
@@ -433,7 +514,9 @@ const HotelList = () => {
               type="number"
               placeholder="Agent Cost"
               value={newHotel.agentCost}
-              onChange={(e) => setNewHotel({ ...newHotel, agentCost: e.target.value })}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, agentCost: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             />
 
@@ -441,7 +524,9 @@ const HotelList = () => {
               type="number"
               placeholder="Company Cost"
               value={newHotel.companyCost}
-              onChange={(e) => setNewHotel({ ...newHotel, companyCost: e.target.value })}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, companyCost: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             />
 
@@ -449,7 +534,9 @@ const HotelList = () => {
               type="number"
               placeholder="Price"
               value={newHotel.price}
-              onChange={(e) => setNewHotel({ ...newHotel, price: e.target.value })}
+              onChange={(e) =>
+                setNewHotel({ ...newHotel, price: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
             />
 
@@ -481,37 +568,80 @@ const HotelList = () => {
               type="text"
               placeholder="Hotel Name"
               value={editHotel.hotelName}
-              onChange={(e) => setEditHotel({ ...editHotel, hotelName: e.target.value })}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, hotelName: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             />
 
             <select
               value={editHotel.category}
-              onChange={(e) => setEditHotel({ ...editHotel, category: e.target.value })}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, category: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             >
               <option value="">Select Category</option>
               {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
               ))}
             </select>
 
             <select
               value={editHotel.roomType}
-              onChange={(e) => setEditHotel({ ...editHotel, roomType: e.target.value })}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, roomType: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             >
               <option value="">Select Room Type</option>
               {roomTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
+                <option key={type} value={type}>
+                  {type}
+                </option>
               ))}
             </select>
+            <input
+              type="text"
+              placeholder="Area"
+              value={editHotel.area}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, area: e.target.value })
+              }
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            />
+
+            <select
+              value={editHotel.city}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, city: e.target.value })
+              }
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            >
+              <option value="">Select City</option>
+              <option value="Makkah">Makkah</option>
+              <option value="Madinah">Madinah</option>
+            </select>
+
+            <input
+              type="number"
+              placeholder="Distance from Haram (meters)"
+              value={editHotel.distance}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, distance: e.target.value })
+              }
+              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
+            />
 
             <input
               type="text"
               placeholder="Agent Name"
               value={editHotel.agentName}
-              onChange={(e) => setEditHotel({ ...editHotel, agentName: e.target.value })}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, agentName: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             />
 
@@ -519,7 +649,9 @@ const HotelList = () => {
               type="number"
               placeholder="Agent Cost"
               value={editHotel.agentCost}
-              onChange={(e) => setEditHotel({ ...editHotel, agentCost: e.target.value })}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, agentCost: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             />
 
@@ -527,7 +659,9 @@ const HotelList = () => {
               type="number"
               placeholder="Company Cost"
               value={editHotel.companyCost}
-              onChange={(e) => setEditHotel({ ...editHotel, companyCost: e.target.value })}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, companyCost: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
             />
 
@@ -535,7 +669,9 @@ const HotelList = () => {
               type="number"
               placeholder="Price"
               value={editHotel.price}
-              onChange={(e) => setEditHotel({ ...editHotel, price: e.target.value })}
+              onChange={(e) =>
+                setEditHotel({ ...editHotel, price: e.target.value })
+              }
               className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
             />
 
@@ -556,7 +692,6 @@ const HotelList = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

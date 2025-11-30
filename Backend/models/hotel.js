@@ -1,4 +1,3 @@
-//hotel name , price 
 // models/hotel.js
 import mongoose from "mongoose";
 
@@ -33,6 +32,22 @@ const hotelSchema = new mongoose.Schema(
       required: true,
     },
     price: {
+      type: Number,
+      required: true,
+    },
+
+    // ⭐ NEW FIELDS
+    area: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    city: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    distance: {
       type: Number,
       required: true,
     },
