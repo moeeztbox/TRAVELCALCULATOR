@@ -10,11 +10,12 @@ const TransportList = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // New shape: route is a single string, tripType is "oneway" | "roundtrip"
   const [newTransport, setNewTransport] = useState({
     carType: "",
     capacity: "",
-    from: "",
-    to: "",
+    tripType: "oneway",
+    route: "",
     agentName: "",
     agentCost: "",
     companyCost: "",
@@ -25,8 +26,8 @@ const TransportList = () => {
     _id: "",
     carType: "",
     capacity: "",
-    from: "",
-    to: "",
+    tripType: "oneway",
+    route: "",
     agentName: "",
     agentCost: "",
     companyCost: "",
@@ -42,6 +43,24 @@ const TransportList = () => {
   ];
   const carTypes = ["Hiace", "SUV", "Coaster", "Sedan"];
 
+  // Route options
+  const oneWayRoutes = [
+    "Makkah → Medinah",
+    "Makkah → Jeddah",
+    "Medinah → Makkah",
+    "Medinah → Jeddah",
+    "Jeddah → Medinah",
+    "Jeddah → Makkah",
+  ];
+
+  const roundTripRoutes = [
+    "Jeddah → Makkah → Medinah → Medinah Airport",
+    "Medinah Airport → Medinah Hotel → Makkah Hotel → Jeddah Airport",
+    "Jeddah → Makkah → Medinah → Jeddah",
+    "Jeddah → Medinah → Makkah → Jeddah",
+    "Jeddah → Makkah → Medinah → Makkah → Jeddah",
+  ];
+
   useEffect(() => {
     fetchTransports();
   }, []);
@@ -53,7 +72,20 @@ const TransportList = () => {
       const data = await res.json();
 
       if (data.success && Array.isArray(data.data)) {
-        setTransports(data.data);
+        // Accept both old shape (route object) and new shape (route string).
+        // Normalize so we always display item.routeString
+        const normalized = data.data.map((t) => {
+          const routeString =
+            typeof t.route === "string"
+              ? t.route
+              : t.route && (t.route.from || t.route.to)
+              ? `${t.route.from || ""}${
+                  t.route.from && t.route.to ? " → " : ""
+                }${t.route.to || ""}`
+              : t.routeString || "";
+          return { ...t, routeString };
+        });
+        setTransports(normalized);
       } else {
         setTransports([]);
       }
@@ -67,11 +99,11 @@ const TransportList = () => {
 
   // CREATE
   const saveTransport = async () => {
+    // basic validation
     if (
       !newTransport.carType ||
       !newTransport.capacity ||
-      !newTransport.from ||
-      !newTransport.to ||
+      !newTransport.route ||
       !newTransport.price
     ) {
       alert("Please fill all required fields");
@@ -79,16 +111,21 @@ const TransportList = () => {
     }
 
     try {
+      const payload = {
+        carType: newTransport.carType,
+        capacity: newTransport.capacity,
+        tripType: newTransport.tripType,
+        route: newTransport.route, // string
+        agentName: newTransport.agentName,
+        agentCost: newTransport.agentCost,
+        companyCost: newTransport.companyCost,
+        price: newTransport.price,
+      };
+
       const res = await fetch("http://localhost:5000/api/transports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...newTransport,
-          route: {
-            from: newTransport.from,
-            to: newTransport.to,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -98,17 +135,21 @@ const TransportList = () => {
         setNewTransport({
           carType: "",
           capacity: "",
-          from: "",
-          to: "",
+          tripType: "oneway",
+          route: "",
           agentName: "",
           agentCost: "",
           companyCost: "",
           price: "",
         });
         fetchTransports();
+      } else {
+        console.error("Server response:", data);
+        alert("Failed to add transport. See console.");
       }
     } catch (err) {
       console.error("Error adding transport:", err);
+      alert("Error adding transport. See console.");
     }
   };
 
@@ -128,16 +169,21 @@ const TransportList = () => {
 
   // OPEN EDIT MODAL
   const openEditModal = (item) => {
+    // determine tripType based on whether route matches round trip options
+    const isRound =
+      roundTripRoutes.includes(item.routeString) ||
+      (typeof item.tripType === "string" && item.tripType === "roundtrip");
+
     setEditTransport({
       _id: item._id,
-      carType: item.carType,
-      capacity: item.capacity,
-      from: item.route?.from || "",
-      to: item.route?.to || "",
-      agentName: item.agentName,
-      agentCost: item.agentCost,
-      companyCost: item.companyCost,
-      price: item.price,
+      carType: item.carType || "",
+      capacity: item.capacity || "",
+      tripType: isRound ? "roundtrip" : "oneway",
+      route: item.routeString || "",
+      agentName: item.agentName || "",
+      agentCost: item.agentCost || "",
+      companyCost: item.companyCost || "",
+      price: item.price || "",
     });
 
     setShowEditModal(true);
@@ -148,8 +194,7 @@ const TransportList = () => {
     if (
       !editTransport.carType ||
       !editTransport.capacity ||
-      !editTransport.from ||
-      !editTransport.to ||
+      !editTransport.route ||
       !editTransport.price
     ) {
       alert("All required fields must be filled");
@@ -157,18 +202,23 @@ const TransportList = () => {
     }
 
     try {
+      const payload = {
+        carType: editTransport.carType,
+        capacity: editTransport.capacity,
+        tripType: editTransport.tripType,
+        route: editTransport.route, // string
+        agentName: editTransport.agentName,
+        agentCost: editTransport.agentCost,
+        companyCost: editTransport.companyCost,
+        price: editTransport.price,
+      };
+
       const res = await fetch(
         `http://localhost:5000/api/transports/${editTransport._id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...editTransport,
-            route: {
-              from: editTransport.from,
-              to: editTransport.to,
-            },
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -177,9 +227,13 @@ const TransportList = () => {
         alert("Transport updated!");
         setShowEditModal(false);
         fetchTransports();
+      } else {
+        console.error("Server response:", data);
+        alert("Failed to update transport. See console.");
       }
     } catch (err) {
       console.error("Error updating transport:", err);
+      alert("Error updating transport. See console.");
     }
   };
 
@@ -190,7 +244,6 @@ const TransportList = () => {
 
   // PRINT FUNCTION - Hide navbar during print
   const handlePrint = () => {
-    // Hide navbar elements before printing
     const navElements = document.querySelectorAll(
       'nav, header, [role="navigation"]'
     );
@@ -200,13 +253,16 @@ const TransportList = () => {
 
     window.print();
 
-    // Restore navbar elements after printing
     setTimeout(() => {
       navElements.forEach((el) => {
         el.style.display = "";
       });
     }, 100);
   };
+
+  // Helper to get route options based on trip type
+  const getRouteOptions = (tripType) =>
+    tripType === "roundtrip" ? roundTripRoutes : oneWayRoutes;
 
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
@@ -226,31 +282,24 @@ const TransportList = () => {
               padding: 0;
               background: white !important;
             }
-            .print\:hidden {
+            .print\\:hidden {
               display: none !important;
             }
-            .print\:block {
+            .print\\:block {
               display: block !important;
             }
-            
-            /* Remove all background colors and shadows */
             * {
               background: white !important;
               box-shadow: none !important;
             }
-            
-            /* Remove border radius */
             .rounded-xl, .rounded-lg, .rounded {
               border-radius: 0 !important;
             }
-            
-            /* Professional table styling for print only */
             .print-table {
               width: 100%;
               border-collapse: collapse;
               border: 1px solid #000 !important;
             }
-            
             .print-table th, 
             .print-table td {
               border: 1px solid #000 !important;
@@ -261,38 +310,27 @@ const TransportList = () => {
               vertical-align: middle;
               text-align: left;
             }
-            
             .print-table th {
               background: white !important;
               font-weight: bold;
               border-bottom: 2px solid #000 !important;
             }
-            
             .print-table tr {
               border-bottom: 1px solid #000 !important;
             }
-            
-            /* Remove any footer */
             footer {
               display: none !important;
             }
-            
-            /* Hide the copyright text */
             .footer, [class*="footer"], [class*="copyright"] {
               display: none !important;
             }
-            
-            /* Ensure proper page breaks */
             .print-table {
               page-break-inside: auto;
             }
-            
             .print-table tr {
               page-break-inside: avoid;
               page-break-after: auto;
             }
-            
-            /* Center the header */
             .print-header {
               text-align: center;
               margin-bottom: 20px;
@@ -391,9 +429,7 @@ const TransportList = () => {
                   >
                     <td className="py-3 px-4">{item.carType}</td>
                     <td className="py-3 px-4">{item.capacity}</td>
-                    <td className="py-3 px-4">
-                      {item.route?.from} → {item.route?.to}
-                    </td>
+                    <td className="py-3 px-4">{item.routeString}</td>
                     <td className="py-3 px-4">{item.agentName}</td>
                     <td className="py-3 px-4">{item.agentCost}</td>
                     <td className="py-3 px-4">{item.companyCost}</td>
@@ -459,25 +495,37 @@ const TransportList = () => {
               ))}
             </select>
 
-            <input
-              type="text"
-              placeholder="From"
-              className="w-full border rounded px-3 py-2 mb-3"
-              value={newTransport.from}
+            {/* Trip Type */}
+            <select
+              value={newTransport.tripType}
               onChange={(e) =>
-                setNewTransport({ ...newTransport, from: e.target.value })
+                setNewTransport({
+                  ...newTransport,
+                  tripType: e.target.value,
+                  route: "",
+                })
               }
-            />
+              className="w-full border rounded px-3 py-2 mb-3"
+            >
+              <option value="oneway">One Way</option>
+              <option value="roundtrip">Round Trip</option>
+            </select>
 
-            <input
-              type="text"
-              placeholder="To"
-              className="w-full border rounded px-3 py-2 mb-3"
-              value={newTransport.to}
+            {/* Route - options depend on trip type */}
+            <select
+              value={newTransport.route}
               onChange={(e) =>
-                setNewTransport({ ...newTransport, to: e.target.value })
+                setNewTransport({ ...newTransport, route: e.target.value })
               }
-            />
+              className="w-full border rounded px-3 py-2 mb-3"
+            >
+              <option value="">Select Route</option>
+              {getRouteOptions(newTransport.tripType).map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
 
             <input
               type="text"
@@ -576,25 +624,37 @@ const TransportList = () => {
               ))}
             </select>
 
-            <input
-              type="text"
-              placeholder="From"
-              value={editTransport.from}
+            {/* Trip Type */}
+            <select
+              value={editTransport.tripType}
               onChange={(e) =>
-                setEditTransport({ ...editTransport, from: e.target.value })
+                setEditTransport({
+                  ...editTransport,
+                  tripType: e.target.value,
+                  route: "",
+                })
               }
               className="w-full border rounded px-3 py-2 mb-3"
-            />
+            >
+              <option value="oneway">One Way</option>
+              <option value="roundtrip">Round Trip</option>
+            </select>
 
-            <input
-              type="text"
-              placeholder="To"
-              value={editTransport.to}
+            {/* Route - options depend on trip type */}
+            <select
+              value={editTransport.route}
               onChange={(e) =>
-                setEditTransport({ ...editTransport, to: e.target.value })
+                setEditTransport({ ...editTransport, route: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
-            />
+            >
+              <option value="">Select Route</option>
+              {getRouteOptions(editTransport.tripType).map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
 
             <input
               type="text"

@@ -13,16 +13,15 @@ const transportSchema = new mongoose.Schema(
       trim: true,
     },
     route: {
-      from: {
-        type: String,
-        required: true,
-        trim: true,
-      },
-      to: {
-        type: String,
-        required: true,
-        trim: true,
-      },
+      type: String,
+      required: true,
+      trim: true,
+    },
+    tripType: {
+      type: String,
+      enum: ["oneway", "roundtrip"],
+      default: "oneway",
+      required: true,
     },
     agentName: {
       type: String,

@@ -3,15 +3,25 @@ import Transport from "../models/transport.js";
 // ➤ CREATE TRANSPORT
 export const createTransport = async (req, res) => {
   try {
-    const { carType, capacity, route, agentName, agentCost, companyCost, price } = req.body;
-    const transport = new Transport({ 
-      carType, 
-      capacity, 
-      route, 
-      agentName, 
-      agentCost, 
-      companyCost, 
-      price 
+    const {
+      carType,
+      capacity,
+      route,
+      tripType,
+      agentName,
+      agentCost,
+      companyCost,
+      price,
+    } = req.body;
+    const transport = new Transport({
+      carType,
+      capacity,
+      route,
+      tripType,
+      agentName,
+      agentCost,
+      companyCost,
+      price,
     });
     await transport.save();
 
@@ -44,7 +54,9 @@ export const updateTransport = async (req, res) => {
     });
 
     if (!updatedTransport) {
-      return res.status(404).json({ success: false, message: "Transport not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Transport not found" });
     }
 
     res.status(200).json({
@@ -65,7 +77,9 @@ export const deleteTransport = async (req, res) => {
     const transport = await Transport.findByIdAndDelete(id);
 
     if (!transport) {
-      return res.status(404).json({ success: false, message: "Transport not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Transport not found" });
     }
 
     res.status(200).json({
