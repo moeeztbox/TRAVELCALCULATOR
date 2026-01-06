@@ -1,10 +1,10 @@
-// controllers/visa.js
 import Visa from "../models/visa.js";
 
 // ➤ CREATE VISA
 export const createVisa = async (req, res) => {
   try {
-    const { category, passenger, agentName, price, companyCost, agentCost, notes } = req.body;
+    const { category, passenger, agentName, price, companyCost, agentCost } =
+      req.body; // Removed notes
 
     const visa = new Visa({
       category,
@@ -13,7 +13,7 @@ export const createVisa = async (req, res) => {
       price,
       companyCost,
       agentCost,
-      notes,
+      // Removed notes,
       createdBy: req.user?.id,
     });
 
@@ -43,10 +43,14 @@ export const getVisas = async (req, res) => {
 export const updateVisa = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedVisa = await Visa.findByIdAndUpdate(id, req.body, { new: true });
+    const updatedVisa = await Visa.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
 
     if (!updatedVisa) {
-      return res.status(404).json({ success: false, message: "Visa not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Visa not found" });
     }
 
     res.status(200).json({
@@ -67,10 +71,14 @@ export const deleteVisa = async (req, res) => {
     const visa = await Visa.findByIdAndDelete(id);
 
     if (!visa) {
-      return res.status(404).json({ success: false, message: "Visa not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Visa not found" });
     }
 
-    res.status(200).json({ success: true, message: "Visa deleted successfully" });
+    res
+      .status(200)
+      .json({ success: true, message: "Visa deleted successfully" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

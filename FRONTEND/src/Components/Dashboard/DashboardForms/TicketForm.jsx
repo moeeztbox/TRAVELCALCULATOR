@@ -1,6 +1,19 @@
-import React, { useState, useEffect } from "react";
-import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import {
+  ArrowLeft,
+  Plane,
+  Calendar,
+  Calculator,
+  Building,
+  Users,
+  User,
+  DollarSign,
+  Printer,
+  Trash2,
+  Package,
+  Navigation,
+} from "lucide-react";
 
 export default function TicketForm() {
   const navigate = useNavigate();
@@ -16,7 +29,12 @@ export default function TicketForm() {
   const [agentName, setAgentName] = useState("");
   const [agentCost, setAgentCost] = useState("");
   const [companyCost, setCompanyCost] = useState("");
+  const [validFrom, setValidFrom] = useState("");
+  const [validTo, setValidTo] = useState("");
   const [result, setResult] = useState(null);
+
+  // Check if a ticket is selected from dropdown
+  const isTicketSelected = selectedTicketId !== "";
 
   useEffect(() => {
     fetchTickets();
@@ -24,96 +42,510 @@ export default function TicketForm() {
 
   const fetchTickets = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/tickets");
-      const data = await res.json();
-      if (data.success) setTickets(data.data || []);
+      const response = await fetch("http://localhost:5000/api/tickets");
+      const data = await response.json();
+      if (data.success) {
+        setTickets(data.data);
+      }
     } catch (err) {
       console.error("Error fetching tickets:", err);
     }
   };
 
-  const handleSelect = (id) => {
-    const t = tickets.find((x) => x._id === id);
-    if (!t) return;
-    setSelectedTicketId(id);
-    setAirlineName(t.airlineName || "");
-    setCategory(t.category || "");
-    setPassenger(t.passenger || "");
-    setWeight(t.weight ?? "");
-    setPrice(t.price ?? "");
-    setAgentName(t.agentName || "");
-    setAgentCost(t.agentCost ?? "");
-    setCompanyCost(t.companyCost ?? "");
-    setResult(null);
+  const handleSelect = (ticket) => {
+    setSelectedTicketId(ticket._id);
+    setAirlineName(ticket.airlineName);
+    setCategory(ticket.category);
+    setPassenger(ticket.passenger);
+    setWeight(ticket.weight || "");
+    setPrice(ticket.price || "");
+    setAgentName(ticket.agentName);
+    setAgentCost(ticket.agentCost || "");
+    setCompanyCost(ticket.companyCost || "");
+    setValidFrom(
+      ticket.validFrom
+        ? new Date(ticket.validFrom).toISOString().split("T")[0]
+        : ""
+    );
+    setValidTo(
+      ticket.validTo ? new Date(ticket.validTo).toISOString().split("T")[0] : ""
+    );
   };
 
   const calculate = () => {
-    if (!price) return;
-    const p = parseFloat(price) || 0;
-    const agent = parseFloat(agentCost) || 0;
-    const comp = parseFloat(companyCost) || 0;
-    setResult({ price: p, agentCost: agent, companyCost: comp });
+    if (!airlineName || !category || !passenger || !price) {
+      alert("Please fill all required fields!");
+      return;
+    }
+
+    const ticketPrice = parseFloat(price);
+    const agentCostValue = parseFloat(agentCost) || 0;
+    const companyCostValue = parseFloat(companyCost) || 0;
+
+    // Calculate all costs
+    const totalCost = ticketPrice + agentCostValue + companyCostValue;
+
+    setResult({
+      // Basic information
+      airlineName,
+      category,
+      passenger,
+      agentName,
+
+      // Weight information
+      weight,
+
+      // Validity information
+      validFrom: formatDate(validFrom),
+      validTo: formatDate(validTo),
+
+      // Costs
+      ticketPrice,
+      agentCost: agentCostValue,
+      companyCost: companyCostValue,
+
+      // Total calculation
+      totalCost,
+    });
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const clearForm = () => {
+    setSelectedTicketId("");
+    setAirlineName("");
+    setCategory("");
+    setPassenger("");
+    setWeight("");
+    setPrice("");
+    setAgentName("");
+    setAgentCost("");
+    setCompanyCost("");
+    setValidFrom("");
+    setValidTo("");
+    setResult(null);
+  };
+
+  const FieldWrapper = ({ children, className = "" }) => (
+    <div className={`space-y-1 ${className}`}>{children}</div>
+  );
+
   return (
-    <div className="p-6 w-full mx-auto">
-      <button
-        onClick={() => navigate("/dashboard")}
-        className="flex items-center cursor-pointer gap-2 text-gray-700 hover:text-black mb-6"
-      >
-        <ArrowLeft size={20} />
-        <span className="font-medium">Back</span>
-      </button>
-
-      <h1 className="text-2xl font-bold mb-4">Ticket Calculator</h1>
-
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <select className="border p-2 rounded" value={selectedTicketId} onChange={(e) => handleSelect(e.target.value)}>
-          <option value="">Select Ticket</option>
-          {tickets.map((t) => (
-            <option key={t._id} value={t._id}>
-              {t.airlineName} — {t.category} — {t.passenger}
-            </option>
-          ))}
-        </select>
-
-        <input type="text" className="border p-2 rounded" placeholder="Airline Name" value={airlineName} onChange={(e) => setAirlineName(e.target.value)} />
-
-        <select className="border p-2 rounded" value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">Category</option>
-          <option value="Group Ticket">Group Ticket</option>
-          <option value="System Ticket">System Ticket</option>
-        </select>
-
-        <select className="border p-2 rounded" value={passenger} onChange={(e) => setPassenger(e.target.value)}>
-          <option value="">Passenger</option>
-          <option value="adult">adult</option>
-          <option value="infant">infant</option>
-        </select>
-
-        <input type="number" className="border p-2 rounded" placeholder="Weight (KG)" value={weight} onChange={(e) => setWeight(e.target.value)} />
-
-        <input type="number" className="border p-2 rounded" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} />
-
-        <input type="text" className="border p-2 rounded" placeholder="Agent Name" value={agentName} onChange={(e) => setAgentName(e.target.value)} />
-
-        <input type="number" className="border p-2 rounded" placeholder="Agent Cost" value={agentCost} onChange={(e) => setAgentCost(e.target.value)} />
-
-        <input type="number" className="border p-2 rounded" placeholder="Company Cost" value={companyCost} onChange={(e) => setCompanyCost(e.target.value)} />
-      </div>
-
-      <button className="bg-blue-600 text-white px-6 py-2 rounded" onClick={calculate}>Calculate</button>
-
-      {result && (
-        <div className="mt-6">
-          <h2 className="font-semibold mb-2">Result</h2>
-          <div className="bg-white p-4 rounded shadow">
-            <p><strong>Price:</strong> {result.price}</p>
-            <p><strong>Agent Cost:</strong> {result.agentCost}</p>
-            <p><strong>Company Cost:</strong> {result.companyCost}</p>
+    <div className="p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header with Print Button */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-white transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">
+                Ticket Calculator
+              </h1>
+              <p className="text-gray-500 text-sm">
+                Calculate ticket costs and commissions
+              </p>
+            </div>
           </div>
+
+          {/* Print Button - Only shown when there's a result */}
+          {result && (
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Printer size={18} />
+              Print Report
+            </button>
+          )}
         </div>
-      )}
+
+        {/* Input Section */}
+        <div className="space-y-2">
+          <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Ticket Selection - ALWAYS ENABLED */}
+              <FieldWrapper className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Select Ticket
+                </label>
+                <select
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  value={selectedTicketId}
+                  onChange={(e) => {
+                    if (e.target.value === "") {
+                      clearForm();
+                    } else {
+                      const ticket = tickets.find(
+                        (t) => t._id === e.target.value
+                      );
+                      if (ticket) {
+                        handleSelect(ticket);
+                      }
+                    }
+                  }}
+                >
+                  <option value="">Choose a ticket</option>
+                  {tickets.map((ticket) => (
+                    <option key={ticket._id} value={ticket._id}>
+                      {ticket.airlineName} — {ticket.category} —{" "}
+                      {ticket.passenger}
+                    </option>
+                  ))}
+                </select>
+                {!isTicketSelected ? (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select a ticket to populate all fields
+                  </p>
+                ) : (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Ticket selected - All fields are read-only
+                  </p>
+                )}
+              </FieldWrapper>
+
+              {/* Airline Name - ALWAYS DISABLED (only populated by dropdown) */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Airline Name
+                </label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={airlineName}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Category - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Category
+                </label>
+                <select
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  value={category}
+                  disabled
+                >
+                  <option value="">Will be auto-filled</option>
+                  <option value="Group Ticket">Group Ticket</option>
+                  <option value="System Ticket">System Ticket</option>
+                </select>
+              </FieldWrapper>
+
+              {/* Passenger Type - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Passenger Type
+                </label>
+                <select
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  value={passenger}
+                  disabled
+                >
+                  <option value="">Will be auto-filled</option>
+                  <option value="adult">Adult</option>
+                  <option value="infant">Infant</option>
+                  <option value="child">Child</option>
+                </select>
+              </FieldWrapper>
+
+              {/* Weight - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Weight (KG)
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={weight}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Price - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Price
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={price}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Agent Name - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Agent Name
+                </label>
+                <input
+                  type="text"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={agentName}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Agent Cost - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Agent Cost
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={agentCost}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Company Cost - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Company Cost
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={companyCost}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Valid From Date - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Valid From
+                </label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  value={validFrom}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Valid To Date - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Valid To
+                </label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  value={validTo}
+                  readOnly
+                />
+              </FieldWrapper>
+            </div>
+
+            {/* Action Buttons - Enabled only when ticket is selected */}
+            <div className="flex gap-3 mt-6">
+              <button
+                className={`flex-1 font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                  isTicketSelected
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+                onClick={calculate}
+                disabled={!isTicketSelected}
+              >
+                <Calculator size={18} />
+                Calculate Costs
+              </button>
+              <button
+                className={`flex-1 font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                  isTicketSelected
+                    ? "bg-gray-500 text-white hover:bg-gray-600"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+                onClick={clearForm}
+                disabled={!isTicketSelected}
+              >
+                <Trash2 size={18} />
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {/* Results Section */}
+          {result && (
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                <Calculator size={20} className="text-green-600" />
+                Calculation Results
+              </h2>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column - Ticket Details & Validity Information */}
+                <div className="space-y-6">
+                  {/* Ticket Details */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">
+                      Ticket Details
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Airline Name</span>
+                        <span className="font-medium text-right">
+                          {result.airlineName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Category</span>
+                        <span className="font-medium">{result.category}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Passenger Type</span>
+                        <span className="font-medium">{result.passenger}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">Agent Name</span>
+                        <span className="font-medium">{result.agentName}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weight Information */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
+                      <Package size={16} className="text-blue-600" />
+                      Weight Information
+                    </h3>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Baggage Weight:</span>
+                        <span className="font-medium">{result.weight} KG</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Validity Information */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">
+                      Validity Information
+                    </h3>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Valid From:</span>
+                        <span className="font-medium">{result.validFrom}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Valid To:</span>
+                        <span className="font-medium">{result.validTo}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Cost Breakdown */}
+                <div className="space-y-6">
+                  {/* Cost Details */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">
+                      Cost Details
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Ticket Price</span>
+                        <span className="font-medium">
+                          ${result.ticketPrice.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Agent Cost</span>
+                        <span className="font-medium text-orange-600">
+                          ${result.agentCost.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">Company Cost</span>
+                        <span className="font-medium text-purple-600">
+                          ${result.companyCost.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Costs */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">
+                      Total Costs
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Ticket Price</span>
+                        <span className="font-medium">
+                          ${result.ticketPrice.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Agent Cost</span>
+                        <span className="font-medium text-red-600">
+                          ${result.agentCost.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600">Company Cost</span>
+                        <span className="font-medium text-green-600">
+                          ${result.companyCost.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-3 bg-gray-50 rounded-lg px-3 mt-4">
+                        <span className="text-gray-700 font-semibold">
+                          Total Final Cost
+                        </span>
+                        <span className="font-bold text-lg text-blue-700">
+                          ${result.totalCost.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State - Only show when no ticket is selected */}
+          {!result && !isTicketSelected && (
+            <div className="bg-white rounded-xl p-8 border border-gray-200 text-center">
+              <Plane size={48} className="mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-medium text-gray-500 mb-2">
+                Select a Ticket
+              </h3>
+              <p className="text-sm text-gray-400">
+                Choose a ticket from the dropdown to populate all fields and
+                calculate costs
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

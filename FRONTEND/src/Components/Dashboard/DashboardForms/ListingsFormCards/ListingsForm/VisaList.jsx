@@ -17,7 +17,7 @@ const VisaList = () => {
     price: "",
     companyCost: "",
     agentCost: "",
-    notes: "",
+    // Removed: notes: "",
   });
 
   const [editVisa, setEditVisa] = useState({
@@ -28,7 +28,7 @@ const VisaList = () => {
     price: "",
     companyCost: "",
     agentCost: "",
-    notes: "",
+    // Removed: notes: "",
   });
 
   useEffect(() => {
@@ -55,7 +55,9 @@ const VisaList = () => {
       !newVisa.category ||
       !newVisa.passenger ||
       !newVisa.agentName ||
-      !newVisa.price
+      !newVisa.price ||
+      !newVisa.companyCost ||
+      !newVisa.agentCost
     ) {
       alert("Please fill all required fields");
       return;
@@ -78,7 +80,7 @@ const VisaList = () => {
           price: "",
           companyCost: "",
           agentCost: "",
-          notes: "",
+          // Removed: notes: "",
         });
         fetchVisas();
       } else {
@@ -106,7 +108,16 @@ const VisaList = () => {
   };
 
   const openEditModal = (visa) => {
-    setEditVisa(visa);
+    setEditVisa({
+      _id: visa._id,
+      category: visa.category,
+      passenger: visa.passenger,
+      agentName: visa.agentName,
+      price: visa.price,
+      companyCost: visa.companyCost,
+      agentCost: visa.agentCost,
+      // Removed: notes: visa.notes || "",
+    });
     setShowEditModal(true);
   };
 
@@ -115,7 +126,9 @@ const VisaList = () => {
       !editVisa.category ||
       !editVisa.passenger ||
       !editVisa.agentName ||
-      !editVisa.price
+      !editVisa.price ||
+      !editVisa.companyCost ||
+      !editVisa.agentCost
     ) {
       alert("Please fill all required fields");
       return;
@@ -405,52 +418,49 @@ const VisaList = () => {
 
             <input
               type="text"
-              placeholder="Agent Name"
+              placeholder="Agent Name *"
               value={newVisa.agentName}
               onChange={(e) =>
                 setNewVisa({ ...newVisa, agentName: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
+              required
             />
 
             <input
               type="number"
-              placeholder="Agent Cost"
+              placeholder="Agent Cost *"
               value={newVisa.agentCost}
               onChange={(e) =>
                 setNewVisa({ ...newVisa, agentCost: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
+              required
             />
 
             <input
               type="number"
-              placeholder="Company Cost"
+              placeholder="Company Cost *"
               value={newVisa.companyCost}
               onChange={(e) =>
                 setNewVisa({ ...newVisa, companyCost: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
+              required
             />
 
             <input
               type="number"
-              placeholder="Price"
+              placeholder="Price *"
               value={newVisa.price}
               onChange={(e) =>
                 setNewVisa({ ...newVisa, price: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
+              required
             />
 
-            <textarea
-              placeholder="Notes"
-              value={newVisa.notes}
-              onChange={(e) =>
-                setNewVisa({ ...newVisa, notes: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
+            {/* REMOVED: Textarea for notes */}
 
             <div className="flex justify-between gap-2">
               <button
@@ -502,52 +512,49 @@ const VisaList = () => {
 
             <input
               type="text"
-              placeholder="Agent Name"
+              placeholder="Agent Name *"
               value={editVisa.agentName}
               onChange={(e) =>
                 setEditVisa({ ...editVisa, agentName: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
+              required
             />
 
             <input
               type="number"
-              placeholder="Agent Cost"
+              placeholder="Agent Cost *"
               value={editVisa.agentCost}
               onChange={(e) =>
                 setEditVisa({ ...editVisa, agentCost: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
+              required
             />
 
             <input
               type="number"
-              placeholder="Company Cost"
+              placeholder="Company Cost *"
               value={editVisa.companyCost}
               onChange={(e) =>
                 setEditVisa({ ...editVisa, companyCost: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
+              required
             />
 
             <input
               type="number"
-              placeholder="Price"
+              placeholder="Price *"
               value={editVisa.price}
               onChange={(e) =>
                 setEditVisa({ ...editVisa, price: e.target.value })
               }
               className="w-full border rounded px-3 py-2 mb-3"
+              required
             />
 
-            <textarea
-              placeholder="Notes"
-              value={editVisa.notes}
-              onChange={(e) =>
-                setEditVisa({ ...editVisa, notes: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
+            {/* REMOVED: Textarea for notes */}
 
             <div className="flex justify-between gap-2">
               <button

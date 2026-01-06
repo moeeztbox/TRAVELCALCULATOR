@@ -19,7 +19,8 @@ const TicketList = () => {
     agentName: "",
     agentCost: "",
     companyCost: "",
-    notes: "",
+    validFrom: "", // Added date field
+    validTo: "", // Added date field
   });
 
   const [editTicket, setEditTicket] = useState({
@@ -32,7 +33,8 @@ const TicketList = () => {
     agentName: "",
     agentCost: "",
     companyCost: "",
-    notes: "",
+    validFrom: "", // Added date field
+    validTo: "", // Added date field
   });
 
   useEffect(() => {
@@ -55,7 +57,14 @@ const TicketList = () => {
   };
 
   const saveTicket = async () => {
-    if (!newTicket.airlineName || !newTicket.category || !newTicket.passenger || !newTicket.price) {
+    if (
+      !newTicket.airlineName ||
+      !newTicket.category ||
+      !newTicket.passenger ||
+      !newTicket.price ||
+      !newTicket.validFrom ||
+      !newTicket.validTo
+    ) {
       alert("Please fill all required fields");
       return;
     }
@@ -70,7 +79,18 @@ const TicketList = () => {
       if (data.success) {
         alert("Ticket added successfully!");
         setShowAddModal(false);
-        setNewTicket({ airlineName: "", category: "", passenger: "", weight: "", price: "", agentName: "", agentCost: "", companyCost: "", notes: "" });
+        setNewTicket({
+          airlineName: "",
+          category: "",
+          passenger: "",
+          weight: "",
+          price: "",
+          agentName: "",
+          agentCost: "",
+          companyCost: "",
+          validFrom: "",
+          validTo: "",
+        });
         fetchTickets();
       } else {
         alert(data.message || "Error adding ticket");
@@ -84,7 +104,9 @@ const TicketList = () => {
   const deleteTicket = async (id) => {
     if (!window.confirm("Are you sure you want to delete this ticket?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/tickets/${id}`, { method: "DELETE" });
+      const res = await fetch(`http://localhost:5000/api/tickets/${id}`, {
+        method: "DELETE",
+      });
       const data = await res.json();
       if (data.success) fetchTickets();
       else alert(data.message || "Error deleting ticket");
@@ -95,22 +117,48 @@ const TicketList = () => {
   };
 
   const openEditModal = (ticket) => {
-    setEditTicket(ticket);
+    setEditTicket({
+      _id: ticket._id,
+      airlineName: ticket.airlineName,
+      category: ticket.category,
+      passenger: ticket.passenger,
+      weight: ticket.weight,
+      price: ticket.price,
+      agentName: ticket.agentName,
+      agentCost: ticket.agentCost,
+      companyCost: ticket.companyCost,
+      validFrom: ticket.validFrom
+        ? new Date(ticket.validFrom).toISOString().split("T")[0]
+        : "",
+      validTo: ticket.validTo
+        ? new Date(ticket.validTo).toISOString().split("T")[0]
+        : "",
+    });
     setShowEditModal(true);
   };
 
   const updateTicket = async () => {
-    if (!editTicket.airlineName || !editTicket.category || !editTicket.passenger || !editTicket.price) {
+    if (
+      !editTicket.airlineName ||
+      !editTicket.category ||
+      !editTicket.passenger ||
+      !editTicket.price ||
+      !editTicket.validFrom ||
+      !editTicket.validTo
+    ) {
       alert("Please fill all required fields");
       return;
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/tickets/${editTicket._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editTicket),
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/tickets/${editTicket._id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editTicket),
+        }
+      );
       const data = await res.json();
       if (data.success) {
         alert("Ticket updated successfully!");
@@ -130,27 +178,37 @@ const TicketList = () => {
   const type = localStorage.getItem("type");
   const isAdmin = type === "admin";
 
-  // PRINT FUNCTION - Hide navbar during print
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // PRINT FUNCTION
   const handlePrint = () => {
-    // Hide navbar elements before printing
-    const navElements = document.querySelectorAll('nav, header, [role="navigation"]');
-    navElements.forEach(el => {
-      el.style.display = 'none';
+    const navElements = document.querySelectorAll(
+      'nav, header, [role="navigation"]'
+    );
+    navElements.forEach((el) => {
+      el.style.display = "none";
     });
 
     window.print();
-    
-    // Restore navbar elements after printing
+
     setTimeout(() => {
-      navElements.forEach(el => {
-        el.style.display = '';
+      navElements.forEach((el) => {
+        el.style.display = "";
       });
     }, 100);
   };
 
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
-
       {/* PRINT CSS */}
       <style>
         {`
@@ -174,18 +232,15 @@ const TicketList = () => {
               display: block !important;
             }
             
-            /* Remove all background colors and shadows */
             * {
               background: white !important;
               box-shadow: none !important;
             }
             
-            /* Remove border radius */
             .rounded-xl, .rounded-lg, .rounded {
               border-radius: 0 !important;
             }
             
-            /* Professional table styling for print only */
             .print-table {
               width: 100%;
               border-collapse: collapse;
@@ -195,10 +250,10 @@ const TicketList = () => {
             .print-table th, 
             .print-table td {
               border: 1px solid #000 !important;
-              padding: 14px 10px !important;
+              padding: 12px 8px !important;
               background: white !important;
-              font-size: 14px;
-              height: 55px;
+              font-size: 12px;
+              height: 50px;
               vertical-align: middle;
               text-align: left;
             }
@@ -213,17 +268,14 @@ const TicketList = () => {
               border-bottom: 1px solid #000 !important;
             }
             
-            /* Remove any footer */
             footer {
               display: none !important;
             }
             
-            /* Hide the copyright text */
             .footer, [class*="footer"], [class*="copyright"] {
               display: none !important;
             }
             
-            /* Ensure proper page breaks */
             .print-table {
               page-break-inside: auto;
             }
@@ -233,7 +285,6 @@ const TicketList = () => {
               page-break-after: auto;
             }
             
-            /* Center the header */
             .print-header {
               text-align: center;
               margin-bottom: 20px;
@@ -244,8 +295,8 @@ const TicketList = () => {
         `}
       </style>
 
-      <button 
-        onClick={handleBack} 
+      <button
+        onClick={handleBack}
         className="no-print flex items-center cursor-pointer gap-2 text-gray-700 hover:text-black mb-6"
       >
         <ArrowLeft size={20} /> <span className="font-medium">Back</span>
@@ -264,8 +315,8 @@ const TicketList = () => {
           </button>
 
           {isAdmin && (
-            <button 
-              onClick={() => setShowAddModal(true)} 
+            <button
+              onClick={() => setShowAddModal(true)}
               className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition no-print"
             >
               <Plus size={20} /> Add
@@ -277,11 +328,9 @@ const TicketList = () => {
       {/* PRINTABLE AREA */}
       <div id="print-area">
         {/* PRINT-ONLY HEADER */}
-        <h1 className="print-header print:block hidden">
-          Tickets List
-        </h1>
+        <h1 className="print-header print:block hidden">Tickets List</h1>
 
-        {/* TABLE - Different styling for screen vs print */}
+        {/* TABLE */}
         <div className="bg-white shadow-md rounded-xl overflow-hidden print:shadow-none print:rounded-none">
           <table className="w-full text-left print-table">
             <thead className="bg-gray-100 text-gray-700 print:bg-white">
@@ -292,52 +341,69 @@ const TicketList = () => {
                 <th className="py-3 px-4 text-sm font-semibold">Weight</th>
                 <th className="py-3 px-4 text-sm font-semibold">Agent Name</th>
                 <th className="py-3 px-4 text-sm font-semibold">Agent Cost</th>
-                <th className="py-3 px-4 text-sm font-semibold">Company Cost</th>
+                <th className="py-3 px-4 text-sm font-semibold">
+                  Company Cost
+                </th>
                 <th className="py-3 px-4 text-sm font-semibold">Price</th>
-
-                {isAdmin && <th className="py-3 px-4 text-sm font-semibold no-print">Actions</th>}
+                <th className="py-3 px-4 text-sm font-semibold">Valid From</th>
+                <th className="py-3 px-4 text-sm font-semibold">Valid To</th>
+                {isAdmin && (
+                  <th className="py-3 px-4 text-sm font-semibold no-print">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={isAdmin ? 9 : 8} className="py-4 px-4 text-center text-gray-500">
+                  <td
+                    colSpan={isAdmin ? 11 : 10}
+                    className="py-4 px-4 text-center text-gray-500"
+                  >
                     Loading...
                   </td>
                 </tr>
               ) : tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 9 : 8} className="py-4 px-4 text-center text-gray-500">
+                  <td
+                    colSpan={isAdmin ? 11 : 10}
+                    className="py-4 px-4 text-center text-gray-500"
+                  >
                     No tickets found.
                   </td>
                 </tr>
               ) : (
                 tickets.map((ticket) => (
-                  <tr 
-                    key={ticket._id} 
+                  <tr
+                    key={ticket._id}
                     className="border-b hover:bg-gray-50 transition print:hover:bg-white"
                   >
                     <td className="py-3 px-4">{ticket.airlineName}</td>
                     <td className="py-3 px-4">{ticket.category}</td>
                     <td className="py-3 px-4">{ticket.passenger}</td>
-                    <td className="py-3 px-4">{ticket.weight}</td>
+                    <td className="py-3 px-4">{ticket.weight} KG</td>
                     <td className="py-3 px-4">{ticket.agentName}</td>
                     <td className="py-3 px-4">{ticket.agentCost}</td>
                     <td className="py-3 px-4">{ticket.companyCost}</td>
                     <td className="py-3 px-4">{ticket.price}</td>
+                    <td className="py-3 px-4">
+                      {formatDate(ticket.validFrom)}
+                    </td>
+                    <td className="py-3 px-4">{formatDate(ticket.validTo)}</td>
 
                     {isAdmin && (
                       <td className="py-3 px-4 flex items-center gap-4 no-print">
-                        <button 
-                          className="text-blue-600 hover:text-blue-800 cursor-pointer" 
+                        <button
+                          className="text-blue-600 hover:text-blue-800 cursor-pointer"
                           onClick={() => openEditModal(ticket)}
                         >
                           <Pencil size={20} />
                         </button>
 
-                        <button 
-                          className="text-red-600 hover:text-red-800 cursor-pointer" 
+                        <button
+                          className="text-red-600 hover:text-red-800 cursor-pointer"
                           onClick={() => deleteTicket(ticket._id)}
                         >
                           <Trash2 size={20} />
@@ -355,39 +421,136 @@ const TicketList = () => {
       {/* ADD MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-96 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4">Add Ticket</h2>
 
-            <input type="text" placeholder="Airline Name" value={newTicket.airlineName} onChange={(e) => setNewTicket({ ...newTicket, airlineName: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="text"
+              placeholder="Airline Name *"
+              value={newTicket.airlineName}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, airlineName: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            />
 
-            <select value={newTicket.category} onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })} className="w-full border rounded px-3 py-2 mb-3">
-              <option value="">Select Category</option>
+            <select
+              value={newTicket.category}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, category: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            >
+              <option value="">Select Category *</option>
               <option value="Group Ticket">Group Ticket</option>
               <option value="System Ticket">System Ticket</option>
             </select>
 
-            <select value={newTicket.passenger} onChange={(e) => setNewTicket({ ...newTicket, passenger: e.target.value })} className="w-full border rounded px-3 py-2 mb-3">
-              <option value="">Select Passenger</option>
-              <option value="adult">adult</option>
-              <option value="infant">infant</option>
-              <option value="child">child</option>
+            <select
+              value={newTicket.passenger}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, passenger: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            >
+              <option value="">Select Passenger *</option>
+              <option value="adult">Adult</option>
+              <option value="infant">Infant</option>
+              <option value="child">Child</option>
             </select>
 
-            <input type="number" placeholder="Weight (KG)" value={newTicket.weight} onChange={(e) => setNewTicket({ ...newTicket, weight: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Weight (KG)"
+              value={newTicket.weight}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, weight: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="text" placeholder="Agent Name" value={newTicket.agentName} onChange={(e) => setNewTicket({ ...newTicket, agentName: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Price *"
+              value={newTicket.price}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, price: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            />
 
-            <input type="number" placeholder="Agent Cost" value={newTicket.agentCost} onChange={(e) => setNewTicket({ ...newTicket, agentCost: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="text"
+              placeholder="Agent Name"
+              value={newTicket.agentName}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, agentName: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Company Cost" value={newTicket.companyCost} onChange={(e) => setNewTicket({ ...newTicket, companyCost: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Agent Cost"
+              value={newTicket.agentCost}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, agentCost: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Price" value={newTicket.price} onChange={(e) => setNewTicket({ ...newTicket, price: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Company Cost"
+              value={newTicket.companyCost}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, companyCost: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <textarea placeholder="Notes" value={newTicket.notes} onChange={(e) => setNewTicket({ ...newTicket, notes: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="date"
+              placeholder="Valid From *"
+              value={newTicket.validFrom}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, validFrom: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            />
 
-            <div className="flex justify-between gap-2">
-              <button onClick={saveTicket} className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition">Save</button>
-              <button onClick={() => setShowAddModal(false)} className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition">Cancel</button>
+            <input
+              type="date"
+              placeholder="Valid To *"
+              value={newTicket.validTo}
+              min={newTicket.validFrom}
+              onChange={(e) =>
+                setNewTicket({ ...newTicket, validTo: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            />
+
+            {/* REMOVED: Notes textarea */}
+
+            <div className="flex justify-between gap-2 mt-4">
+              <button
+                onClick={saveTicket}
+                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
@@ -396,39 +559,136 @@ const TicketList = () => {
       {/* EDIT MODAL */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-96 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold mb-4">Edit Ticket</h2>
 
-            <input type="text" placeholder="Airline Name" value={editTicket.airlineName} onChange={(e) => setEditTicket({ ...editTicket, airlineName: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="text"
+              placeholder="Airline Name *"
+              value={editTicket.airlineName}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, airlineName: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            />
 
-            <select value={editTicket.category} onChange={(e) => setEditTicket({ ...editTicket, category: e.target.value })} className="w-full border rounded px-3 py-2 mb-3">
-              <option value="">Select Category</option>
+            <select
+              value={editTicket.category}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, category: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            >
+              <option value="">Select Category *</option>
               <option value="Group Ticket">Group Ticket</option>
               <option value="System Ticket">System Ticket</option>
             </select>
 
-            <select value={editTicket.passenger} onChange={(e) => setEditTicket({ ...editTicket, passenger: e.target.value })} className="w-full border rounded px-3 py-2 mb-3">
-              <option value="">Select Passenger</option>
-              <option value="adult">adult</option>
-              <option value="infant">infant</option>
-              <option value="child">child</option>
+            <select
+              value={editTicket.passenger}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, passenger: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            >
+              <option value="">Select Passenger *</option>
+              <option value="adult">Adult</option>
+              <option value="infant">Infant</option>
+              <option value="child">Child</option>
             </select>
 
-            <input type="number" placeholder="Weight (KG)" value={editTicket.weight} onChange={(e) => setEditTicket({ ...editTicket, weight: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Weight (KG)"
+              value={editTicket.weight}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, weight: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="text" placeholder="Agent Name" value={editTicket.agentName} onChange={(e) => setEditTicket({ ...editTicket, agentName: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Price *"
+              value={editTicket.price}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, price: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            />
 
-            <input type="number" placeholder="Agent Cost" value={editTicket.agentCost} onChange={(e) => setEditTicket({ ...editTicket, agentCost: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="text"
+              placeholder="Agent Name"
+              value={editTicket.agentName}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, agentName: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Company Cost" value={editTicket.companyCost} onChange={(e) => setEditTicket({ ...editTicket, companyCost: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Agent Cost"
+              value={editTicket.agentCost}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, agentCost: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <input type="number" placeholder="Price" value={editTicket.price} onChange={(e) => setEditTicket({ ...editTicket, price: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="number"
+              placeholder="Company Cost"
+              value={editTicket.companyCost}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, companyCost: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+            />
 
-            <textarea placeholder="Notes" value={editTicket.notes} onChange={(e) => setEditTicket({ ...editTicket, notes: e.target.value })} className="w-full border rounded px-3 py-2 mb-3" />
+            <input
+              type="date"
+              placeholder="Valid From *"
+              value={editTicket.validFrom}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, validFrom: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            />
 
-            <div className="flex justify-between gap-2">
-              <button onClick={updateTicket} className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">Update</button>
-              <button onClick={() => setShowEditModal(false)} className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition">Cancel</button>
+            <input
+              type="date"
+              placeholder="Valid To *"
+              value={editTicket.validTo}
+              min={editTicket.validFrom}
+              onChange={(e) =>
+                setEditTicket({ ...editTicket, validTo: e.target.value })
+              }
+              className="w-full border rounded px-3 py-2 mb-3"
+              required
+            />
+
+            {/* REMOVED: Notes textarea */}
+
+            <div className="flex justify-between gap-2 mt-4">
+              <button
+                onClick={updateTicket}
+                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
