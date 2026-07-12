@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Modal from "../../../../Main/Modal";
+import {
+  Field,
+  inputClass,
+  SectionTitle,
+  ModalActions,
+} from "../../../../Main/FormControls";
+import { useAuth } from "../../../../../context/AuthContext";
 
 const HotelList = () => {
   const navigate = useNavigate();
@@ -175,8 +183,7 @@ const HotelList = () => {
   };
 
   // ROLE CHECK
-  const type = localStorage.getItem("type");
-  const isAdmin = type === "admin";
+  const { isAdmin } = useAuth();
 
   // PRINT FUNCTION - Hide navbar during print
   const handlePrint = () => {
@@ -197,6 +204,137 @@ const HotelList = () => {
       });
     }, 100);
   };
+
+  // Shared field set for both Add and Edit modals
+  const renderHotelFields = (data, setData) => (
+    <div className="space-y-5">
+      <div>
+        <SectionTitle icon={<Building2 size={16} className="text-blue-600" />}>
+          Hotel Information
+        </SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Hotel Name" required className="sm:col-span-2">
+            <input
+              type="text"
+              placeholder="e.g. Hilton Makkah"
+              value={data.hotelName}
+              onChange={(e) => setData({ ...data, hotelName: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Category" required>
+            <select
+              value={data.category}
+              onChange={(e) => setData({ ...data, category: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Category</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Room Type" required>
+            <select
+              value={data.roomType}
+              onChange={(e) => setData({ ...data, roomType: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Room Type</option>
+              {roomTypes.map((rt) => (
+                <option key={rt} value={rt}>
+                  {rt}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="City" required>
+            <select
+              value={data.city}
+              onChange={(e) => setData({ ...data, city: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select City</option>
+              <option value="Makkah">Makkah</option>
+              <option value="Madinah">Madinah</option>
+            </select>
+          </Field>
+
+          <Field label="Area">
+            <input
+              type="text"
+              placeholder="e.g. Ajyad"
+              value={data.area}
+              onChange={(e) => setData({ ...data, area: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Distance from Haram (m)" className="sm:col-span-2">
+            <input
+              type="number"
+              placeholder="e.g. 250"
+              value={data.distance}
+              onChange={(e) => setData({ ...data, distance: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+
+      <div>
+        <SectionTitle>Pricing &amp; Agent</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Agent Name" required className="sm:col-span-2">
+            <input
+              type="text"
+              placeholder="Agent name"
+              value={data.agentName}
+              onChange={(e) => setData({ ...data, agentName: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Agent Cost">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.agentCost}
+              onChange={(e) => setData({ ...data, agentCost: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Company Cost">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.companyCost}
+              onChange={(e) =>
+                setData({ ...data, companyCost: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Price (per night)" required className="sm:col-span-2">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.price}
+              onChange={(e) => setData({ ...data, price: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
@@ -424,274 +562,40 @@ const HotelList = () => {
       </div>
 
       {/* ADD HOTEL MODAL */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-            <h2 className="text-2xl font-bold mb-4">Add Hotel</h2>
-
-            <input
-              type="text"
-              placeholder="Hotel Name"
-              value={newHotel.hotelName}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, hotelName: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <select
-              value={newHotel.category}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, category: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Category</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={newHotel.roomType}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, roomType: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Room Type</option>
-              {roomTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Area"
-              value={newHotel.area}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, area: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <select
-              value={newHotel.city}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, city: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select City</option>
-              <option value="Makkah">Makkah</option>
-              <option value="Madinah">Madinah</option>
-            </select>
-
-            <input
-              type="number"
-              placeholder="Distance from Haram (meters)"
-              value={newHotel.distance}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, distance: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
-            />
-
-            <input
-              type="text"
-              placeholder="Agent Name"
-              value={newHotel.agentName}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, agentName: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Agent Cost"
-              value={newHotel.agentCost}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, agentCost: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Company Cost"
-              value={newHotel.companyCost}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, companyCost: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Price"
-              value={newHotel.price}
-              onChange={(e) =>
-                setNewHotel({ ...newHotel, price: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
-            />
-
-            <div className="flex justify-between gap-2">
-              <button
-                onClick={saveHotel}
-                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Hotel"
+        icon={<Building2 size={20} className="text-blue-600" />}
+        footer={
+          <ModalActions
+            onCancel={() => setShowAddModal(false)}
+            onSubmit={saveHotel}
+            submitLabel="Save Hotel"
+            submitColor="green"
+          />
+        }
+      >
+        {renderHotelFields(newHotel, setNewHotel)}
+      </Modal>
 
       {/* EDIT HOTEL MODAL */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-            <h2 className="text-2xl font-bold mb-4">Edit Hotel</h2>
-
-            <input
-              type="text"
-              placeholder="Hotel Name"
-              value={editHotel.hotelName}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, hotelName: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <select
-              value={editHotel.category}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, category: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Category</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={editHotel.roomType}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, roomType: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Room Type</option>
-              {roomTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Area"
-              value={editHotel.area}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, area: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <select
-              value={editHotel.city}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, city: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select City</option>
-              <option value="Makkah">Makkah</option>
-              <option value="Madinah">Madinah</option>
-            </select>
-
-            <input
-              type="number"
-              placeholder="Distance from Haram (meters)"
-              value={editHotel.distance}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, distance: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
-            />
-
-            <input
-              type="text"
-              placeholder="Agent Name"
-              value={editHotel.agentName}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, agentName: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Agent Cost"
-              value={editHotel.agentCost}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, agentCost: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Company Cost"
-              value={editHotel.companyCost}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, companyCost: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Price"
-              value={editHotel.price}
-              onChange={(e) =>
-                setEditHotel({ ...editHotel, price: e.target.value })
-              }
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
-            />
-
-            <div className="flex justify-between gap-2">
-              <button
-                onClick={updateHotel}
-                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-              >
-                Update
-              </button>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Hotel"
+        icon={<Building2 size={20} className="text-blue-600" />}
+        footer={
+          <ModalActions
+            onCancel={() => setShowEditModal(false)}
+            onSubmit={updateHotel}
+            submitLabel="Update Hotel"
+            submitColor="blue"
+          />
+        }
+      >
+        {renderHotelFields(editHotel, setEditHotel)}
+      </Modal>
     </div>
   );
 };

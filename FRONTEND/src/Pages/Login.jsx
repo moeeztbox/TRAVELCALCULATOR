@@ -9,11 +9,13 @@ import {
   Shield,
   ArrowLeft,
 } from "lucide-react";
-import axios from "axios";
+import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 
 function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
   const type = location.state?.type || "user"; // default is user
 
   const [email, setEmail] = useState("");
@@ -39,17 +41,14 @@ function Login() {
     setLoading(true);
 
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", {
-        email,
-        password,
-      });
+      const res = await api.post("/auth/login", { email, password });
 
       if (res.data.success) {
-        // ✅ Save everything from backend
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("token", res.data.token);
-        localStorage.setItem("email", res.data.user.email); // backend email
-        localStorage.setItem("type", res.data.user.type); // backend type (admin/user)
+        // The backend sets an httpOnly session cookie on this response —
+        // the frontend never stores the token itself. Updating context here
+        // makes the navbar show the name immediately after login, without
+        // needing a page refresh.
+        login(res.data.user);
 
         navigate("/dashboard");
       } else {

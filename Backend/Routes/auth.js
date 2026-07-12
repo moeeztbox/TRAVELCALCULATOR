@@ -1,16 +1,17 @@
 // routes/auth.js
 import express from "express";
-import { loginUser } from "../Controllers/authController.js";
-import { verifyToken } from "../middleware/authMiddleware.js"; // imported for future use
+import { loginUser, getMe, logoutUser } from "../Controllers/authController.js";
+import { verifyTokenOptional } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// POST /api/auth/login (public route)
+// POST /api/auth/login (public route, sets httpOnly session cookie)
 router.post("/login", loginUser);
 
-// Example protected route (optional)
-// router.get("/profile", verifyToken, (req, res) => {
-//   res.json({ success: true, user: req.user });
-// });
+// GET /api/auth/me — restore session on page load
+router.get("/me", verifyTokenOptional, getMe);
+
+// POST /api/auth/logout — clears the session cookie
+router.post("/logout", logoutUser);
 
 export default router;

@@ -1,0 +1,659 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  Building2,
+  FileText,
+  Plane,
+  Car,
+  MapPin,
+  Calculator,
+  Printer,
+  Trash2,
+  PackageCheck,
+  Landmark,
+} from "lucide-react";
+import { Field, inputClass } from "../Components/Main/FormControls";
+
+const API = "http://localhost:5000/api";
+
+// Common Ziyarat locations with an indicative charge (SAR) per person.
+const ZIYARAT_LOCATIONS = [
+  { name: "Masjid Quba", charge: 30 },
+  { name: "Masjid Qiblatain", charge: 30 },
+  { name: "Jannat-ul-Baqi", charge: 0 },
+  { name: "Cave of Hira", charge: 50 },
+  { name: "Cave of Thawr", charge: 50 },
+  { name: "Jabal al-Noor", charge: 40 },
+  { name: "Jabal Uhud", charge: 40 },
+  { name: "Masjid al-Jinn", charge: 25 },
+  { name: "Jannat al-Mualla", charge: 0 },
+  { name: "Battle of Uhud Site", charge: 35 },
+];
+
+const money = (n) => `SAR ${Number(n || 0).toLocaleString()}`;
+
+// Normalize a transport record's route (can be a string or legacy object)
+const routeLabel = (t) => {
+  if (typeof t.route === "string") return t.route;
+  if (t.route && (t.route.from || t.route.to))
+    return `${t.route.from || ""}${t.route.from && t.route.to ? " → " : ""}${
+      t.route.to || ""
+    }`;
+  return t.routeString || "";
+};
+
+const CustomizePackage = () => {
+  const navigate = useNavigate();
+
+  // Listings loaded from backend
+  const [hotels, setHotels] = useState([]);
+  const [visas, setVisas] = useState([]);
+  const [flights, setFlights] = useState([]);
+  const [transports, setTransports] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // User selections
+  const [packageName, setPackageName] = useState("");
+  const [totalDays, setTotalDays] = useState("");
+  const [totalNights, setTotalNights] = useState("");
+
+  const [makkahHotelId, setMakkahHotelId] = useState("");
+  const [makkahNights, setMakkahNights] = useState("");
+  const [madinahHotelId, setMadinahHotelId] = useState("");
+  const [madinahNights, setMadinahNights] = useState("");
+
+  const [visaId, setVisaId] = useState("");
+  const [flightId, setFlightId] = useState("");
+  const [transportId, setTransportId] = useState("");
+
+  const [selectedZiyarat, setSelectedZiyarat] = useState([]);
+  const [taxRate, setTaxRate] = useState(0);
+
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [h, v, f, t] = await Promise.all([
+          fetch(`${API}/hotels`).then((r) => r.json()),
+          fetch(`${API}/visas`).then((r) => r.json()),
+          fetch(`${API}/tickets`).then((r) => r.json()),
+          fetch(`${API}/transports`).then((r) => r.json()),
+        ]);
+        if (h.success) setHotels(h.data || []);
+        if (v.success) setVisas(v.data || []);
+        if (f.success) setFlights(f.data || []);
+        if (t.success) setTransports(t.data || []);
+      } catch (err) {
+        console.error("Error loading listings:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const makkahHotels = hotels.filter((h) => h.city === "Makkah");
+  const madinahHotels = hotels.filter((h) => h.city === "Madinah");
+
+  const findById = (arr, id) => arr.find((x) => x._id === id) || null;
+
+  const toggleZiyarat = (name) => {
+    setSelectedZiyarat((prev) =>
+      prev.includes(name) ? prev.filter((z) => z !== name) : [...prev, name]
+    );
+  };
+
+  const calculate = () => {
+    if (!packageName) {
+      alert("Please enter a package name.");
+      return;
+    }
+    if (!makkahHotelId && !madinahHotelId && !visaId && !flightId && !transportId) {
+      alert("Please select at least one service to build your package.");
+      return;
+    }
+
+    const makkahHotel = findById(hotels, makkahHotelId);
+    const madinahHotel = findById(hotels, madinahHotelId);
+    const visa = findById(visas, visaId);
+    const flight = findById(flights, flightId);
+    const transport = findById(transports, transportId);
+
+    const makkahCost = makkahHotel
+      ? Number(makkahHotel.price) * (Number(makkahNights) || 0)
+      : 0;
+    const madinahCost = madinahHotel
+      ? Number(madinahHotel.price) * (Number(madinahNights) || 0)
+      : 0;
+    const hotelCost = makkahCost + madinahCost;
+
+    const visaCost = visa ? Number(visa.price) : 0;
+    const flightCost = flight ? Number(flight.price) : 0;
+    const transportCost = transport ? Number(transport.price) : 0;
+
+    const ziyaratItems = ZIYARAT_LOCATIONS.filter((z) =>
+      selectedZiyarat.includes(z.name)
+    );
+    const ziyaratCost = ziyaratItems.reduce((sum, z) => sum + z.charge, 0);
+
+    const subtotal =
+      hotelCost + visaCost + flightCost + transportCost + ziyaratCost;
+    const tax = subtotal * ((Number(taxRate) || 0) / 100);
+    const grandTotal = subtotal + tax;
+
+    setResult({
+      packageName,
+      totalDays,
+      totalNights,
+      makkahHotel,
+      makkahNights: Number(makkahNights) || 0,
+      makkahCost,
+      madinahHotel,
+      madinahNights: Number(madinahNights) || 0,
+      madinahCost,
+      visa,
+      flight,
+      transport,
+      transportRoute: transport ? routeLabel(transport) : "",
+      ziyaratItems,
+      costs: {
+        hotelCost,
+        visaCost,
+        flightCost,
+        transportCost,
+        ziyaratCost,
+        subtotal,
+        taxRate: Number(taxRate) || 0,
+        tax,
+        grandTotal,
+      },
+    });
+
+    // Scroll to the generated summary
+    setTimeout(() => {
+      document
+        .getElementById("package-summary")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
+  const clearAll = () => {
+    setPackageName("");
+    setTotalDays("");
+    setTotalNights("");
+    setMakkahHotelId("");
+    setMakkahNights("");
+    setMadinahHotelId("");
+    setMadinahNights("");
+    setVisaId("");
+    setFlightId("");
+    setTransportId("");
+    setSelectedZiyarat([]);
+    setTaxRate(0);
+    setResult(null);
+  };
+
+  const handlePrint = () => {
+    const navElements = document.querySelectorAll(
+      'nav, header, [role="navigation"]'
+    );
+    navElements.forEach((el) => (el.style.display = "none"));
+    window.print();
+    setTimeout(() => {
+      navElements.forEach((el) => (el.style.display = ""));
+    }, 100);
+  };
+
+  return (
+    <div className="p-4 w-full">
+      {/* PRINT CSS */}
+      <style>
+        {`
+          @media print {
+            .no-print { display: none !important; }
+            nav, header, footer, [role="navigation"] { display: none !important; }
+            body { -webkit-print-color-adjust: exact; background: white !important; }
+            * { box-shadow: none !important; }
+            #package-summary { border: 1px solid #000 !important; }
+          }
+        `}
+      </style>
+
+      <div className="max-w-6xl mx-auto">
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-8 no-print">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-white transition"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Customize Package
+              </h1>
+              <p className="text-gray-500 text-sm">
+                Build your own package from available listings
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="bg-white rounded-xl p-8 border border-gray-200 text-center text-gray-500 no-print">
+            Loading listings...
+          </div>
+        ) : (
+          <div className="space-y-6 no-print">
+            {/* PACKAGE BASICS */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
+                <PackageCheck size={20} className="text-red-600" />
+                Package Details
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Field label="Package Name" required>
+                  <input
+                    type="text"
+                    placeholder="My Custom Umrah Package"
+                    value={packageName}
+                    onChange={(e) => setPackageName(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Total Days">
+                  <input
+                    type="number"
+                    placeholder="e.g. 14"
+                    value={totalDays}
+                    onChange={(e) => setTotalDays(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Total Nights">
+                  <input
+                    type="number"
+                    placeholder="e.g. 13"
+                    value={totalNights}
+                    onChange={(e) => setTotalNights(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            </div>
+
+            {/* HOTELS */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
+                <Building2 size={20} className="text-blue-600" />
+                Hotels
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Makkah */}
+                <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
+                    Makkah Hotel
+                  </p>
+                  <div className="space-y-3">
+                    <select
+                      value={makkahHotelId}
+                      onChange={(e) => setMakkahHotelId(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Select Makkah hotel</option>
+                      {makkahHotels.map((h) => (
+                        <option key={h._id} value={h._id}>
+                          {h.hotelName} · {h.roomType} · {money(h.price)}/night
+                        </option>
+                      ))}
+                    </select>
+                    <Field label="Nights in Makkah">
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={makkahNights}
+                        onChange={(e) => setMakkahNights(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                {/* Madinah */}
+                <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
+                    Madinah Hotel
+                  </p>
+                  <div className="space-y-3">
+                    <select
+                      value={madinahHotelId}
+                      onChange={(e) => setMadinahHotelId(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Select Madinah hotel</option>
+                      {madinahHotels.map((h) => (
+                        <option key={h._id} value={h._id}>
+                          {h.hotelName} · {h.roomType} · {money(h.price)}/night
+                        </option>
+                      ))}
+                    </select>
+                    <Field label="Nights in Madinah">
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={madinahNights}
+                        onChange={(e) => setMadinahNights(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* VISA / FLIGHT / TRANSPORT */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                  <FileText size={18} className="text-blue-600" />
+                  Visa
+                </h2>
+                <select
+                  value={visaId}
+                  onChange={(e) => setVisaId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Select visa</option>
+                  {visas.map((v) => (
+                    <option key={v._id} value={v._id}>
+                      {v.category} · {v.passenger} · {money(v.price)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                  <Plane size={18} className="text-blue-600" />
+                  Flight
+                </h2>
+                <select
+                  value={flightId}
+                  onChange={(e) => setFlightId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Select flight</option>
+                  {flights.map((f) => (
+                    <option key={f._id} value={f._id}>
+                      {f.airlineName} · {f.category} · {money(f.price)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 border border-gray-200">
+                <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                  <Car size={18} className="text-blue-600" />
+                  Transport
+                </h2>
+                <select
+                  value={transportId}
+                  onChange={(e) => setTransportId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Select transport</option>
+                  {transports.map((t) => (
+                    <option key={t._id} value={t._id}>
+                      {t.carType} · {routeLabel(t)} · {money(t.price)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* ZIYARAT */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
+                <Landmark size={20} className="text-blue-600" />
+                Ziyarat Locations
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {ZIYARAT_LOCATIONS.map((z) => {
+                  const checked = selectedZiyarat.includes(z.name);
+                  return (
+                    <label
+                      key={z.name}
+                      className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 cursor-pointer transition ${
+                        checked
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 text-sm text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleZiyarat(z.name)}
+                          className="w-4 h-4 accent-blue-600"
+                        />
+                        {z.name}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {z.charge ? money(z.charge) : "Free"}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* TAX + ACTIONS */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                <Field label="Tax (%)">
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <div className="sm:col-span-3 flex gap-3">
+                  <button
+                    onClick={calculate}
+                    className="flex-1 bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Calculator size={18} />
+                    Calculate Cost
+                  </button>
+                  <button
+                    onClick={clearAll}
+                    className="bg-gray-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-600 transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Trash2 size={18} />
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* GENERATED PACKAGE SUMMARY */}
+        {result && (
+          <div
+            id="package-summary"
+            className="bg-white rounded-2xl border border-gray-200 shadow-sm mt-8 overflow-hidden animate-fade-in-up"
+          >
+            {/* Summary header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-linear-to-r from-blue-50 to-white">
+              <div>
+                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                  Custom Package
+                </p>
+                <h2 className="text-2xl font-extrabold text-gray-900">
+                  {result.packageName}
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {result.totalDays || "—"} Days · {result.totalNights || "—"}{" "}
+                  Nights
+                </p>
+              </div>
+              <button
+                onClick={handlePrint}
+                className="no-print flex items-center gap-2 bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition cursor-pointer"
+              >
+                <Printer size={18} />
+                Print
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6">
+              {/* LEFT: selections */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                    <Building2 size={16} className="text-blue-600" /> Hotels
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <SummaryRow
+                      label="Makkah"
+                      value={
+                        result.makkahHotel
+                          ? `${result.makkahHotel.hotelName} (${result.makkahNights} nights)`
+                          : "Not selected"
+                      }
+                    />
+                    <SummaryRow
+                      label="Madinah"
+                      value={
+                        result.madinahHotel
+                          ? `${result.madinahHotel.hotelName} (${result.madinahNights} nights)`
+                          : "Not selected"
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                    <FileText size={16} className="text-blue-600" /> Services
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <SummaryRow
+                      label="Visa"
+                      value={
+                        result.visa
+                          ? `${result.visa.category} (${result.visa.passenger})`
+                          : "Not selected"
+                      }
+                    />
+                    <SummaryRow
+                      label="Flight"
+                      value={
+                        result.flight
+                          ? `${result.flight.airlineName} · ${result.flight.category}`
+                          : "Not selected"
+                      }
+                    />
+                    <SummaryRow
+                      label="Transport"
+                      value={
+                        result.transport
+                          ? `${result.transport.carType} · ${result.transportRoute}`
+                          : "Not selected"
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+                    <MapPin size={16} className="text-blue-600" /> Ziyarat
+                  </h3>
+                  {result.ziyaratItems.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {result.ziyaratItems.map((z) => (
+                        <span
+                          key={z.name}
+                          className="text-xs bg-blue-50 text-blue-700 rounded-full px-3 py-1 border border-blue-100"
+                        >
+                          {z.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400">
+                      No ziyarat locations selected
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT: cost breakdown */}
+              <div>
+                <h3 className="text-sm font-bold text-gray-700 mb-3">
+                  Cost Breakdown
+                </h3>
+                <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
+                  <CostRow label="Hotel" value={result.costs.hotelCost} />
+                  <CostRow label="Visa" value={result.costs.visaCost} />
+                  <CostRow label="Flight" value={result.costs.flightCost} />
+                  <CostRow
+                    label="Transport"
+                    value={result.costs.transportCost}
+                  />
+                  <CostRow label="Ziyarat" value={result.costs.ziyaratCost} />
+                  <CostRow
+                    label="Subtotal"
+                    value={result.costs.subtotal}
+                    bold
+                  />
+                  <CostRow
+                    label={`Tax (${result.costs.taxRate}%)`}
+                    value={result.costs.tax}
+                  />
+                  <div className="flex justify-between items-center px-4 py-4 bg-blue-600 text-white rounded-b-xl">
+                    <span className="font-semibold">Grand Total</span>
+                    <span className="text-xl font-extrabold">
+                      {money(result.costs.grandTotal)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const SummaryRow = ({ label, value }) => (
+  <div className="flex justify-between items-center gap-4 border-b border-gray-100 pb-2">
+    <span className="text-gray-500">{label}</span>
+    <span className="font-medium text-gray-900 text-right">{value}</span>
+  </div>
+);
+
+const CostRow = ({ label, value, bold = false }) => (
+  <div
+    className={`flex justify-between items-center px-4 py-3 ${
+      bold ? "bg-gray-50" : ""
+    }`}
+  >
+    <span className={bold ? "font-semibold text-gray-800" : "text-gray-600"}>
+      {label}
+    </span>
+    <span className={bold ? "font-bold text-gray-900" : "font-medium"}>
+      {money(value)}
+    </span>
+  </div>
+);
+
+export default CustomizePackage;

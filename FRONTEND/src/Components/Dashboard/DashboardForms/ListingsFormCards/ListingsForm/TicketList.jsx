@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Plane } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Modal from "../../../../Main/Modal";
+import {
+  Field,
+  inputClass,
+  SectionTitle,
+  ModalActions,
+} from "../../../../Main/FormControls";
+import { useAuth } from "../../../../../context/AuthContext";
 
 const TicketList = () => {
   const navigate = useNavigate();
@@ -175,8 +183,7 @@ const TicketList = () => {
 
   const handleBack = () => navigate("/dashboard/listings");
 
-  const type = localStorage.getItem("type");
-  const isAdmin = type === "admin";
+  const { isAdmin } = useAuth();
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -206,6 +213,136 @@ const TicketList = () => {
       });
     }, 100);
   };
+
+  // Shared field set for both Add and Edit modals
+  const renderTicketFields = (data, setData) => (
+    <div className="space-y-5">
+      <div>
+        <SectionTitle icon={<Plane size={16} className="text-blue-600" />}>
+          Flight Information
+        </SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Airline Name" required className="sm:col-span-2">
+            <input
+              type="text"
+              placeholder="e.g. Saudia"
+              value={data.airlineName}
+              onChange={(e) =>
+                setData({ ...data, airlineName: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Category" required>
+            <select
+              value={data.category}
+              onChange={(e) => setData({ ...data, category: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Category</option>
+              <option value="Group Ticket">Group Ticket</option>
+              <option value="System Ticket">System Ticket</option>
+            </select>
+          </Field>
+
+          <Field label="Passenger" required>
+            <select
+              value={data.passenger}
+              onChange={(e) => setData({ ...data, passenger: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Passenger</option>
+              <option value="adult">Adult</option>
+              <option value="infant">Infant</option>
+              <option value="child">Child</option>
+            </select>
+          </Field>
+
+          <Field label="Weight (KG)">
+            <input
+              type="number"
+              placeholder="e.g. 30"
+              value={data.weight}
+              onChange={(e) => setData({ ...data, weight: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Price" required>
+            <input
+              type="number"
+              placeholder="0"
+              value={data.price}
+              onChange={(e) => setData({ ...data, price: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+
+      <div>
+        <SectionTitle>Validity Period</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Valid From" required>
+            <input
+              type="date"
+              value={data.validFrom}
+              onChange={(e) => setData({ ...data, validFrom: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Valid To" required>
+            <input
+              type="date"
+              min={data.validFrom}
+              value={data.validTo}
+              onChange={(e) => setData({ ...data, validTo: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+
+      <div>
+        <SectionTitle>Pricing &amp; Agent</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Agent Name" className="sm:col-span-2">
+            <input
+              type="text"
+              placeholder="Agent name"
+              value={data.agentName}
+              onChange={(e) => setData({ ...data, agentName: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Agent Cost">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.agentCost}
+              onChange={(e) => setData({ ...data, agentCost: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Company Cost">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.companyCost}
+              onChange={(e) =>
+                setData({ ...data, companyCost: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
@@ -419,280 +556,40 @@ const TicketList = () => {
       </div>
 
       {/* ADD MODAL */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-4">Add Ticket</h2>
-
-            <input
-              type="text"
-              placeholder="Airline Name *"
-              value={newTicket.airlineName}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, airlineName: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <select
-              value={newTicket.category}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, category: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            >
-              <option value="">Select Category *</option>
-              <option value="Group Ticket">Group Ticket</option>
-              <option value="System Ticket">System Ticket</option>
-            </select>
-
-            <select
-              value={newTicket.passenger}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, passenger: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            >
-              <option value="">Select Passenger *</option>
-              <option value="adult">Adult</option>
-              <option value="infant">Infant</option>
-              <option value="child">Child</option>
-            </select>
-
-            <input
-              type="number"
-              placeholder="Weight (KG)"
-              value={newTicket.weight}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, weight: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Price *"
-              value={newTicket.price}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, price: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="text"
-              placeholder="Agent Name"
-              value={newTicket.agentName}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, agentName: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Agent Cost"
-              value={newTicket.agentCost}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, agentCost: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Company Cost"
-              value={newTicket.companyCost}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, companyCost: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="date"
-              placeholder="Valid From *"
-              value={newTicket.validFrom}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, validFrom: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="date"
-              placeholder="Valid To *"
-              value={newTicket.validTo}
-              min={newTicket.validFrom}
-              onChange={(e) =>
-                setNewTicket({ ...newTicket, validTo: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            {/* REMOVED: Notes textarea */}
-
-            <div className="flex justify-between gap-2 mt-4">
-              <button
-                onClick={saveTicket}
-                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Ticket"
+        icon={<Plane size={20} className="text-blue-600" />}
+        footer={
+          <ModalActions
+            onCancel={() => setShowAddModal(false)}
+            onSubmit={saveTicket}
+            submitLabel="Save Ticket"
+            submitColor="green"
+          />
+        }
+      >
+        {renderTicketFields(newTicket, setNewTicket)}
+      </Modal>
 
       {/* EDIT MODAL */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-4">Edit Ticket</h2>
-
-            <input
-              type="text"
-              placeholder="Airline Name *"
-              value={editTicket.airlineName}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, airlineName: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <select
-              value={editTicket.category}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, category: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            >
-              <option value="">Select Category *</option>
-              <option value="Group Ticket">Group Ticket</option>
-              <option value="System Ticket">System Ticket</option>
-            </select>
-
-            <select
-              value={editTicket.passenger}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, passenger: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            >
-              <option value="">Select Passenger *</option>
-              <option value="adult">Adult</option>
-              <option value="infant">Infant</option>
-              <option value="child">Child</option>
-            </select>
-
-            <input
-              type="number"
-              placeholder="Weight (KG)"
-              value={editTicket.weight}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, weight: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Price *"
-              value={editTicket.price}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, price: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="text"
-              placeholder="Agent Name"
-              value={editTicket.agentName}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, agentName: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Agent Cost"
-              value={editTicket.agentCost}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, agentCost: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Company Cost"
-              value={editTicket.companyCost}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, companyCost: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="date"
-              placeholder="Valid From *"
-              value={editTicket.validFrom}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, validFrom: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="date"
-              placeholder="Valid To *"
-              value={editTicket.validTo}
-              min={editTicket.validFrom}
-              onChange={(e) =>
-                setEditTicket({ ...editTicket, validTo: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            {/* REMOVED: Notes textarea */}
-
-            <div className="flex justify-between gap-2 mt-4">
-              <button
-                onClick={updateTicket}
-                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-              >
-                Update
-              </button>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Ticket"
+        icon={<Plane size={20} className="text-blue-600" />}
+        footer={
+          <ModalActions
+            onCancel={() => setShowEditModal(false)}
+            onSubmit={updateTicket}
+            submitLabel="Update Ticket"
+            submitColor="blue"
+          />
+        }
+      >
+        {renderTicketFields(editTicket, setEditTicket)}
+      </Modal>
     </div>
   );
 };

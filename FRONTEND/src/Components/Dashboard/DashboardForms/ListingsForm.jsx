@@ -6,6 +6,7 @@ import HotelListCard from "./ListingsFormCards/HotelListCard";
 import TransportListCard from "./ListingsFormCards/TransportListCard";
 import VisaListCard from "./ListingsFormCards/VisaListCard";
 import TicketListCard from "./ListingsFormCards/TicketListCard";
+import PackageListCard from "./ListingsFormCards/PackageListCard";
 
 const ListingsForm = () => {
   const navigate = useNavigate();
@@ -45,6 +46,7 @@ const ListingsForm = () => {
         <TransportListCard />
         <VisaListCard />
         <TicketListCard />
+        <PackageListCard />
       </div>
     </div>
   );

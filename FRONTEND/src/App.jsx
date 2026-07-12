@@ -9,13 +9,14 @@ import Footer from "./Components/Main/Footer";
 import Home from "./Pages/Home";
 import Login from "./Pages/Login";
 import Dashboard from "./Pages/Dashboard";
+import CustomizePackage from "./Pages/CustomizePackage";
+import PackagesView from "./Pages/PackagesView";
 
 // Forms for each dashboard section
 import HotelForm from "./Components/Dashboard/DashboardForms/HotelForm";
 import VisaForm from "./Components/Dashboard/DashboardForms/VisaForm";
 import TicketForm from "./Components/Dashboard/DashboardForms/TicketForm";
 import TransportForm from "./Components/Dashboard/DashboardForms/TransportForm";
-import PackageForm from "./Components/Dashboard/DashboardForms/PackageForm";
 import ListingsForm from "./Components/Dashboard/DashboardForms/ListingsForm";
 
 // Listing Pages
@@ -23,17 +24,20 @@ import HotelList from "./Components/Dashboard/DashboardForms/ListingsFormCards/L
 import TransportList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/TransportList";
 import VisaList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/VisaList";
 import TicketList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/TicketList";
+import PackageList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/PackageList";
 
 import PrivateRoute from "./Routes/PrivateRoute";
 import PublicRoute from "./Routes/PublicRoute";
+import { useAuth } from "./context/AuthContext";
 
 const App = () => {
-  const isAuthenticated = !!localStorage.getItem("token");
+  const { isAuthenticated, loading } = useAuth();
 
   return (
     <Router>
       <div className="flex flex-col min-h-screen bg-gray-50">
-        {isAuthenticated && <Navbar />}
+        {/* Navbar is always visible; it shows Logout only when logged in */}
+        <Navbar />
 
         <main className="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8">
           <Routes>
@@ -105,11 +109,24 @@ const App = () => {
                 </PrivateRoute>
               }
             />
+
+            {/* Customize Package builder */}
+            <Route
+              path="/dashboard/customize-package"
+              element={
+                <PrivateRoute>
+                  <CustomizePackage />
+                </PrivateRoute>
+              }
+            />
+
+            {/* User-facing Packages browsing page (reads the same data the
+                admin manages under Listings → Packages, separate UI) */}
             <Route
               path="/dashboard/packages"
               element={
                 <PrivateRoute>
-                  <PackageForm />
+                  <PackagesView />
                 </PrivateRoute>
               }
             />
@@ -151,11 +168,20 @@ const App = () => {
               }
             />
 
+            <Route
+              path="/dashboard/listings/packages"
+              element={
+                <PrivateRoute>
+                  <PackageList />
+                </PrivateRoute>
+              }
+            />
+
             {/* Catch-all */}
             <Route
               path="*"
               element={
-                isAuthenticated ? (
+                loading ? null : isAuthenticated ? (
                   <Navigate to="/dashboard" replace />
                 ) : (
                   <Navigate to="/" replace />
@@ -165,7 +191,8 @@ const App = () => {
           </Routes>
         </main>
 
-        {isAuthenticated && <Footer />}
+        {/* Footer/copyright is always visible */}
+        <Footer />
       </div>
     </Router>
   );

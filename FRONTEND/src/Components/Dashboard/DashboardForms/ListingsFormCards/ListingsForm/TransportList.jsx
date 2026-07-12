@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Car } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Modal from "../../../../Main/Modal";
+import {
+  Field,
+  inputClass,
+  SectionTitle,
+  ModalActions,
+} from "../../../../Main/FormControls";
+import { useAuth } from "../../../../../context/AuthContext";
 
 const TransportList = () => {
   const navigate = useNavigate();
@@ -239,8 +247,7 @@ const TransportList = () => {
 
   const handleBack = () => navigate("/dashboard/listings");
 
-  const type = localStorage.getItem("type");
-  const isAdmin = type === "admin";
+  const { isAdmin } = useAuth();
 
   // PRINT FUNCTION - Hide navbar during print
   const handlePrint = () => {
@@ -263,6 +270,123 @@ const TransportList = () => {
   // Helper to get route options based on trip type
   const getRouteOptions = (tripType) =>
     tripType === "roundtrip" ? roundTripRoutes : oneWayRoutes;
+
+  // Shared field set for both Add and Edit modals
+  const renderTransportFields = (data, setData) => (
+    <div className="space-y-5">
+      <div>
+        <SectionTitle icon={<Car size={16} className="text-blue-600" />}>
+          Vehicle &amp; Route
+        </SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Car Type" required>
+            <select
+              value={data.carType}
+              onChange={(e) => setData({ ...data, carType: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Car Type</option>
+              {carTypes.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Capacity" required>
+            <select
+              value={data.capacity}
+              onChange={(e) => setData({ ...data, capacity: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Capacity</option>
+              {capacities.map((cap) => (
+                <option key={cap} value={cap}>
+                  {cap}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Trip Type" required>
+            <select
+              value={data.tripType}
+              onChange={(e) =>
+                setData({ ...data, tripType: e.target.value, route: "" })
+              }
+              className={inputClass}
+            >
+              <option value="oneway">One Way</option>
+              <option value="roundtrip">Round Trip</option>
+            </select>
+          </Field>
+
+          <Field label="Route" required>
+            <select
+              value={data.route}
+              onChange={(e) => setData({ ...data, route: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Route</option>
+              {getRouteOptions(data.tripType).map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      </div>
+
+      <div>
+        <SectionTitle>Pricing &amp; Agent</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Agent Name" className="sm:col-span-2">
+            <input
+              type="text"
+              placeholder="Agent name"
+              value={data.agentName}
+              onChange={(e) => setData({ ...data, agentName: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Agent Cost">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.agentCost}
+              onChange={(e) => setData({ ...data, agentCost: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Company Cost">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.companyCost}
+              onChange={(e) =>
+                setData({ ...data, companyCost: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Price" required className="sm:col-span-2">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.price}
+              onChange={(e) => setData({ ...data, price: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
@@ -460,268 +584,40 @@ const TransportList = () => {
       </div>
 
       {/* ADD MODAL */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-            <h2 className="text-2xl font-bold mb-4">Add Transport</h2>
-
-            <select
-              value={newTransport.carType}
-              onChange={(e) =>
-                setNewTransport({ ...newTransport, carType: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Car Type</option>
-              {carTypes.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={newTransport.capacity}
-              onChange={(e) =>
-                setNewTransport({ ...newTransport, capacity: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Capacity</option>
-              {capacities.map((cap) => (
-                <option key={cap} value={cap}>
-                  {cap}
-                </option>
-              ))}
-            </select>
-
-            {/* Trip Type */}
-            <select
-              value={newTransport.tripType}
-              onChange={(e) =>
-                setNewTransport({
-                  ...newTransport,
-                  tripType: e.target.value,
-                  route: "",
-                })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="oneway">One Way</option>
-              <option value="roundtrip">Round Trip</option>
-            </select>
-
-            {/* Route - options depend on trip type */}
-            <select
-              value={newTransport.route}
-              onChange={(e) =>
-                setNewTransport({ ...newTransport, route: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Route</option>
-              {getRouteOptions(newTransport.tripType).map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-
-            <input
-              type="text"
-              placeholder="Agent Name"
-              className="w-full border rounded px-3 py-2 mb-3"
-              value={newTransport.agentName}
-              onChange={(e) =>
-                setNewTransport({ ...newTransport, agentName: e.target.value })
-              }
-            />
-
-            <input
-              type="number"
-              placeholder="Agent Cost"
-              className="w-full border rounded px-3 py-2 mb-3"
-              value={newTransport.agentCost}
-              onChange={(e) =>
-                setNewTransport({ ...newTransport, agentCost: e.target.value })
-              }
-            />
-
-            <input
-              type="number"
-              placeholder="Company Cost"
-              className="w-full border rounded px-3 py-2 mb-3"
-              value={newTransport.companyCost}
-              onChange={(e) =>
-                setNewTransport({
-                  ...newTransport,
-                  companyCost: e.target.value,
-                })
-              }
-            />
-
-            <input
-              type="number"
-              placeholder="Price"
-              className="w-full border rounded px-3 py-2 mb-4"
-              value={newTransport.price}
-              onChange={(e) =>
-                setNewTransport({ ...newTransport, price: e.target.value })
-              }
-            />
-
-            <div className="flex gap-2">
-              <button
-                onClick={saveTransport}
-                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Transport"
+        icon={<Car size={20} className="text-blue-600" />}
+        footer={
+          <ModalActions
+            onCancel={() => setShowAddModal(false)}
+            onSubmit={saveTransport}
+            submitLabel="Save Transport"
+            submitColor="green"
+          />
+        }
+      >
+        {renderTransportFields(newTransport, setNewTransport)}
+      </Modal>
 
       {/* EDIT MODAL */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-            <h2 className="text-2xl font-bold mb-4">Edit Transport</h2>
-
-            <select
-              value={editTransport.carType}
-              onChange={(e) =>
-                setEditTransport({ ...editTransport, carType: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Car Type</option>
-              {carTypes.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={editTransport.capacity}
-              onChange={(e) =>
-                setEditTransport({ ...editTransport, capacity: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Capacity</option>
-              {capacities.map((cap) => (
-                <option key={cap} value={cap}>
-                  {cap}
-                </option>
-              ))}
-            </select>
-
-            {/* Trip Type */}
-            <select
-              value={editTransport.tripType}
-              onChange={(e) =>
-                setEditTransport({
-                  ...editTransport,
-                  tripType: e.target.value,
-                  route: "",
-                })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="oneway">One Way</option>
-              <option value="roundtrip">Round Trip</option>
-            </select>
-
-            {/* Route - options depend on trip type */}
-            <select
-              value={editTransport.route}
-              onChange={(e) =>
-                setEditTransport({ ...editTransport, route: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Route</option>
-              {getRouteOptions(editTransport.tripType).map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-
-            <input
-              type="text"
-              placeholder="Agent Name"
-              value={editTransport.agentName}
-              onChange={(e) =>
-                setEditTransport({
-                  ...editTransport,
-                  agentName: e.target.value,
-                })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Agent Cost"
-              value={editTransport.agentCost}
-              onChange={(e) =>
-                setEditTransport({
-                  ...editTransport,
-                  agentCost: e.target.value,
-                })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Company Cost"
-              value={editTransport.companyCost}
-              onChange={(e) =>
-                setEditTransport({
-                  ...editTransport,
-                  companyCost: e.target.value,
-                })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            />
-
-            <input
-              type="number"
-              placeholder="Price"
-              value={editTransport.price}
-              onChange={(e) =>
-                setEditTransport({ ...editTransport, price: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-4"
-            />
-
-            <div className="flex gap-2">
-              <button
-                onClick={updateTransport}
-                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-              >
-                Update
-              </button>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Transport"
+        icon={<Car size={20} className="text-blue-600" />}
+        footer={
+          <ModalActions
+            onCancel={() => setShowEditModal(false)}
+            onSubmit={updateTransport}
+            submitLabel="Update Transport"
+            submitColor="blue"
+          />
+        }
+      >
+        {renderTransportFields(editTransport, setEditTransport)}
+      </Modal>
     </div>
   );
 };

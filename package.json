@@ -1,0 +1,49 @@
+{
+  "name": "alburaqglobal-travel-calculator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AlBuraqGlobal Travel & Tours - desktop app",
+  "main": "electron/main.js",
+  "scripts": {
+    "electron:dev": "concurrently -k -n BACKEND,FRONTEND,ELECTRON -c blue,green,magenta \"npm run dev --prefix Backend\" \"npm run dev --prefix Frontend\" \"wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 node scripts/launch-electron.js\"",
+    "electron:build": "npm run build --prefix Frontend && electron-builder"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.alburaqglobal.travelcalculator",
+    "productName": "AlBuraqGlobal Travel Calculator",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "Backend",
+        "to": "Backend",
+        "filter": ["**/*", "!.env.example"]
+      },
+      {
+        "from": "Frontend/dist",
+        "to": "Frontend/dist"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

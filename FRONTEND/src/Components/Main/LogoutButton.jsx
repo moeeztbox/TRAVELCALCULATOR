@@ -1,14 +1,16 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const LogoutButton = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
-  const handleLogout = () => {
-    // Clear auth token or any user info
-    localStorage.removeItem("token"); // or whatever key you use
-    console.log("User logged out");
+  const handleLogout = async () => {
+    // Clears the httpOnly session cookie on the backend, then resets
+    // client-side auth state.
+    await logout();
 
     // Redirect to home page
     navigate("/", { replace: true });

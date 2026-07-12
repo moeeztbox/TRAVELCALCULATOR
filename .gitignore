@@ -1,0 +1,4 @@
+# Root Electron shell
+node_modules/
+release/
+*.log

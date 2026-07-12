@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Modal from "../../../../Main/Modal";
+import {
+  Field,
+  inputClass,
+  SectionTitle,
+  ModalActions,
+} from "../../../../Main/FormControls";
+import { useAuth } from "../../../../../context/AuthContext";
 
 const VisaList = () => {
   const navigate = useNavigate();
@@ -159,8 +167,7 @@ const VisaList = () => {
 
   const handleBack = () => navigate("/dashboard/listings");
 
-  const type = localStorage.getItem("type");
-  const isAdmin = type === "admin";
+  const { isAdmin } = useAuth();
 
   // PRINT FUNCTION - Hide navbar during print
   const handlePrint = () => {
@@ -181,6 +188,89 @@ const VisaList = () => {
       });
     }, 100);
   };
+
+  // Shared field set for both Add and Edit modals
+  const renderVisaFields = (data, setData) => (
+    <div className="space-y-5">
+      <div>
+        <SectionTitle icon={<FileText size={16} className="text-blue-600" />}>
+          Visa Information
+        </SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Category" required>
+            <select
+              value={data.category}
+              onChange={(e) => setData({ ...data, category: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Category</option>
+              <option value="with massar">with massar</option>
+              <option value="without massar">without massar</option>
+            </select>
+          </Field>
+
+          <Field label="Passenger" required>
+            <select
+              value={data.passenger}
+              onChange={(e) => setData({ ...data, passenger: e.target.value })}
+              className={inputClass}
+            >
+              <option value="">Select Passenger</option>
+              <option value="adult">adult</option>
+              <option value="infant">infant</option>
+            </select>
+          </Field>
+
+          <Field label="Agent Name" required className="sm:col-span-2">
+            <input
+              type="text"
+              placeholder="Agent name"
+              value={data.agentName}
+              onChange={(e) => setData({ ...data, agentName: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+
+      <div>
+        <SectionTitle>Pricing</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Agent Cost" required>
+            <input
+              type="number"
+              placeholder="0"
+              value={data.agentCost}
+              onChange={(e) => setData({ ...data, agentCost: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Company Cost" required>
+            <input
+              type="number"
+              placeholder="0"
+              value={data.companyCost}
+              onChange={(e) =>
+                setData({ ...data, companyCost: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Price" required className="sm:col-span-2">
+            <input
+              type="number"
+              placeholder="0"
+              value={data.price}
+              onChange={(e) => setData({ ...data, price: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="px-4 sm:px-8 py-6 w-full">
@@ -387,192 +477,42 @@ const VisaList = () => {
       </div>
 
       {/* ADD MODAL */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-            <h2 className="text-2xl font-bold mb-4">Add Visa</h2>
-
-            <select
-              value={newVisa.category}
-              onChange={(e) =>
-                setNewVisa({ ...newVisa, category: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Category</option>
-              <option value="with massar">with massar</option>
-              <option value="without massar">without massar</option>
-            </select>
-
-            <select
-              value={newVisa.passenger}
-              onChange={(e) =>
-                setNewVisa({ ...newVisa, passenger: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Passenger</option>
-              <option value="adult">adult</option>
-              <option value="infant">infant</option>
-            </select>
-
-            <input
-              type="text"
-              placeholder="Agent Name *"
-              value={newVisa.agentName}
-              onChange={(e) =>
-                setNewVisa({ ...newVisa, agentName: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Agent Cost *"
-              value={newVisa.agentCost}
-              onChange={(e) =>
-                setNewVisa({ ...newVisa, agentCost: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Company Cost *"
-              value={newVisa.companyCost}
-              onChange={(e) =>
-                setNewVisa({ ...newVisa, companyCost: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Price *"
-              value={newVisa.price}
-              onChange={(e) =>
-                setNewVisa({ ...newVisa, price: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            {/* REMOVED: Textarea for notes */}
-
-            <div className="flex justify-between gap-2">
-              <button
-                onClick={saveVisa}
-                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add Visa"
+        icon={<FileText size={20} className="text-blue-600" />}
+        maxWidth="max-w-xl"
+        footer={
+          <ModalActions
+            onCancel={() => setShowAddModal(false)}
+            onSubmit={saveVisa}
+            submitLabel="Save Visa"
+            submitColor="green"
+          />
+        }
+      >
+        {renderVisaFields(newVisa, setNewVisa)}
+      </Modal>
 
       {/* EDIT MODAL */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 no-print">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-            <h2 className="text-2xl font-bold mb-4">Edit Visa</h2>
-
-            <select
-              value={editVisa.category}
-              onChange={(e) =>
-                setEditVisa({ ...editVisa, category: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Category</option>
-              <option value="with massar">with massar</option>
-              <option value="without massar">without massar</option>
-            </select>
-
-            <select
-              value={editVisa.passenger}
-              onChange={(e) =>
-                setEditVisa({ ...editVisa, passenger: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-            >
-              <option value="">Select Passenger</option>
-              <option value="adult">adult</option>
-              <option value="infant">infant</option>
-            </select>
-
-            <input
-              type="text"
-              placeholder="Agent Name *"
-              value={editVisa.agentName}
-              onChange={(e) =>
-                setEditVisa({ ...editVisa, agentName: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Agent Cost *"
-              value={editVisa.agentCost}
-              onChange={(e) =>
-                setEditVisa({ ...editVisa, agentCost: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Company Cost *"
-              value={editVisa.companyCost}
-              onChange={(e) =>
-                setEditVisa({ ...editVisa, companyCost: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Price *"
-              value={editVisa.price}
-              onChange={(e) =>
-                setEditVisa({ ...editVisa, price: e.target.value })
-              }
-              className="w-full border rounded px-3 py-2 mb-3"
-              required
-            />
-
-            {/* REMOVED: Textarea for notes */}
-
-            <div className="flex justify-between gap-2">
-              <button
-                onClick={updateVisa}
-                className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-              >
-                Update
-              </button>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Visa"
+        icon={<FileText size={20} className="text-blue-600" />}
+        maxWidth="max-w-xl"
+        footer={
+          <ModalActions
+            onCancel={() => setShowEditModal(false)}
+            onSubmit={updateVisa}
+            submitLabel="Update Visa"
+            submitColor="blue"
+          />
+        }
+      >
+        {renderVisaFields(editVisa, setEditVisa)}
+      </Modal>
     </div>
   );
 };

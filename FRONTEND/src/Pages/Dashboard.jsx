@@ -4,14 +4,12 @@ import VisaCard from "../Components/Dashboard/DashboardCards/VisaCard";
 import TicketCard from "../Components/Dashboard/DashboardCards/TicketCard";
 import TransportCard from "../Components/Dashboard/DashboardCards/TransportCard";
 import PackageCard from "../Components/Dashboard/DashboardCards/PackageCard";
+import PackagesViewCard from "../Components/Dashboard/DashboardCards/PackagesViewCard";
 import ListingsCard from "../Components/Dashboard/DashboardCards/ListingsCard";
+import { useAuth } from "../context/AuthContext";
 
 const Dashboard = () => {
-  const email = localStorage.getItem("email");
-  const type = localStorage.getItem("type");
-
-  const username = email ? email.split("@")[0] : "Guest";
-  const isAdmin = type === "admin";
+  const { displayName: username, isAdmin } = useAuth();
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6">
@@ -45,6 +43,7 @@ const Dashboard = () => {
         <VisaCard />
         <TicketCard />
         <TransportCard />
+        <PackagesViewCard />
         <PackageCard />
         <ListingsCard />
       </div>

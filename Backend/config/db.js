@@ -6,10 +6,7 @@ const connectDB = async () => {
     const mongoURI =
       process.env.MONGO_URI || "mongodb://localhost:27017/travelcalculator";
 
-    await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(mongoURI);
 
     console.log("✅ MongoDB connected");
   } catch (err) {
