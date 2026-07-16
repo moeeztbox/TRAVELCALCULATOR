@@ -1,19 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import {
-  ArrowLeft,
-  Hotel,
-  Calendar,
+  Building2,
   Calculator,
-  Building,
-  Bed,
-  User,
-  DollarSign,
   Printer,
   Trash2,
   MapPin,
   Navigation,
 } from "lucide-react";
+import PageHeader from "../../UI/PageHeader";
+import Button from "../../UI/Button";
 
 export default function HotelCalculator() {
   const navigate = useNavigate();
@@ -181,42 +177,28 @@ export default function HotelCalculator() {
   );
 
   return (
-    <div className="p-4">
+    <div className="calc">
       <div className="max-w-6xl mx-auto">
         {/* Header with Print Button */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-white transition-colors"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
-                Hotel Calculator
-              </h1>
-              <p className="text-gray-500 text-sm">
-                Calculate hotel costs and commissions
-              </p>
-            </div>
-          </div>
-
-          {/* Print Button - Only shown when there's a result */}
-          {result && (
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <Printer size={18} />
-              Print Report
-            </button>
-          )}
+        <div className="mb-8">
+          <PageHeader
+            title="Hotel Calculator"
+            subtitle="Calculate hotel costs and commissions"
+            icon={Building2}
+            onBack={() => navigate("/dashboard")}
+            actions={
+              result && (
+                <Button variant="secondary" icon={Printer} onClick={handlePrint}>
+                  Print Report
+                </Button>
+              )
+            }
+          />
         </div>
 
         {/* Input Section */}
         <div className="space-y-2">
-          <div className="bg-white rounded-xl p-6 border border-gray-200">
+          <div className="calc-card p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Hotel Selection */}
               <FieldWrapper className="md:col-span-2">
@@ -324,26 +306,24 @@ export default function HotelCalculator() {
 
             {/* Action Buttons */}
             <div className="flex gap-3 mt-6">
-              <button
-                className="flex-1 bg-blue-600 text-white font-medium py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                onClick={calculate}
-              >
-                <Calculator size={18} />
+              <Button fullWidth size="lg" icon={Calculator} onClick={calculate}>
                 Calculate Costs
-              </button>
-              <button
-                className="flex-1 bg-gray-500 text-white font-medium py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+              </Button>
+              <Button
+                fullWidth
+                size="lg"
+                variant="secondary"
+                icon={Trash2}
                 onClick={clearForm}
               >
-                <Trash2 size={18} />
                 Clear
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* Results Section */}
           {result && (
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="calc-card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
                 <Calculator size={20} className="text-green-600" />
                 Calculation Results
@@ -509,8 +489,8 @@ export default function HotelCalculator() {
 
           {/* Empty State */}
           {!result && (
-            <div className="bg-white rounded-xl p-8 border border-gray-200 text-center">
-              <Calculator size={48} className="mx-auto text-gray-300 mb-4" />
+            <div className="calc-card p-8 text-center">
+              <Calculator size={48} className="mx-auto text-brand-200 mb-4" />
               <h3 className="text-lg font-medium text-gray-500 mb-2">
                 No Calculation Yet
               </h3>

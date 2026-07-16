@@ -1,5 +1,216 @@
 @import "tailwindcss";
 
+/* =====================================================================
+   Design system — AlBuraq Global Travel & Tours
+   Brand navy + gold on a soft, premium neutral canvas.
+   Registered as Tailwind v4 theme tokens so utilities like `bg-brand-600`,
+   `text-muted`, `border-hair`, `bg-canvas` are available everywhere.
+   ===================================================================== */
+@theme {
+  --color-brand-50: #eef5fb;
+  --color-brand-100: #d8e8f6;
+  --color-brand-200: #b3d1ec;
+  --color-brand-300: #7cb2e0;
+  --color-brand-400: #4e97d4;
+  --color-brand-500: #2f80c9;
+  --color-brand-600: #1f66a8;
+  --color-brand-700: #14508a;
+  --color-brand-800: #0e3c68;
+  --color-brand-900: #0a2540;
+
+  --color-gold-100: #f7edd6;
+  --color-gold-300: #e6c877;
+  --color-gold-400: #dcb251;
+  --color-gold-500: #d4a13a;
+  --color-gold-600: #b9891f;
+
+  --color-canvas: #f2f5fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f9fc;
+  --color-ink: #0f1b2d;
+  --color-muted: #566379;
+  --color-soft: #8a97ab;
+  --color-hair: #e7ebf2;
+
+  --color-success: #17976a;
+  --color-danger: #d1435b;
+  --color-warning: #d98a2b;
+
+  --font-sans: "Segoe UI", ui-sans-serif, system-ui, -apple-system, Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--color-brand-500) 22%, transparent);
+  }
+  /* Refined scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #c3ccdb transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #c9d2e0;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #a8b4c8;
+    background-clip: content-box;
+  }
+}
+
+/* ---- Reusable visual utilities ---- */
+.shadow-soft {
+  box-shadow: 0 1px 2px rgba(15, 27, 45, 0.04),
+    0 6px 20px rgba(15, 27, 45, 0.06);
+}
+.shadow-lift {
+  box-shadow: 0 10px 34px rgba(15, 27, 45, 0.12);
+}
+.shadow-brand {
+  box-shadow: 0 10px 30px rgba(31, 102, 168, 0.28);
+}
+.text-gradient-brand {
+  background: linear-gradient(120deg, #14508a, #2f80c9 55%, #4e97d4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+/* Soft branded page canvas with a whisper of atmosphere */
+.app-canvas {
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(
+      1200px 500px at 15% -8%,
+      rgba(47, 128, 201, 0.08),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 100% 0%,
+      rgba(212, 161, 58, 0.06),
+      transparent 55%
+    );
+}
+.glass-bar {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: riseIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.animate-slide-in-left {
+  animation: slideInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---- Shared data table look (screen only; print styles override) ---- */
+.table-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hair);
+  border-radius: 1rem;
+  overflow-x: auto;
+  box-shadow: 0 1px 2px rgba(15, 27, 45, 0.04), 0 6px 20px rgba(15, 27, 45, 0.06);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.data-table thead th {
+  padding: 0.8rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  background: var(--color-surface-2);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-hair);
+}
+.data-table tbody td {
+  padding: 0.85rem 1rem;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  border-top: 1px solid var(--color-hair);
+  vertical-align: middle;
+}
+.data-table tbody tr:first-child td {
+  border-top: 0;
+}
+.data-table tbody tr:hover td {
+  background: var(--color-surface-2);
+}
+
+/* ---- Calculator pages: premium surface + inputs (scoped to .calc) ---- */
+.calc-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-hair);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 27, 45, 0.04), 0 6px 20px rgba(15, 27, 45, 0.06);
+}
+.calc label {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.calc select,
+.calc input,
+.calc textarea {
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-hair);
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  transition: border-color 0.18s ease, background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.calc select:focus,
+.calc input:focus,
+.calc textarea:focus {
+  border-color: var(--color-brand-400);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-500) 16%, transparent);
+  outline: none;
+}
+.calc select:disabled,
+.calc input:disabled,
+.calc input[readonly],
+.calc select[disabled] {
+  background: var(--color-surface-2);
+  color: var(--color-soft);
+  cursor: not-allowed;
+}
+
 /* ---------- Modal / overlay animations ---------- */
 @keyframes modalOverlayIn {
   from {
@@ -42,4 +253,220 @@
 
 .animate-fade-in-up {
   animation: fadeInUp 0.3s ease-out;
+}
+
+/* =====================================================================
+   Splash / startup screen
+   ===================================================================== */
+
+/* Dark base so the very first paint (before React mounts) matches the
+   splash instead of flashing white. */
+body {
+  background-color: #0a1b33;
+}
+
+.splash-root {
+  opacity: 1;
+  transition: opacity 0.7s ease, visibility 0.7s ease;
+}
+
+.splash-leaving {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* Animated gradient background */
+.splash-bg {
+  background: linear-gradient(
+    135deg,
+    #0a1b33 0%,
+    #0e2b4d 25%,
+    #14508a 50%,
+    #0e2b4d 75%,
+    #0a1b33 100%
+  );
+  background-size: 300% 300%;
+  animation: splashGradient 12s ease infinite;
+}
+
+@keyframes splashGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Soft moving glow shapes */
+.splash-shape {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.35;
+  will-change: transform;
+}
+
+.splash-shape-1 {
+  width: 480px;
+  height: 480px;
+  top: -120px;
+  left: -100px;
+  background: #2f80c9;
+  animation: splashFloatShape 14s ease-in-out infinite;
+}
+
+.splash-shape-2 {
+  width: 420px;
+  height: 420px;
+  bottom: -140px;
+  right: -120px;
+  background: #eab308;
+  opacity: 0.18;
+  animation: splashFloatShape 16s ease-in-out infinite reverse;
+}
+
+@keyframes splashFloatShape {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(40px, 30px) scale(1.12);
+  }
+}
+
+/* Floating particles */
+.splash-particle {
+  position: absolute;
+  bottom: -20px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #ffffff 0%, rgba(255, 255, 255, 0) 70%);
+  will-change: transform, opacity;
+  animation-name: splashParticle;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes splashParticle {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-105vh) scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* Logo — glowing glass ring */
+.splash-logo-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: splashLogoIn 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes splashLogoIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.splash-logo-ring {
+  position: relative;
+  z-index: 2;
+  padding: 1.25rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.splash-logo-glow {
+  position: absolute;
+  inset: -18px;
+  z-index: 1;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    rgba(47, 128, 201, 0.75) 0%,
+    rgba(47, 128, 201, 0) 70%
+  );
+  animation: splashGlowPulse 2.8s ease-in-out infinite;
+}
+
+@keyframes splashGlowPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
+
+/* Text fade-up with stagger */
+.splash-title {
+  animation: fadeInUp 0.8s ease-out 0.4s both;
+}
+.splash-subtitle {
+  animation: fadeInUp 0.8s ease-out 0.6s both;
+}
+.splash-tagline {
+  animation: fadeInUp 0.8s ease-out 0.8s both;
+}
+.splash-loader {
+  animation: fadeInUp 0.8s ease-out 1s both;
+}
+
+/* Progress bar fill with a moving shimmer */
+.splash-bar {
+  background: linear-gradient(90deg, #2f80c9, #4aa3e6, #eab308);
+  background-size: 200% 100%;
+  /* No width transition — the width is updated every frame to exactly match
+     the current percentage, so the fill and the number stay in lockstep. */
+  animation: splashShimmer 2s linear infinite;
+  box-shadow: 0 0 12px rgba(74, 163, 230, 0.6);
+}
+
+@keyframes splashShimmer {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Respect users who prefer reduced motion — keep it calm, not busy. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-bg,
+  .splash-shape-1,
+  .splash-shape-2,
+  .splash-particle,
+  .splash-logo-glow,
+  .splash-bar {
+    animation: none !important;
+  }
+  .splash-particle {
+    display: none;
+  }
 }

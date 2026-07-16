@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Package,
   Calendar,
   Moon,
@@ -13,6 +12,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import Modal from "../Components/Main/Modal";
+import PageHeader from "../Components/UI/PageHeader";
+import EmptyState from "../Components/UI/EmptyState";
 
 const API = "http://localhost:5000/api";
 
@@ -64,42 +65,38 @@ const PackagesView = () => {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6">
+    <div>
       {/* HEADER */}
-      <div className="flex items-center gap-4 mb-2">
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-white transition cursor-pointer"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900">Packages</h1>
-          <p className="text-gray-500 text-sm mt-0.5">
-            Explore all available Hajj &amp; Umrah packages
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Packages"
+        subtitle="Explore all available Hajj & Umrah packages"
+        icon={Package}
+        onBack={() => navigate("/dashboard")}
+        className="mb-8"
+      />
 
       {/* CONTENT */}
       {loading ? (
-        <div className="bg-white rounded-2xl border border-gray-200 mt-10 py-16 text-center text-gray-500">
+        <div className="table-card py-16 text-center text-muted">
           Loading packages...
         </div>
       ) : packages.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-200 mt-10 py-16 text-center">
-          <Package size={40} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">No packages available yet.</p>
+        <div className="table-card">
+          <EmptyState
+            icon={Package}
+            title="No packages available yet"
+            message="Once packages are added, they'll appear here to explore."
+          />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {packages.map((pkg) => (
             <div
               key={pkg._id}
               className="group bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden"
             >
               {/* Card header */}
-              <div className="relative px-5 pt-5 pb-4 bg-linear-to-br from-indigo-600 to-indigo-500 text-white">
+              <div className="relative px-5 pt-5 pb-4 bg-linear-to-br from-brand-600 to-brand-500 text-white">
                 <div className="flex items-start justify-between gap-3">
                   <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
                     <Package className="w-6 h-6" />
@@ -111,7 +108,7 @@ const PackagesView = () => {
                 <h3 className="text-lg font-bold mt-3 leading-snug">
                   {pkg.packageName}
                 </h3>
-                <div className="flex items-center gap-3 text-indigo-100 text-xs mt-2">
+                <div className="flex items-center gap-3 text-brand-100 text-xs mt-2">
                   <span className="flex items-center gap-1">
                     <Calendar size={14} /> {pkg.totalDays} Days
                   </span>
@@ -131,7 +128,7 @@ const PackagesView = () => {
                   <div className="flex items-start gap-1.5">
                     <Building2
                       size={14}
-                      className="text-indigo-600 mt-0.5 shrink-0"
+                      className="text-brand-600 mt-0.5 shrink-0"
                     />
                     <span>
                       <span className="font-medium text-gray-800">
@@ -143,7 +140,7 @@ const PackagesView = () => {
                   <div className="flex items-start gap-1.5">
                     <Building2
                       size={14}
-                      className="text-indigo-600 mt-0.5 shrink-0"
+                      className="text-brand-600 mt-0.5 shrink-0"
                     />
                     <span>
                       <span className="font-medium text-gray-800">
@@ -168,7 +165,7 @@ const PackagesView = () => {
 
                 <button
                   onClick={() => setSelectedPackage(pkg)}
-                  className="mt-auto pt-3 w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition cursor-pointer"
+                  className="mt-auto pt-3 w-full bg-brand-600 text-white font-semibold py-2.5 rounded-lg hover:bg-brand-700 transition cursor-pointer"
                 >
                   View Details
                 </button>
@@ -183,13 +180,13 @@ const PackagesView = () => {
         open={!!selectedPackage}
         onClose={() => setSelectedPackage(null)}
         title={selectedPackage?.packageName || "Package Details"}
-        icon={<Package size={20} className="text-indigo-600" />}
+        icon={<Package size={20} className="text-brand-600" />}
         maxWidth="max-w-2xl"
       >
         {selectedPackage && (
           <div className="space-y-6">
             {/* Hero summary */}
-            <div className="rounded-xl bg-linear-to-br from-indigo-600 to-indigo-500 text-white p-5 flex flex-wrap items-center justify-between gap-4">
+            <div className="rounded-xl bg-linear-to-br from-brand-600 to-brand-500 text-white p-5 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <span className="text-xs font-semibold bg-white/20 rounded-full px-2.5 py-1">
                   {selectedPackage.category}
@@ -211,7 +208,7 @@ const PackagesView = () => {
             {/* Hotels */}
             <div>
               <h4 className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-3">
-                <Building2 size={16} className="text-indigo-600" />
+                <Building2 size={16} className="text-brand-600" />
                 Hotel Details
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -262,7 +259,7 @@ const PackagesView = () => {
             {selectedPackage.ziyarat && (
               <div>
                 <h4 className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-2">
-                  <MapPin size={16} className="text-indigo-600" />
+                  <MapPin size={16} className="text-brand-600" />
                   Ziyarat
                 </h4>
                 <p className="text-sm text-gray-600">
@@ -275,7 +272,7 @@ const PackagesView = () => {
             {selectedPackage.description && (
               <div>
                 <h4 className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-2">
-                  <Sparkles size={16} className="text-indigo-600" />
+                  <Sparkles size={16} className="text-brand-600" />
                   Description
                 </h4>
                 <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">

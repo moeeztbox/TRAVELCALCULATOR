@@ -4,21 +4,18 @@ import jwt from "jsonwebtoken";
 
 const isProd = process.env.NODE_ENV === "production";
 
-const cookieOptions = (maxAgeMs) => ({
+// No maxAge/expires is set here on purpose — this makes the auth cookie a
+// browser "session cookie", which the browser (or Electron's underlying
+// Chromium session) discards when it is fully closed. Combined with the
+// JWT's own expiresIn below, this gives two layers of expiry: the cookie
+// dies with the browser session, and the token itself has a hard expiry
+// even if the cookie somehow persisted.
+const cookieOptions = () => ({
   httpOnly: true, // not readable from JS — protects against XSS token theft
   secure: isProd, // HTTPS only in production
   sameSite: "lax",
-  maxAge: maxAgeMs,
   path: "/",
 });
-
-const msFromExpiry = (expiresIn) => {
-  const match = /^(\d+)([smhd])$/.exec(expiresIn || "1d");
-  if (!match) return 24 * 60 * 60 * 1000;
-  const value = Number(match[1]);
-  const unit = { s: 1000, m: 60000, h: 3600000, d: 86400000 }[match[2]];
-  return value * unit;
-};
 
 /**
  * POST /api/auth/login
@@ -53,7 +50,7 @@ export const loginUser = async (req, res) => {
 
     const token = jwt.sign(payload, secret, { expiresIn });
 
-    res.cookie("token", token, cookieOptions(msFromExpiry(expiresIn)));
+    res.cookie("token", token, cookieOptions());
 
     return res.json({
       success: true,
@@ -96,6 +93,6 @@ export const getMe = async (req, res) => {
  * Clears the session cookie.
  */
 export const logoutUser = (req, res) => {
-  res.clearCookie("token", { ...cookieOptions(0), maxAge: undefined });
+  res.clearCookie("token", cookieOptions());
   return res.json({ success: true, message: "Logged out" });
 };

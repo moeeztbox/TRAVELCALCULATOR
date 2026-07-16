@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../../../Main/Modal";
 import {
@@ -8,6 +8,8 @@ import {
   SectionTitle,
   ModalActions,
 } from "../../../../Main/FormControls";
+import PageHeader from "../../../../UI/PageHeader";
+import Button from "../../../../UI/Button";
 import { useAuth } from "../../../../../context/AuthContext";
 
 const VisaList = () => {
@@ -273,7 +275,7 @@ const VisaList = () => {
   );
 
   return (
-    <div className="px-4 sm:px-8 py-6 w-full">
+    <div className="w-full">
       {/* PRINT CSS */}
       <style>
         {`
@@ -367,32 +369,25 @@ const VisaList = () => {
         `}
       </style>
 
-      <button
-        onClick={handleBack}
-        className="no-print cursor-pointer flex items-center gap-2 text-gray-700 hover:text-black mb-6"
-      >
-        <ArrowLeft size={20} /> <span>Back</span>
-      </button>
-
-      <div className="flex justify-between items-center mb-8 no-print">
-        <h1 className="text-3xl font-extrabold text-gray-900">Visa List</h1>
-        <div className="flex gap-2">
-          {/* PRINT BUTTON */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition cursor-pointer no-print"
-          >
-            Print
-          </button>
-          {isAdmin && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition no-print"
-            >
-              <Plus size={20} /> Add
-            </button>
-          )}
-        </div>
+      <div className="no-print mb-8">
+        <PageHeader
+          title="Visa"
+          subtitle="Visa categories & passenger costs"
+          icon={FileText}
+          onBack={handleBack}
+          actions={
+            <>
+              <Button variant="secondary" icon={Printer} onClick={handlePrint}>
+                Print
+              </Button>
+              {isAdmin && (
+                <Button icon={Plus} onClick={() => setShowAddModal(true)}>
+                  Add Visa
+                </Button>
+              )}
+            </>
+          }
+        />
       </div>
 
       {/* PRINTABLE AREA */}
@@ -401,23 +396,17 @@ const VisaList = () => {
         <h1 className="print-header print:block hidden">Visa List</h1>
 
         {/* TABLE - Different styling for screen vs print */}
-        <div className="bg-white shadow-md rounded-xl overflow-hidden print:shadow-none print:rounded-none">
-          <table className="w-full text-left print-table">
-            <thead className="bg-gray-100 text-gray-700 print:bg-white">
+        <div className="table-card mt-2 print:shadow-none print:rounded-none print:border-0">
+          <table className="data-table print-table">
+            <thead>
               <tr>
-                <th className="py-3 px-4 text-sm font-semibold">Category</th>
-                <th className="py-3 px-4 text-sm font-semibold">Passenger</th>
-                <th className="py-3 px-4 text-sm font-semibold">Agent Name</th>
-                <th className="py-3 px-4 text-sm font-semibold">Agent Cost</th>
-                <th className="py-3 px-4 text-sm font-semibold">
-                  Company Cost
-                </th>
-                <th className="py-3 px-4 text-sm font-semibold">Price</th>
-                {isAdmin && (
-                  <th className="py-3 px-4 text-sm font-semibold no-print">
-                    Actions
-                  </th>
-                )}
+                <th>Category</th>
+                <th>Passenger</th>
+                <th>Agent Name</th>
+                <th>Agent Cost</th>
+                <th>Company Cost</th>
+                <th>Price</th>
+                {isAdmin && <th className="no-print">Actions</th>}
               </tr>
             </thead>
 

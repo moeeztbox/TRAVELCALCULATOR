@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Building2,
   FileText,
   Plane,
@@ -14,6 +13,8 @@ import {
   Landmark,
 } from "lucide-react";
 import { Field, inputClass } from "../Components/Main/FormControls";
+import PageHeader from "../Components/UI/PageHeader";
+import Button from "../Components/UI/Button";
 
 const API = "http://localhost:5000/api";
 
@@ -224,33 +225,23 @@ const CustomizePackage = () => {
 
       <div className="max-w-6xl mx-auto">
         {/* HEADER */}
-        <div className="flex items-center justify-between mb-8 no-print">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-white transition"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Customize Package
-              </h1>
-              <p className="text-gray-500 text-sm">
-                Build your own package from available listings
-              </p>
-            </div>
-          </div>
+        <div className="mb-8 no-print">
+          <PageHeader
+            title="Customize Package"
+            subtitle="Build your own package from available listings"
+            icon={PackageCheck}
+            onBack={() => navigate("/dashboard")}
+          />
         </div>
 
         {loading ? (
-          <div className="bg-white rounded-xl p-8 border border-gray-200 text-center text-gray-500 no-print">
+          <div className="calc-card p-8 text-center text-muted no-print">
             Loading listings...
           </div>
         ) : (
           <div className="space-y-6 no-print">
             {/* PACKAGE BASICS */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="calc-card p-6">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
                 <PackageCheck size={20} className="text-red-600" />
                 Package Details
@@ -287,7 +278,7 @@ const CustomizePackage = () => {
             </div>
 
             {/* HOTELS */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="calc-card p-6">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
                 <Building2 size={20} className="text-blue-600" />
                 Hotels
@@ -357,7 +348,7 @@ const CustomizePackage = () => {
 
             {/* VISA / FLIGHT / TRANSPORT */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="calc-card p-6">
                 <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
                   <FileText size={18} className="text-blue-600" />
                   Visa
@@ -376,7 +367,7 @@ const CustomizePackage = () => {
                 </select>
               </div>
 
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="calc-card p-6">
                 <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
                   <Plane size={18} className="text-blue-600" />
                   Flight
@@ -395,7 +386,7 @@ const CustomizePackage = () => {
                 </select>
               </div>
 
-              <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <div className="calc-card p-6">
                 <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
                   <Car size={18} className="text-blue-600" />
                   Transport
@@ -416,7 +407,7 @@ const CustomizePackage = () => {
             </div>
 
             {/* ZIYARAT */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="calc-card p-6">
               <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
                 <Landmark size={20} className="text-blue-600" />
                 Ziyarat Locations
@@ -452,7 +443,7 @@ const CustomizePackage = () => {
             </div>
 
             {/* TAX + ACTIONS */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="calc-card p-6">
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
                 <Field label="Tax (%)">
                   <input
@@ -464,20 +455,22 @@ const CustomizePackage = () => {
                   />
                 </Field>
                 <div className="sm:col-span-3 flex gap-3">
-                  <button
+                  <Button
+                    fullWidth
+                    size="lg"
+                    icon={Calculator}
                     onClick={calculate}
-                    className="flex-1 bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Calculator size={18} />
                     Calculate Cost
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    icon={Trash2}
                     onClick={clearAll}
-                    className="bg-gray-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-600 transition flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Trash2 size={18} />
                     Clear
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -488,29 +481,30 @@ const CustomizePackage = () => {
         {result && (
           <div
             id="package-summary"
-            className="bg-white rounded-2xl border border-gray-200 shadow-sm mt-8 overflow-hidden animate-fade-in-up"
+            className="bg-surface rounded-2xl border border-hair shadow-soft mt-8 overflow-hidden animate-fade-in-up"
           >
             {/* Summary header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-linear-to-r from-blue-50 to-white">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-hair bg-linear-to-r from-brand-50 to-surface">
               <div>
-                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">
                   Custom Package
                 </p>
-                <h2 className="text-2xl font-extrabold text-gray-900">
+                <h2 className="text-2xl font-extrabold text-ink">
                   {result.packageName}
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-muted mt-1">
                   {result.totalDays || "—"} Days · {result.totalNights || "—"}{" "}
                   Nights
                 </p>
               </div>
-              <button
+              <Button
+                variant="success"
+                icon={Printer}
                 onClick={handlePrint}
-                className="no-print flex items-center gap-2 bg-green-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-green-700 transition cursor-pointer"
+                className="no-print"
               >
-                <Printer size={18} />
                 Print
-              </button>
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6">
@@ -618,7 +612,7 @@ const CustomizePackage = () => {
                     label={`Tax (${result.costs.taxRate}%)`}
                     value={result.costs.tax}
                   />
-                  <div className="flex justify-between items-center px-4 py-4 bg-blue-600 text-white rounded-b-xl">
+                  <div className="flex justify-between items-center px-4 py-4 bg-brand-600 text-white rounded-b-xl">
                     <span className="font-semibold">Grand Total</span>
                     <span className="text-xl font-extrabold">
                       {money(result.costs.grandTotal)}

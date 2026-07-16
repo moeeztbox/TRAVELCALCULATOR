@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
-  ArrowLeft,
   Plus,
   Pencil,
   Trash2,
-  Search,
   Package,
   Users,
   Building2,
@@ -15,6 +13,7 @@ import {
   MapPin,
   CheckCircle2,
   XCircle,
+  Printer,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../../../Main/Modal";
@@ -24,6 +23,10 @@ import {
   SectionTitle,
   ModalActions,
 } from "../../../../Main/FormControls";
+import PageHeader from "../../../../UI/PageHeader";
+import Button from "../../../../UI/Button";
+import SearchInput from "../../../../UI/SearchInput";
+import EmptyState from "../../../../UI/EmptyState";
 import { useAuth } from "../../../../../context/AuthContext";
 
 const emptyPackage = {
@@ -202,7 +205,7 @@ const PackageList = () => {
     <div className="space-y-6">
       {/* Basic Information */}
       <div>
-        <SectionTitle icon={<Package size={16} className="text-red-600" />}>
+        <SectionTitle icon={<Package size={16} className="text-brand-600" />}>
           Basic Information
         </SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -265,7 +268,7 @@ const PackageList = () => {
 
       {/* Agent Information */}
       <div>
-        <SectionTitle icon={<Users size={16} className="text-red-600" />}>
+        <SectionTitle icon={<Users size={16} className="text-brand-600" />}>
           Agent Information
         </SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -305,7 +308,7 @@ const PackageList = () => {
 
       {/* Hotel Details */}
       <div>
-        <SectionTitle icon={<Building2 size={16} className="text-red-600" />}>
+        <SectionTitle icon={<Building2 size={16} className="text-brand-600" />}>
           Hotel Details
         </SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -375,7 +378,7 @@ const PackageList = () => {
 
       {/* Package Details */}
       <div>
-        <SectionTitle icon={<ListChecks size={16} className="text-red-600" />}>
+        <SectionTitle icon={<ListChecks size={16} className="text-brand-600" />}>
           Package Details
         </SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -436,7 +439,7 @@ const PackageList = () => {
 
       {/* Description */}
       <div>
-        <SectionTitle icon={<FileText size={16} className="text-red-600" />}>
+        <SectionTitle icon={<FileText size={16} className="text-brand-600" />}>
           Description
         </SectionTitle>
         <Field label="Package Description">
@@ -453,7 +456,7 @@ const PackageList = () => {
   );
 
   return (
-    <div className="px-4 sm:px-8 py-6 w-full">
+    <div className="w-full">
       {/* PRINT CSS */}
       <style>
         {`
@@ -488,54 +491,32 @@ const PackageList = () => {
         `}
       </style>
 
-      {/* BACK BUTTON */}
-      <button
-        onClick={handleBack}
-        className="no-print flex items-center cursor-pointer gap-2 text-gray-700 hover:text-black mb-6"
-      >
-        <ArrowLeft size={20} />
-        <span className="font-medium">Back</span>
-      </button>
-
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8 no-print">
-        <h1 className="text-3xl font-extrabold text-gray-900">Packages List</h1>
-
-        <div className="flex flex-wrap gap-2 items-center">
-          {/* SEARCH */}
-          <div className="relative">
-            <Search
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
-              placeholder="Search packages..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none"
-            />
-          </div>
-
-          {/* PRINT BUTTON */}
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg shadow hover:bg-green-700 transition cursor-pointer no-print"
-          >
-            Print
-          </button>
-
-          {/* ADD BUTTON (ADMIN) */}
-          {isAdmin && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition no-print"
-            >
-              <Plus size={20} />
-              Add
-            </button>
-          )}
-        </div>
+      <div className="no-print mb-8">
+        <PageHeader
+          title="Packages"
+          subtitle="Hajj & Umrah package catalogue"
+          icon={Package}
+          onBack={handleBack}
+          actions={
+            <>
+              <SearchInput
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search packages..."
+                className="w-full sm:w-auto"
+              />
+              <Button variant="secondary" icon={Printer} onClick={handlePrint}>
+                Print
+              </Button>
+              {isAdmin && (
+                <Button icon={Plus} onClick={() => setShowAddModal(true)}>
+                  Add Package
+                </Button>
+              )}
+            </>
+          }
+        />
       </div>
 
       {/* PRINTABLE AREA */}
@@ -543,37 +524,41 @@ const PackageList = () => {
         <h1 className="print-header print:block hidden">Packages List</h1>
 
         {loading ? (
-          <div className="bg-white shadow-md rounded-xl mt-6 py-10 text-center text-gray-500">
-            Loading...
+          <div className="table-card mt-2 py-14 text-center text-muted">
+            Loading packages...
           </div>
         ) : filteredPackages.length === 0 ? (
-          <div className="bg-white shadow-md rounded-xl mt-6 py-10 text-center text-gray-500">
-            No packages found.
+          <div className="table-card mt-2">
+            <EmptyState
+              icon={Package}
+              title="No packages found"
+              message="Try a different search, or add a new package to get started."
+            />
           </div>
         ) : (
-          <div className="package-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+          <div className="package-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
             {filteredPackages.map((pkg) => (
               <div
                 key={pkg._id}
-                className="package-card bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col overflow-hidden"
+                className="package-card bg-surface rounded-2xl border border-hair shadow-soft hover:shadow-lift hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden"
               >
                 {/* Card header */}
-                <div className="px-5 pt-5 pb-4 border-b border-gray-100 bg-linear-to-br from-red-50 to-white">
+                <div className="px-5 pt-5 pb-4 border-b border-hair bg-linear-to-br from-gold-100 to-surface">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-                      <Package className="text-red-700 w-6 h-6" />
+                    <div className="w-11 h-11 rounded-xl bg-gold-100 flex items-center justify-center shrink-0">
+                      <Package className="text-gold-600 w-6 h-6" />
                     </div>
                     {isAdmin && (
                       <div className="flex items-center gap-3 no-print">
                         <button
                           onClick={() => openEditModal(pkg)}
-                          className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                          className="text-brand-600 hover:text-brand-800 cursor-pointer"
                         >
                           <Pencil size={18} />
                         </button>
                         <button
                           onClick={() => deletePackage(pkg._id)}
-                          className="text-red-600 hover:text-red-800 cursor-pointer"
+                          className="text-danger hover:opacity-80 cursor-pointer"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -581,10 +566,10 @@ const PackageList = () => {
                     )}
                   </div>
 
-                  <h3 className="text-lg font-bold text-gray-900 mt-3 leading-snug">
+                  <h3 className="text-lg font-bold text-ink mt-3 leading-snug">
                     {pkg.packageName}
                   </h3>
-                  <span className="inline-block mt-1 text-xs font-semibold text-red-700 bg-red-100 rounded-full px-2.5 py-0.5">
+                  <span className="inline-block mt-1 text-xs font-semibold text-gold-600 bg-gold-100 rounded-full px-2.5 py-0.5">
                     {pkg.category}
                   </span>
                 </div>
@@ -689,7 +674,7 @@ const PackageList = () => {
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
         title="Add Package"
-        icon={<Package size={20} className="text-red-600" />}
+        icon={<Package size={20} className="text-brand-600" />}
         maxWidth="max-w-3xl"
         footer={
           <ModalActions
@@ -708,7 +693,7 @@ const PackageList = () => {
         open={showEditModal}
         onClose={() => setShowEditModal(false)}
         title="Edit Package"
-        icon={<Package size={20} className="text-red-600" />}
+        icon={<Package size={20} className="text-brand-600" />}
         maxWidth="max-w-3xl"
         footer={
           <ModalActions

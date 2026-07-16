@@ -1,52 +1,33 @@
 import React from "react";
-import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Building2, Car, Stamp, Plane, Package, ListChecks } from "lucide-react";
+import PageHeader from "../../UI/PageHeader";
+import ModuleCard from "../../UI/ModuleCard";
 
-import HotelListCard from "./ListingsFormCards/HotelListCard";
-import TransportListCard from "./ListingsFormCards/TransportListCard";
-import VisaListCard from "./ListingsFormCards/VisaListCard";
-import TicketListCard from "./ListingsFormCards/TicketListCard";
-import PackageListCard from "./ListingsFormCards/PackageListCard";
+const LISTINGS = [
+  { to: "/dashboard/listings/hotels", icon: Building2, title: "Hotels", description: "Manage hotel inventory & rates.", accent: "blue" },
+  { to: "/dashboard/listings/transport", icon: Car, title: "Transport", description: "Vehicles, routes & trip pricing.", accent: "violet" },
+  { to: "/dashboard/listings/visa", icon: Stamp, title: "Visa", description: "Visa categories & passenger costs.", accent: "green" },
+  { to: "/dashboard/listings/tickets", icon: Plane, title: "Tickets", description: "Airlines, fares & validity.", accent: "sky" },
+  { to: "/dashboard/listings/packages", icon: Package, title: "Packages", description: "Hajj & Umrah package catalogue.", accent: "gold" },
+];
 
 const ListingsForm = () => {
   const navigate = useNavigate();
 
-  const handleBack = () => {
-    navigate("/dashboard");
-  };
-
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-6">
-      {/* BACK BUTTON */}
-      <button
-        onClick={handleBack}
-        className="flex cursor-pointer items-center gap-2 text-gray-700 hover:text-black mb-6"
-      >
-        <ArrowLeft size={20} />
-        <span className="font-medium">Back</span>
-      </button>
+    <div className="space-y-8">
+      <PageHeader
+        title="Listings"
+        subtitle="Manage all your service inventory in one place"
+        icon={ListChecks}
+        onBack={() => navigate("/dashboard")}
+      />
 
-      <h1 className="text-3xl font-extrabold text-gray-900">Listings</h1>
-      <p className="text-gray-600 mt-2 mb-10">
-        View and manage all service listings
-      </p>
-
-      {/* CARDS GRID */}
-      <div
-        className="
-          grid 
-          grid-cols-1 
-          sm:grid-cols-2 
-          md:grid-cols-2 
-          lg:grid-cols-2 
-          gap-8
-        "
-      >
-        <HotelListCard />
-        <TransportListCard />
-        <VisaListCard />
-        <TicketListCard />
-        <PackageListCard />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {LISTINGS.map((l) => (
+          <ModuleCard key={l.to} {...l} />
+        ))}
       </div>
     </div>
   );

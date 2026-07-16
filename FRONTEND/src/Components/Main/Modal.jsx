@@ -50,21 +50,25 @@ const Modal = ({
         if (e.target === e.currentTarget) onClose?.();
       }}
       className="no-print fixed inset-0 z-50 flex items-center justify-center p-4
-                 bg-black/40 backdrop-blur-sm animate-overlay-in"
+                 bg-brand-900/40 backdrop-blur-sm animate-overlay-in"
     >
       <div
-        className={`animate-panel-in w-full ${maxWidth} bg-white rounded-2xl shadow-2xl
-                    max-h-[90vh] flex flex-col overflow-hidden`}
+        className={`animate-panel-in w-full ${maxWidth} bg-surface rounded-2xl shadow-lift
+                    border border-hair max-h-[90vh] flex flex-col overflow-hidden`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="flex items-center gap-2 text-xl font-bold text-gray-900">
-            {icon}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-hair">
+          <h2 className="flex items-center gap-2.5 text-lg font-bold text-ink tracking-tight">
+            {icon && (
+              <span className="grid place-items-center w-9 h-9 rounded-xl bg-brand-50 text-brand-600">
+                {icon}
+              </span>
+            )}
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg p-1.5 transition cursor-pointer"
+            className="text-soft hover:text-ink hover:bg-surface-2 rounded-lg p-1.5 transition cursor-pointer"
             aria-label="Close"
           >
             <X size={20} />
@@ -76,7 +80,7 @@ const Modal = ({
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50">
+          <div className="px-6 py-4 border-t border-hair bg-surface-2">
             {footer}
           </div>
         )}
