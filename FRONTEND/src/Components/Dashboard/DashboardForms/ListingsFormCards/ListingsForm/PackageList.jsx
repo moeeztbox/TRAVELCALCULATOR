@@ -214,7 +214,9 @@ const PackageList = () => {
               type="text"
               placeholder="e.g. 14-Day Umrah Deluxe"
               value={data.packageName}
-              onChange={(e) => setData({ ...data, packageName: e.target.value })}
+              onChange={(e) =>
+                setData({ ...data, packageName: e.target.value.toUpperCase() })
+              }
               className={inputClass}
             />
           </Field>
@@ -277,7 +279,9 @@ const PackageList = () => {
               type="text"
               placeholder="Agent name"
               value={data.agentName}
-              onChange={(e) => setData({ ...data, agentName: e.target.value })}
+              onChange={(e) =>
+                setData({ ...data, agentName: e.target.value.toUpperCase() })
+              }
               className={inputClass}
             />
           </Field>
@@ -324,7 +328,10 @@ const PackageList = () => {
                   placeholder="Makkah hotel"
                   value={data.makkahHotelName}
                   onChange={(e) =>
-                    setData({ ...data, makkahHotelName: e.target.value })
+                    setData({
+                      ...data,
+                      makkahHotelName: e.target.value.toUpperCase(),
+                    })
                   }
                   className={inputClass}
                 />
@@ -335,7 +342,10 @@ const PackageList = () => {
                   placeholder="e.g. 300m"
                   value={data.makkahDistance}
                   onChange={(e) =>
-                    setData({ ...data, makkahDistance: e.target.value })
+                    setData({
+                      ...data,
+                      makkahDistance: e.target.value.toUpperCase(),
+                    })
                   }
                   className={inputClass}
                 />
@@ -355,7 +365,10 @@ const PackageList = () => {
                   placeholder="Madinah hotel"
                   value={data.madinahHotelName}
                   onChange={(e) =>
-                    setData({ ...data, madinahHotelName: e.target.value })
+                    setData({
+                      ...data,
+                      madinahHotelName: e.target.value.toUpperCase(),
+                    })
                   }
                   className={inputClass}
                 />
@@ -366,7 +379,10 @@ const PackageList = () => {
                   placeholder="e.g. 200m"
                   value={data.madinahDistance}
                   onChange={(e) =>
-                    setData({ ...data, madinahDistance: e.target.value })
+                    setData({
+                      ...data,
+                      madinahDistance: e.target.value.toUpperCase(),
+                    })
                   }
                   className={inputClass}
                 />
@@ -431,7 +447,9 @@ const PackageList = () => {
             type="text"
             placeholder="Included / Not Included / custom text"
             value={data.ziyarat}
-            onChange={(e) => setData({ ...data, ziyarat: e.target.value })}
+            onChange={(e) =>
+              setData({ ...data, ziyarat: e.target.value.toUpperCase() })
+            }
             className={inputClass}
           />
         </Field>

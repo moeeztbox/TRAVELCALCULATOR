@@ -10,6 +10,23 @@ import {
 } from "lucide-react";
 import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
+import Combobox from "../../UI/Combobox";
+import logo from "../../../Assets/logo-mark.png";
+
+const COMPANY_NAME = "AlBuraq Global Travel & Tours";
+const COMPANY_WEBSITE = "www.alburaqtours.com";
+const COMPANY_ADDRESS =
+  "Plaza No. 54, Block A, Commercial Area, Eden City, DHA Phase 8";
+const COMPANY_PHONES = ["0321-4440467", "0327-3276060", "0316-9214727"];
+
+// Defined at module scope (not inside the component) so its identity stays
+// stable across renders — defining a component inside another component's
+// body creates a brand-new function every render, which makes React
+// unmount/remount the whole subtree (and any input inside it) on every
+// keystroke, destroying focus.
+const FieldWrapper = ({ children, className = "" }) => (
+  <div className={`space-y-1 ${className}`}>{children}</div>
+);
 
 export default function HotelCalculator() {
   const navigate = useNavigate();
@@ -24,6 +41,7 @@ export default function HotelCalculator() {
   const [price, setPrice] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
+  const [clientName, setClientName] = useState("");
   const [result, setResult] = useState(null);
   const [hotels, setHotels] = useState([]);
   const [availableRoomTypes, setAvailableRoomTypes] = useState([]);
@@ -32,8 +50,7 @@ export default function HotelCalculator() {
   const [city, setCity] = useState("");
   const [area, setArea] = useState("");
   const [distance, setDistance] = useState("");
-
-  const categories = ["5-star", "4-star", "3-star", "2-star", "1-star"];
+  const [address, setAddress] = useState("");
 
   useEffect(() => {
     fetchHotels();
@@ -51,13 +68,45 @@ export default function HotelCalculator() {
     }
   };
 
-  const handleHotelSelect = (hotel) => {
+  // Unique hotels by name, for the searchable combobox
+  const uniqueHotelOptions = hotels
+    .filter(
+      (hotel, index, self) =>
+        index === self.findIndex((h) => h.hotelName === hotel.hotelName)
+    )
+    .map((hotel) => ({ value: hotel.hotelName, label: hotel.hotelName }));
+
+  const resetSelection = () => {
+    setHotelName("");
+    setCategory("");
+    setRoomType("");
+    setAgentName("");
+    setAgentCost("");
+    setCompanyCost("");
+    setPrice("");
+    setCity("");
+    setArea("");
+    setDistance("");
+    setAddress("");
+    setAvailableRoomTypes([]);
+  };
+
+  const handleHotelSelect = (selectedHotelName) => {
+    if (!selectedHotelName) {
+      resetSelection();
+      return;
+    }
+
+    const hotel = hotels.find((h) => h.hotelName === selectedHotelName);
+    if (!hotel) return;
+
     setHotelName(hotel.hotelName);
     setCategory(hotel.category);
     setAgentName(hotel.agentName);
     setCity(hotel.city || "");
     setArea(hotel.area || "");
     setDistance(hotel.distance || "");
+    setAddress(hotel.address || "");
 
     // Reset room type when hotel changes
     setRoomType("");
@@ -95,6 +144,7 @@ export default function HotelCalculator() {
       setCity(selectedHotel.city || "");
       setArea(selectedHotel.area || "");
       setDistance(selectedHotel.distance || "");
+      setAddress(selectedHotel.address || "");
     }
   };
 
@@ -122,6 +172,9 @@ export default function HotelCalculator() {
     const totalFinalCost = totalNightsPrice + totalAgentCost + totalCompanyCost;
 
     setResult({
+      // Client
+      clientName,
+
       // Basic information
       hotelName,
       category,
@@ -132,6 +185,7 @@ export default function HotelCalculator() {
       city,
       area,
       distance,
+      address,
 
       // Per night costs
       perNightPrice,
@@ -156,93 +210,59 @@ export default function HotelCalculator() {
   };
 
   const clearForm = () => {
-    setHotelName("");
-    setCategory("");
-    setRoomType("");
-    setAgentName("");
-    setAgentCost("");
-    setCompanyCost("");
-    setPrice("");
+    resetSelection();
     setCheckIn("");
     setCheckOut("");
-    setCity("");
-    setArea("");
-    setDistance("");
+    setClientName("");
     setResult(null);
-    setAvailableRoomTypes([]);
   };
-
-  const FieldWrapper = ({ children, className = "" }) => (
-    <div className={`space-y-1 ${className}`}>{children}</div>
-  );
 
   return (
     <div className="calc">
+      {/* PRINT CSS — page-specific only; the app shell (sidebar/topbar/
+          footer) is handled globally in index.css. Only the dedicated
+          report block prints; the on-screen working view (including the
+          internal agent/company cost breakdown) is hidden from print
+          entirely. */}
+      <style>
+        {`
+          @media print {
+            #hotel-print-report {
+              display: block !important;
+              max-width: 720px;
+              margin: 0 auto;
+            }
+          }
+          #hotel-print-report { display: none; }
+        `}
+      </style>
+
       <div className="max-w-6xl mx-auto">
-        {/* Header with Print Button */}
-        <div className="mb-8">
+        {/* Header */}
+        <div className="mb-8 no-print">
           <PageHeader
             title="Hotel Calculator"
             subtitle="Calculate hotel costs and commissions"
             icon={Building2}
             onBack={() => navigate("/dashboard")}
-            actions={
-              result && (
-                <Button variant="secondary" icon={Printer} onClick={handlePrint}>
-                  Print Report
-                </Button>
-              )
-            }
           />
         </div>
 
         {/* Input Section */}
-        <div className="space-y-2">
+        <div className="space-y-2 no-print">
           <div className="calc-card p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Hotel Selection */}
+              {/* Hotel Selection — searchable combobox */}
               <FieldWrapper className="md:col-span-2">
                 <label className="text-sm font-medium text-gray-700">
                   Select Hotel
                 </label>
-                <select
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                <Combobox
+                  options={uniqueHotelOptions}
                   value={hotelName}
-                  onChange={(e) => {
-                    if (e.target.value === "") {
-                      // Clear everything if "Choose a hotel" is selected
-                      setHotelName("");
-                      setCategory("");
-                      setRoomType("");
-                      setAgentName("");
-                      setAgentCost("");
-                      setCompanyCost("");
-                      setPrice("");
-                      setCity("");
-                      setArea("");
-                      setDistance("");
-                      setAvailableRoomTypes([]);
-                    } else {
-                      const hotel = hotels.find(
-                        (h) => h.hotelName === e.target.value
-                      );
-                      if (hotel) handleHotelSelect(hotel);
-                    }
-                  }}
-                >
-                  <option value="">Choose a hotel</option>
-                  {hotels
-                    .filter(
-                      (hotel, index, self) =>
-                        index ===
-                        self.findIndex((h) => h.hotelName === hotel.hotelName)
-                    ) // Get unique hotels by name
-                    .map((hotel) => (
-                      <option key={hotel._id} value={hotel.hotelName}>
-                        {hotel.hotelName}
-                      </option>
-                    ))}
-                </select>
+                  onChange={handleHotelSelect}
+                  placeholder="Type to search hotels..."
+                />
               </FieldWrapper>
 
               {/* Room Type Selection - Always visible */}
@@ -302,6 +322,20 @@ export default function HotelCalculator() {
                   onChange={(e) => setCheckOut(e.target.value)}
                 />
               </FieldWrapper>
+
+              {/* Client Name */}
+              <FieldWrapper className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Client Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter client name"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value.toUpperCase())}
+                />
+              </FieldWrapper>
             </div>
 
             {/* Action Buttons */}
@@ -324,10 +358,15 @@ export default function HotelCalculator() {
           {/* Results Section */}
           {result && (
             <div className="calc-card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <Calculator size={20} className="text-green-600" />
-                Calculation Results
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Calculator size={20} className="text-green-600" />
+                  Calculation Results
+                </h2>
+                <Button variant="success" icon={Printer} onClick={handlePrint}>
+                  Print Report
+                </Button>
+              </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Left Column - Hotel Details & Stay Information */}
@@ -352,6 +391,14 @@ export default function HotelCalculator() {
                         <span className="text-gray-600">Room Type</span>
                         <span className="font-medium">{result.roomType}</span>
                       </div>
+                      {result.address && (
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-gray-600">Address</span>
+                          <span className="font-medium text-right max-w-xs">
+                            {result.address}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600">Agent Name</span>
                         <span className="font-medium">{result.agentName}</span>
@@ -380,7 +427,7 @@ export default function HotelCalculator() {
                           Distance from Center:
                         </span>
                         <span className="font-medium">
-                          {result.distance} km
+                          {result.distance} m
                         </span>
                       </div>
                     </div>
@@ -501,6 +548,169 @@ export default function HotelCalculator() {
             </div>
           )}
         </div>
+
+        {/* ============ PROFESSIONAL PRINT-ONLY REPORT ============ */}
+        {result && (
+          <div id="hotel-print-report">
+            {/* Header — first (and only) page */}
+            <div
+              style={{
+                textAlign: "center",
+                borderBottom: "2px solid #000",
+                paddingBottom: "16px",
+                marginBottom: "24px",
+              }}
+            >
+              <img
+                src={logo}
+                alt="AlBuraq Global"
+                style={{ width: "64px", height: "64px", margin: "0 auto 8px" }}
+              />
+              <h1 style={{ fontSize: "22px", fontWeight: "bold", margin: 0 }}>
+                {COMPANY_NAME}
+              </h1>
+              <p style={{ fontSize: "14px", marginTop: "10px" }}>
+                <strong>Report Title:</strong> Hotel Booking Cost Report
+              </p>
+              <p style={{ fontSize: "14px" }}>
+                <strong>Client Name:</strong> {result.clientName || "N/A"}
+              </p>
+            </div>
+
+            {/* Body — customer-facing details only, no internal cost breakdown */}
+            <div style={{ fontSize: "13px" }}>
+              <h2
+                style={{
+                  fontSize: "15px",
+                  fontWeight: "bold",
+                  marginBottom: "8px",
+                  borderBottom: "1px solid #000",
+                  paddingBottom: "4px",
+                }}
+              >
+                Hotel &amp; Stay Details
+              </h2>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginBottom: "20px",
+                }}
+              >
+                <tbody>
+                  {[
+                    ["Hotel Name", result.hotelName],
+                    ["Category", result.category],
+                    ["Room Type", result.roomType],
+                    ["Address", result.address || "N/A"],
+                    ["City", result.city],
+                    ["Area", result.area],
+                    ["Distance from Center", `${result.distance} m`],
+                    ["Check-in Date", result.checkIn],
+                    ["Check-out Date", result.checkOut],
+                    [
+                      "Total Nights",
+                      `${result.totalNights} night${
+                        result.totalNights !== 1 ? "s" : ""
+                      }`,
+                    ],
+                  ].map(([label, val]) => (
+                    <tr key={label}>
+                      <td
+                        style={{
+                          border: "1px solid #000",
+                          padding: "8px 10px",
+                          fontWeight: "bold",
+                          width: "40%",
+                        }}
+                      >
+                        {label}
+                      </td>
+                      <td style={{ border: "1px solid #000", padding: "8px 10px" }}>
+                        {val}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <h2
+                style={{
+                  fontSize: "15px",
+                  fontWeight: "bold",
+                  marginBottom: "8px",
+                  borderBottom: "1px solid #000",
+                  paddingBottom: "4px",
+                }}
+              >
+                Cost Summary
+              </h2>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #000",
+                        padding: "8px 10px",
+                        fontWeight: "bold",
+                        width: "40%",
+                      }}
+                    >
+                      Price per Night
+                    </td>
+                    <td style={{ border: "1px solid #000", padding: "8px 10px" }}>
+                      ${result.perNightPrice.toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style={{
+                        border: "1px solid #000",
+                        padding: "10px",
+                        fontWeight: "bold",
+                        fontSize: "14px",
+                      }}
+                    >
+                      Grand Total
+                    </td>
+                    <td
+                      style={{
+                        border: "1px solid #000",
+                        padding: "10px",
+                        fontWeight: "bold",
+                        fontSize: "14px",
+                      }}
+                    >
+                      ${result.totalFinalCost.toFixed(2)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer — first (and only) page */}
+            <div
+              style={{
+                marginTop: "32px",
+                paddingTop: "12px",
+                borderTop: "2px solid #000",
+                fontSize: "11px",
+                textAlign: "center",
+                lineHeight: 1.6,
+              }}
+            >
+              <p>
+                <strong>Website:</strong> {COMPANY_WEBSITE}
+              </p>
+              <p>
+                <strong>Address:</strong> {COMPANY_ADDRESS}
+              </p>
+              <p>
+                <strong>Contact Numbers:</strong> {COMPANY_PHONES.join("  |  ")}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

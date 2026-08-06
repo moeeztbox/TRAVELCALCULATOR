@@ -349,7 +349,9 @@ const TransportList = () => {
               type="text"
               placeholder="Agent name"
               value={data.agentName}
-              onChange={(e) => setData({ ...data, agentName: e.target.value })}
+              onChange={(e) =>
+                setData({ ...data, agentName: e.target.value.toUpperCase() })
+              }
               className={inputClass}
             />
           </Field>

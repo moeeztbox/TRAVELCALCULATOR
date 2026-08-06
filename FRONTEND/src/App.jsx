@@ -112,26 +112,31 @@ const AppChrome = () => {
     }
   }, [sessionExpired, navigate, clearSessionExpired]);
 
-  // The splash is driven purely by real auth state, not by route: it plays
-  // once for the "nobody is logged in yet" experience (app start, or after
-  // logging out), and is never shown once isAuthenticated is true — not on
-  // the dashboard, not immediately after a successful login, not ever,
-  // regardless of which route that login happened to occur on. Waiting for
-  // `loading` to resolve before deciding (rather than guessing) is what
-  // guarantees an already-logged-in user never sees even a brief flash of it.
-  const [splashDismissed, setSplashDismissed] = useState(false);
-  const wasAuthenticated = useRef(isAuthenticated);
+  // The splash runs exactly once per app launch — a single, final decision
+  // made the moment the initial auth check (`loading`) resolves, and never
+  // revisited afterward. Logging out, a session timing out, or an
+  // auto-logout never re-arms it; only a genuine app restart (fresh mount
+  // of this component, i.e. a real relaunch) does. It's also scoped to the
+  // Home route ("/") only — landing or reloading directly on /login (or
+  // anywhere else) never shows it.
+  const [showSplash, setShowSplash] = useState(false);
+  const splashDecided = useRef(false);
 
   useEffect(() => {
-    // Logging out re-enters the "nobody is logged in" state — let the
-    // splash play again for that next unauthenticated visit.
-    if (wasAuthenticated.current && !isAuthenticated) {
-      setSplashDismissed(false);
-    }
-    wasAuthenticated.current = isAuthenticated;
-  }, [isAuthenticated]);
+    if (loading || splashDecided.current) return;
+    splashDecided.current = true;
+    // Only play it if nobody is logged in yet AND the very first screen for
+    // this launch is Home — an already-authenticated cold start, or landing
+    // straight on /login, never shows it.
+    if (!isAuthenticated && location.pathname === "/") setShowSplash(true);
+  }, [loading, isAuthenticated, location.pathname]);
 
-  const showSplash = !loading && !isAuthenticated && !splashDismissed;
+  // If login completes while the splash is still mid-animation, cut it off
+  // immediately rather than waiting for its own timer — never show it
+  // after a successful login, under any circumstance.
+  useEffect(() => {
+    if (isAuthenticated) setShowSplash(false);
+  }, [isAuthenticated]);
 
   const content = inAppArea ? (
     <AppLayout>
@@ -148,9 +153,7 @@ const AppChrome = () => {
 
   return (
     <>
-      {showSplash && (
-        <SplashScreen onFinish={() => setSplashDismissed(true)} />
-      )}
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
       {content}
     </>
   );

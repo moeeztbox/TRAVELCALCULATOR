@@ -15,7 +15,7 @@ const hotelSchema = new mongoose.Schema(
     },
     roomType: {
       type: String,
-      enum: ["sharing", "quad", "double", "single"],
+      enum: ["sharing", "quad", "triple", "double", "single"],
       required: true,
     },
     agentName: {
@@ -50,6 +50,11 @@ const hotelSchema = new mongoose.Schema(
     distance: {
       type: Number,
       required: true,
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: "",
     },
   },
   { timestamps: true }

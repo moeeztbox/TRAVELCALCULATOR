@@ -165,6 +165,12 @@
   color: var(--color-ink);
   border-top: 1px solid var(--color-hair);
   vertical-align: middle;
+  /* Matches the (already-nowrap) headers — without this, cells wrap onto
+     multiple lines while the table itself is squeezed to the container's
+     full width, instead of properly triggering the container's horizontal
+     scroll. This is what actually keeps wide tables from visually breaking
+     on narrow screens. */
+  white-space: nowrap;
 }
 .data-table tbody tr:first-child td {
   border-top: 0;
@@ -253,6 +259,56 @@
 
 .animate-fade-in-up {
   animation: fadeInUp 0.3s ease-out;
+}
+
+/* =====================================================================
+   Global print stylesheet
+   Defined once, here, so it applies on every page regardless of whether
+   that page also defines its own local print rules — the app shell
+   (sidebar, topbar, footer, mobile drawer) must never appear in any
+   printed output, and previously that depended on every page correctly
+   duplicating the right selectors, which is exactly what went wrong.
+   ===================================================================== */
+@media print {
+  /* Anything explicitly marked screen-only (sidebar, topbar, footer,
+     mobile drawer, and any page-local screen-only controls). */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Belt-and-suspenders: the sidebar is the only <aside> in the app. */
+  aside {
+    display: none !important;
+  }
+
+  /* The content column reserves left padding for the fixed sidebar on
+     screen. A wide print page (landscape especially) can still satisfy
+     the `lg:` breakpoint, so this has to be forced off explicitly rather
+     than relying on the viewport width falling under the breakpoint. */
+  .lg\:pl-64 {
+    padding-left: 0 !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  * {
+    box-shadow: none !important;
+  }
+
+  @page {
+    margin: 12mm;
+  }
 }
 
 /* =====================================================================

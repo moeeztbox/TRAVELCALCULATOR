@@ -230,7 +230,7 @@ const TicketList = () => {
               placeholder="e.g. Saudia"
               value={data.airlineName}
               onChange={(e) =>
-                setData({ ...data, airlineName: e.target.value })
+                setData({ ...data, airlineName: e.target.value.toUpperCase() })
               }
               className={inputClass}
             />
@@ -315,7 +315,9 @@ const TicketList = () => {
               type="text"
               placeholder="Agent name"
               value={data.agentName}
-              onChange={(e) => setData({ ...data, agentName: e.target.value })}
+              onChange={(e) =>
+                setData({ ...data, agentName: e.target.value.toUpperCase() })
+              }
               className={inputClass}
             />
           </Field>

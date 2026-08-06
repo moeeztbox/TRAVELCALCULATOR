@@ -14,6 +14,13 @@ import {
 import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
 
+// Module scope (not inside the component) so its identity is stable across
+// renders — otherwise React remounts this subtree (and loses input focus)
+// on every keystroke. See HotelForm.jsx for the full explanation.
+const FieldWrapper = ({ children, className = "" }) => (
+  <div className={`space-y-1 ${className}`}>{children}</div>
+);
+
 export default function TransportCalculator() {
   const navigate = useNavigate();
 
@@ -143,10 +150,6 @@ export default function TransportCalculator() {
     setResult(null);
     setAvailableRoutes([]);
   };
-
-  const FieldWrapper = ({ children, className = "" }) => (
-    <div className={`space-y-1 ${className}`}>{children}</div>
-  );
 
   return (
     <div className="calc">

@@ -21,13 +21,13 @@ const AppLayout = ({ children }) => {
   return (
     <div className="min-h-screen app-canvas">
       {/* Desktop sidebar */}
-      <aside className="hidden lg:block fixed inset-y-0 left-0 w-64 z-30">
+      <aside className="no-print hidden lg:block fixed inset-y-0 left-0 w-64 z-30">
         <Sidebar />
       </aside>
 
       {/* Mobile drawer */}
       {open && (
-        <div className="lg:hidden fixed inset-0 z-40">
+        <div className="no-print lg:hidden fixed inset-0 z-40">
           <div
             className="absolute inset-0 bg-brand-900/50 backdrop-blur-sm animate-overlay-in"
             onClick={() => setOpen(false)}
