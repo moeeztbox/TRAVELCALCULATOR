@@ -15,6 +15,7 @@ import {
 import { Field, inputClass } from "../Components/Main/FormControls";
 import PageHeader from "../Components/UI/PageHeader";
 import Button from "../Components/UI/Button";
+import SearchableCombobox from "../Components/UI/SearchableCombobox";
 
 const API = "http://localhost:5000/api";
 
@@ -44,6 +45,97 @@ const routeLabel = (t) => {
   return t.routeString || "";
 };
 
+// Flatten a calculated `result` into the row shape the printable Excel-style
+// table needs. Only categories that were actually selected/entered appear —
+// unselected categories are simply omitted, never shown as broken/blank rows.
+const buildPrintRows = (result) => {
+  const rows = [];
+
+  if (result.makkahHotel) {
+    rows.push({
+      category: "Makkah Hotel",
+      item: `${result.makkahHotel.hotelName}${
+        result.makkahHotel.isCustom ? " (Custom)" : ""
+      }`,
+      original: money(result.makkahHotel.price),
+      persons: result.makkahPersons || "-",
+      perPerson: money(result.makkahPerPersonPrice),
+      nights: result.makkahNights || "-",
+      total: money(result.makkahCost),
+    });
+  }
+
+  if (result.madinahHotel) {
+    rows.push({
+      category: "Madinah Hotel",
+      item: `${result.madinahHotel.hotelName}${
+        result.madinahHotel.isCustom ? " (Custom)" : ""
+      }`,
+      original: money(result.madinahHotel.price),
+      persons: result.madinahPersons || "-",
+      perPerson: money(result.madinahPerPersonPrice),
+      nights: result.madinahNights || "-",
+      total: money(result.madinahCost),
+    });
+  }
+
+  if (result.visa) {
+    rows.push({
+      category: "Visa",
+      item: `${result.visa.category}${
+        result.visa.isCustom ? " (Custom)" : ""
+      }`,
+      original: money(result.visa.price),
+      persons: "-",
+      perPerson: money(result.costs.visaCost),
+      nights: "-",
+      total: money(result.costs.visaCost),
+    });
+  }
+
+  if (result.flight) {
+    rows.push({
+      category: "Flight",
+      item: `${result.flight.airlineName}${
+        result.flight.isCustom ? " (Custom)" : ""
+      }`,
+      original: money(result.flight.price),
+      persons: "-",
+      perPerson: money(result.costs.flightCost),
+      nights: "-",
+      total: money(result.costs.flightCost),
+    });
+  }
+
+  if (result.transport) {
+    rows.push({
+      category: "Transport",
+      item: `${result.transport.carType}${
+        result.transport.isCustom ? " (Custom)" : ""
+      }`,
+      original: money(result.transport.price),
+      persons: result.transportPassengers || "-",
+      perPerson: money(result.costs.transportCost),
+      nights: "-",
+      total: money(result.costs.transportCost),
+    });
+  }
+
+  if (result.ziyaratItems && result.ziyaratItems.length) {
+    rows.push({
+      category: "Ziyarat",
+      item: result.ziyaratItems.map((z) => z.name).join(", "),
+      original: money(result.costs.ziyaratCost),
+      persons: "-",
+      perPerson: money(result.costs.ziyaratCost),
+      nights: "-",
+      total: money(result.costs.ziyaratCost),
+    });
+  }
+
+  return rows;
+};
+
 const CustomizePackage = () => {
   const navigate = useNavigate();
 
@@ -57,18 +149,36 @@ const CustomizePackage = () => {
   // User selections
   const [packageName, setPackageName] = useState("");
   const [totalDays, setTotalDays] = useState("");
-  const [totalNights, setTotalNights] = useState("");
 
-  const [makkahHotelId, setMakkahHotelId] = useState("");
+  // Makkah hotel — `*Selected` holds the matched database record (or null
+  // when the typed text is a temporary custom hotel not backed by an ID).
+  const [makkahHotelText, setMakkahHotelText] = useState("");
+  const [makkahHotelSelected, setMakkahHotelSelected] = useState(null);
+  const [makkahHotelPrice, setMakkahHotelPrice] = useState("");
   const [makkahNights, setMakkahNights] = useState("");
   const [makkahPersons, setMakkahPersons] = useState("");
-  const [madinahHotelId, setMadinahHotelId] = useState("");
+
+  // Madinah hotel
+  const [madinahHotelText, setMadinahHotelText] = useState("");
+  const [madinahHotelSelected, setMadinahHotelSelected] = useState(null);
+  const [madinahHotelPrice, setMadinahHotelPrice] = useState("");
   const [madinahNights, setMadinahNights] = useState("");
   const [madinahPersons, setMadinahPersons] = useState("");
 
-  const [visaId, setVisaId] = useState("");
-  const [flightId, setFlightId] = useState("");
-  const [transportId, setTransportId] = useState("");
+  // Visa
+  const [visaTypeText, setVisaTypeText] = useState("");
+  const [visaSelected, setVisaSelected] = useState(null);
+  const [visaPrice, setVisaPrice] = useState("");
+
+  // Flight
+  const [flightText, setFlightText] = useState("");
+  const [flightSelected, setFlightSelected] = useState(null);
+  const [flightPrice, setFlightPrice] = useState("");
+
+  // Transport
+  const [transportText, setTransportText] = useState("");
+  const [transportSelected, setTransportSelected] = useState(null);
+  const [transportPrice, setTransportPrice] = useState("");
   const [transportPassengers, setTransportPassengers] = useState("");
 
   const [selectedZiyarat, setSelectedZiyarat] = useState([]);
@@ -101,13 +211,33 @@ const CustomizePackage = () => {
   const makkahHotels = hotels.filter((h) => h.city === "Makkah");
   const madinahHotels = hotels.filter((h) => h.city === "Madinah");
 
-  const findById = (arr, id) => arr.find((x) => x._id === id) || null;
-
   // Safely coerce a value to a positive number (guards against "", 0,
   // negative, and non-numeric input causing NaN/Infinity downstream).
   const toPositiveNumber = (v) => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
+  // Safely coerce a price to a non-negative number.
+  const safePrice = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+
+  // Resolve a combobox field to either the selected database record
+  // (isCustom: false) or a temporary custom item built from the typed
+  // text + manually entered price (isCustom: true). Custom items are
+  // never persisted — they only exist in this component's state.
+  const resolveItem = (text, selected, priceInput, labelField) => {
+    if (selected) return { ...selected, isCustom: false };
+    const trimmed = (text || "").trim();
+    if (!trimmed) return null;
+    return {
+      [labelField]: trimmed,
+      price: safePrice(priceInput),
+      isCustom: true,
+      _id: null,
+    };
   };
 
   const toggleZiyarat = (name) => {
@@ -121,23 +251,44 @@ const CustomizePackage = () => {
       alert("Please enter a package name.");
       return;
     }
-    if (!makkahHotelId && !madinahHotelId && !visaId && !flightId && !transportId) {
-      alert("Please select at least one service to build your package.");
+
+    const makkahHotel = resolveItem(
+      makkahHotelText,
+      makkahHotelSelected,
+      makkahHotelPrice,
+      "hotelName"
+    );
+    const madinahHotel = resolveItem(
+      madinahHotelText,
+      madinahHotelSelected,
+      madinahHotelPrice,
+      "hotelName"
+    );
+    const visa = resolveItem(visaTypeText, visaSelected, visaPrice, "category");
+    const flight = resolveItem(
+      flightText,
+      flightSelected,
+      flightPrice,
+      "airlineName"
+    );
+    const transport = resolveItem(
+      transportText,
+      transportSelected,
+      transportPrice,
+      "carType"
+    );
+
+    if (!makkahHotel && !madinahHotel && !visa && !flight && !transport) {
+      alert("Please add at least one service to build your package.");
       return;
     }
-
-    const makkahHotel = findById(hotels, makkahHotelId);
-    const madinahHotel = findById(hotels, madinahHotelId);
-    const visa = findById(visas, visaId);
-    const flight = findById(flights, flightId);
-    const transport = findById(transports, transportId);
 
     // Per-person hotel cost for the full stay: (Hotel Price / Persons) × Nights
     const makkahNightsNum = toPositiveNumber(makkahNights);
     const makkahPersonsNum = toPositiveNumber(makkahPersons);
     const makkahPerPersonPrice =
       makkahHotel && makkahPersonsNum > 0
-        ? Number(makkahHotel.price) / makkahPersonsNum
+        ? safePrice(makkahHotel.price) / makkahPersonsNum
         : 0;
     const makkahCost = makkahPerPersonPrice * makkahNightsNum;
 
@@ -145,7 +296,7 @@ const CustomizePackage = () => {
     const madinahPersonsNum = toPositiveNumber(madinahPersons);
     const madinahPerPersonPrice =
       madinahHotel && madinahPersonsNum > 0
-        ? Number(madinahHotel.price) / madinahPersonsNum
+        ? safePrice(madinahHotel.price) / madinahPersonsNum
         : 0;
     const madinahCost = madinahPerPersonPrice * madinahNightsNum;
 
@@ -153,14 +304,14 @@ const CustomizePackage = () => {
     // per-person total — never the original/full hotel prices.
     const hotelCost = makkahCost + madinahCost;
 
-    const visaCost = visa ? Number(visa.price) : 0;
-    const flightCost = flight ? Number(flight.price) : 0;
+    const visaCost = visa ? safePrice(visa.price) : 0;
+    const flightCost = flight ? safePrice(flight.price) : 0;
 
     // Transport cost per person: Transport Price / Total Passengers
     const transportPassengersNum = toPositiveNumber(transportPassengers);
     const transportCost =
       transport && transportPassengersNum > 0
-        ? Number(transport.price) / transportPassengersNum
+        ? safePrice(transport.price) / transportPassengersNum
         : 0;
 
     const ziyaratItems = ZIYARAT_LOCATIONS.filter((z) =>
@@ -168,13 +319,15 @@ const CustomizePackage = () => {
     );
     const ziyaratCost = ziyaratItems.reduce((sum, z) => sum + z.charge, 0);
 
+    // Grand total is strictly per-person: every component above is already
+    // a per-person figure (hotels divided by persons, transport divided by
+    // passengers), so summing them yields the price for one person.
     const grandTotal =
       hotelCost + visaCost + flightCost + transportCost + ziyaratCost;
 
     setResult({
       packageName,
       totalDays,
-      totalNights,
       makkahHotel,
       makkahNights: makkahNightsNum,
       makkahPersons: makkahPersonsNum,
@@ -188,7 +341,6 @@ const CustomizePackage = () => {
       visa,
       flight,
       transport,
-      transportRoute: transport ? routeLabel(transport) : "",
       transportPassengers: transportPassengersNum,
       ziyaratItems,
       costs: {
@@ -212,17 +364,32 @@ const CustomizePackage = () => {
   const clearAll = () => {
     setPackageName("");
     setTotalDays("");
-    setTotalNights("");
-    setMakkahHotelId("");
+
+    setMakkahHotelText("");
+    setMakkahHotelSelected(null);
+    setMakkahHotelPrice("");
     setMakkahNights("");
     setMakkahPersons("");
-    setMadinahHotelId("");
+
+    setMadinahHotelText("");
+    setMadinahHotelSelected(null);
+    setMadinahHotelPrice("");
     setMadinahNights("");
     setMadinahPersons("");
-    setVisaId("");
-    setFlightId("");
-    setTransportId("");
+
+    setVisaTypeText("");
+    setVisaSelected(null);
+    setVisaPrice("");
+
+    setFlightText("");
+    setFlightSelected(null);
+    setFlightPrice("");
+
+    setTransportText("");
+    setTransportSelected(null);
+    setTransportPrice("");
     setTransportPassengers("");
+
     setSelectedZiyarat([]);
     setResult(null);
   };
@@ -238,17 +405,57 @@ const CustomizePackage = () => {
     }, 100);
   };
 
+  const printRows = result ? buildPrintRows(result) : [];
+
   return (
     <div className="p-4 w-full">
       {/* PRINT CSS */}
       <style>
         {`
+          .print-only-summary { display: none; }
+
           @media print {
             .no-print { display: none !important; }
             nav, header, footer, [role="navigation"] { display: none !important; }
             body { -webkit-print-color-adjust: exact; background: white !important; }
             * { box-shadow: none !important; }
             #package-summary { border: 1px solid #000 !important; }
+            .screen-only-summary { display: none !important; }
+            .print-only-summary { display: block !important; }
+
+            .print-summary-table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
+              font-size: 11px;
+            }
+            .print-summary-table th,
+            .print-summary-table td {
+              border: 1px solid #000;
+              padding: 6px 8px;
+              word-wrap: break-word;
+              overflow-wrap: break-word;
+              vertical-align: top;
+              text-align: left;
+            }
+            .print-summary-table thead th {
+              background: #eee !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              font-weight: 700;
+            }
+            .print-summary-table .num { text-align: right; }
+            .print-summary-table .center { text-align: center; }
+            .print-summary-table tfoot td {
+              font-weight: 700;
+            }
+            .print-summary-table tfoot .grand-total td {
+              background: #eee !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              font-size: 13px;
+            }
+            .print-summary-table tbody tr { page-break-inside: avoid; }
           }
         `}
       </style>
@@ -276,7 +483,7 @@ const CustomizePackage = () => {
                 <PackageCheck size={20} className="text-red-600" />
                 Package Details
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Package Name" required>
                   <input
                     type="text"
@@ -292,15 +499,6 @@ const CustomizePackage = () => {
                     placeholder="e.g. 14"
                     value={totalDays}
                     onChange={(e) => setTotalDays(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Total Nights">
-                  <input
-                    type="number"
-                    placeholder="e.g. 13"
-                    value={totalNights}
-                    onChange={(e) => setTotalNights(e.target.value)}
                     className={inputClass}
                   />
                 </Field>
@@ -320,18 +518,51 @@ const CustomizePackage = () => {
                     Makkah Hotel
                   </p>
                   <div className="space-y-3">
-                    <select
-                      value={makkahHotelId}
-                      onChange={(e) => setMakkahHotelId(e.target.value)}
-                      className={inputClass}
+                    <Field label="Hotel Name">
+                      <SearchableCombobox
+                        value={makkahHotelText}
+                        onTextChange={(text) => {
+                          setMakkahHotelText(text);
+                          setMakkahHotelSelected(null);
+                        }}
+                        onSelect={(hotel) => {
+                          setMakkahHotelSelected(hotel);
+                          setMakkahHotelText(hotel.hotelName);
+                          setMakkahHotelPrice(String(hotel.price ?? ""));
+                        }}
+                        options={makkahHotels}
+                        getLabel={(h) => h.hotelName}
+                        getSubLabel={(h) =>
+                          `${h.roomType ? h.roomType + " · " : ""}${money(
+                            h.price
+                          )}/night`
+                        }
+                        placeholder="Search or type a Makkah hotel"
+                        isSelected={!!makkahHotelSelected}
+                      />
+                    </Field>
+                    <Field
+                      label={
+                        makkahHotelSelected
+                          ? "Price / Night (from database)"
+                          : "Price / Night (custom)"
+                      }
                     >
-                      <option value="">Select Makkah hotel</option>
-                      {makkahHotels.map((h) => (
-                        <option key={h._id} value={h._id}>
-                          {h.hotelName} · {h.roomType} · {money(h.price)}/night
-                        </option>
-                      ))}
-                    </select>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={makkahHotelPrice}
+                        onChange={(e) => setMakkahHotelPrice(e.target.value)}
+                        readOnly={!!makkahHotelSelected}
+                        disabled={!!makkahHotelSelected}
+                        className={`${inputClass} ${
+                          makkahHotelSelected
+                            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    </Field>
                     <Field label="Nights in Makkah">
                       <input
                         type="number"
@@ -361,18 +592,51 @@ const CustomizePackage = () => {
                     Madinah Hotel
                   </p>
                   <div className="space-y-3">
-                    <select
-                      value={madinahHotelId}
-                      onChange={(e) => setMadinahHotelId(e.target.value)}
-                      className={inputClass}
+                    <Field label="Hotel Name">
+                      <SearchableCombobox
+                        value={madinahHotelText}
+                        onTextChange={(text) => {
+                          setMadinahHotelText(text);
+                          setMadinahHotelSelected(null);
+                        }}
+                        onSelect={(hotel) => {
+                          setMadinahHotelSelected(hotel);
+                          setMadinahHotelText(hotel.hotelName);
+                          setMadinahHotelPrice(String(hotel.price ?? ""));
+                        }}
+                        options={madinahHotels}
+                        getLabel={(h) => h.hotelName}
+                        getSubLabel={(h) =>
+                          `${h.roomType ? h.roomType + " · " : ""}${money(
+                            h.price
+                          )}/night`
+                        }
+                        placeholder="Search or type a Madinah hotel"
+                        isSelected={!!madinahHotelSelected}
+                      />
+                    </Field>
+                    <Field
+                      label={
+                        madinahHotelSelected
+                          ? "Price / Night (from database)"
+                          : "Price / Night (custom)"
+                      }
                     >
-                      <option value="">Select Madinah hotel</option>
-                      {madinahHotels.map((h) => (
-                        <option key={h._id} value={h._id}>
-                          {h.hotelName} · {h.roomType} · {money(h.price)}/night
-                        </option>
-                      ))}
-                    </select>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={madinahHotelPrice}
+                        onChange={(e) => setMadinahHotelPrice(e.target.value)}
+                        readOnly={!!madinahHotelSelected}
+                        disabled={!!madinahHotelSelected}
+                        className={`${inputClass} ${
+                          madinahHotelSelected
+                            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+                    </Field>
                     <Field label="Nights in Madinah">
                       <input
                         type="number"
@@ -405,18 +669,45 @@ const CustomizePackage = () => {
                   <FileText size={18} className="text-blue-600" />
                   Visa
                 </h2>
-                <select
-                  value={visaId}
-                  onChange={(e) => setVisaId(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Select visa</option>
-                  {visas.map((v) => (
-                    <option key={v._id} value={v._id}>
-                      {v.category} · {v.passenger} · {money(v.price)}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-3">
+                  <Field label="Visa Type">
+                    <SearchableCombobox
+                      value={visaTypeText}
+                      onTextChange={(text) => {
+                        setVisaTypeText(text);
+                        setVisaSelected(null);
+                      }}
+                      onSelect={(v) => {
+                        setVisaSelected(v);
+                        setVisaTypeText(v.category);
+                        setVisaPrice(String(v.price ?? ""));
+                      }}
+                      options={visas}
+                      getLabel={(v) => v.category}
+                      getSubLabel={(v) => `${v.passenger} · ${money(v.price)}`}
+                      placeholder="Search or type a visa type"
+                      isSelected={!!visaSelected}
+                    />
+                  </Field>
+                  <Field
+                    label={visaSelected ? "Price (from database)" : "Price (custom)"}
+                  >
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={visaPrice}
+                      onChange={(e) => setVisaPrice(e.target.value)}
+                      readOnly={!!visaSelected}
+                      disabled={!!visaSelected}
+                      className={`${inputClass} ${
+                        visaSelected
+                          ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                          : ""
+                      }`}
+                    />
+                  </Field>
+                </div>
               </div>
 
               <div className="calc-card p-6">
@@ -424,18 +715,47 @@ const CustomizePackage = () => {
                   <Plane size={18} className="text-blue-600" />
                   Flight
                 </h2>
-                <select
-                  value={flightId}
-                  onChange={(e) => setFlightId(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Select flight</option>
-                  {flights.map((f) => (
-                    <option key={f._id} value={f._id}>
-                      {f.airlineName} · {f.category} · {money(f.price)}
-                    </option>
-                  ))}
-                </select>
+                <div className="space-y-3">
+                  <Field label="Flight">
+                    <SearchableCombobox
+                      value={flightText}
+                      onTextChange={(text) => {
+                        setFlightText(text);
+                        setFlightSelected(null);
+                      }}
+                      onSelect={(f) => {
+                        setFlightSelected(f);
+                        setFlightText(f.airlineName);
+                        setFlightPrice(String(f.price ?? ""));
+                      }}
+                      options={flights}
+                      getLabel={(f) => f.airlineName}
+                      getSubLabel={(f) => `${f.category} · ${money(f.price)}`}
+                      placeholder="Search or type a flight"
+                      isSelected={!!flightSelected}
+                    />
+                  </Field>
+                  <Field
+                    label={
+                      flightSelected ? "Price (from database)" : "Price (custom)"
+                    }
+                  >
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={flightPrice}
+                      onChange={(e) => setFlightPrice(e.target.value)}
+                      readOnly={!!flightSelected}
+                      disabled={!!flightSelected}
+                      className={`${inputClass} ${
+                        flightSelected
+                          ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                          : ""
+                      }`}
+                    />
+                  </Field>
+                </div>
               </div>
 
               <div className="calc-card p-6">
@@ -443,19 +763,48 @@ const CustomizePackage = () => {
                   <Car size={18} className="text-blue-600" />
                   Transport
                 </h2>
-                <select
-                  value={transportId}
-                  onChange={(e) => setTransportId(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Select transport</option>
-                  {transports.map((t) => (
-                    <option key={t._id} value={t._id}>
-                      {t.carType} · {routeLabel(t)} · {money(t.price)}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-3">
+                <div className="space-y-3">
+                  <Field label="Transport">
+                    <SearchableCombobox
+                      value={transportText}
+                      onTextChange={(text) => {
+                        setTransportText(text);
+                        setTransportSelected(null);
+                      }}
+                      onSelect={(t) => {
+                        setTransportSelected(t);
+                        setTransportText(t.carType);
+                        setTransportPrice(String(t.price ?? ""));
+                      }}
+                      options={transports}
+                      getLabel={(t) => t.carType}
+                      getSubLabel={(t) => `${routeLabel(t)} · ${money(t.price)}`}
+                      placeholder="Search or type a transport option"
+                      isSelected={!!transportSelected}
+                    />
+                  </Field>
+                  <Field
+                    label={
+                      transportSelected
+                        ? "Price (from database)"
+                        : "Price (custom)"
+                    }
+                  >
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={transportPrice}
+                      onChange={(e) => setTransportPrice(e.target.value)}
+                      readOnly={!!transportSelected}
+                      disabled={!!transportSelected}
+                      className={`${inputClass} ${
+                        transportSelected
+                          ? "bg-gray-100 text-gray-500 cursor-not-allowed"
+                          : ""
+                      }`}
+                    />
+                  </Field>
                   <Field label="Total Passengers">
                     <input
                       type="number"
@@ -546,8 +895,7 @@ const CustomizePackage = () => {
                   {result.packageName}
                 </h2>
                 <p className="text-sm text-muted mt-1">
-                  {result.totalDays || "—"} Days · {result.totalNights || "—"}{" "}
-                  Nights
+                  {result.totalDays || "—"} Days · Price shown is per person
                 </p>
               </div>
               <Button
@@ -560,7 +908,7 @@ const CustomizePackage = () => {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-6">
+            <div className="screen-only-summary grid grid-cols-1 lg:grid-cols-2 gap-8 p-6">
               {/* LEFT: selections */}
               <div className="space-y-6">
                 <div>
@@ -572,7 +920,11 @@ const CustomizePackage = () => {
                       label="Makkah"
                       value={
                         result.makkahHotel
-                          ? `${result.makkahHotel.hotelName} (${result.makkahNights} nights, ${result.makkahPersons} persons)`
+                          ? `${result.makkahHotel.hotelName}${
+                              result.makkahHotel.isCustom ? " (Custom)" : ""
+                            } (${result.makkahNights} nights, ${
+                              result.makkahPersons
+                            } persons)`
                           : "Not selected"
                       }
                     />
@@ -580,7 +932,11 @@ const CustomizePackage = () => {
                       label="Madinah"
                       value={
                         result.madinahHotel
-                          ? `${result.madinahHotel.hotelName} (${result.madinahNights} nights, ${result.madinahPersons} persons)`
+                          ? `${result.madinahHotel.hotelName}${
+                              result.madinahHotel.isCustom ? " (Custom)" : ""
+                            } (${result.madinahNights} nights, ${
+                              result.madinahPersons
+                            } persons)`
                           : "Not selected"
                       }
                     />
@@ -596,7 +952,9 @@ const CustomizePackage = () => {
                       label="Visa"
                       value={
                         result.visa
-                          ? `${result.visa.category} (${result.visa.passenger})`
+                          ? `${result.visa.category}${
+                              result.visa.isCustom ? " (Custom)" : ""
+                            } · ${money(result.costs.visaCost)}`
                           : "Not selected"
                       }
                     />
@@ -604,7 +962,9 @@ const CustomizePackage = () => {
                       label="Flight"
                       value={
                         result.flight
-                          ? `${result.flight.airlineName} · ${result.flight.category}`
+                          ? `${result.flight.airlineName}${
+                              result.flight.isCustom ? " (Custom)" : ""
+                            } · ${money(result.costs.flightCost)}`
                           : "Not selected"
                       }
                     />
@@ -612,7 +972,11 @@ const CustomizePackage = () => {
                       label="Transport"
                       value={
                         result.transport
-                          ? `${result.transport.carType} · ${result.transportRoute} (${result.transportPassengers} passengers)`
+                          ? `${result.transport.carType}${
+                              result.transport.isCustom
+                                ? " (Custom)"
+                                : ` · ${routeLabel(result.transport)}`
+                            } (${result.transportPassengers} passengers)`
                           : "Not selected"
                       }
                     />
@@ -645,10 +1009,10 @@ const CustomizePackage = () => {
               {/* RIGHT: cost breakdown */}
               <div>
                 <h3 className="text-sm font-bold text-gray-700 mb-3">
-                  Cost Breakdown
+                  Cost Breakdown (Per Person)
                 </h3>
 
-                {/* Per-hotel / per-transport pricing detail */}
+                {/* Per-item pricing detail */}
                 <div className="space-y-3 mb-4">
                   {result.makkahHotel && (
                     <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
@@ -656,6 +1020,12 @@ const CustomizePackage = () => {
                         Makkah Hotel
                       </p>
                       <div className="space-y-1.5 text-sm">
+                        <DetailRow
+                          label="Hotel"
+                          value={`${result.makkahHotel.hotelName}${
+                            result.makkahHotel.isCustom ? " (Custom)" : ""
+                          }`}
+                        />
                         <DetailRow
                           label="Original Price"
                           value={money(result.makkahHotel.price)}
@@ -688,6 +1058,12 @@ const CustomizePackage = () => {
                       </p>
                       <div className="space-y-1.5 text-sm">
                         <DetailRow
+                          label="Hotel"
+                          value={`${result.madinahHotel.hotelName}${
+                            result.madinahHotel.isCustom ? " (Custom)" : ""
+                          }`}
+                        />
+                        <DetailRow
                           label="Original Price"
                           value={money(result.madinahHotel.price)}
                         />
@@ -712,12 +1088,60 @@ const CustomizePackage = () => {
                     </div>
                   )}
 
+                  {result.visa && (
+                    <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                        Visa
+                      </p>
+                      <div className="space-y-1.5 text-sm">
+                        <DetailRow
+                          label="Visa Type"
+                          value={`${result.visa.category}${
+                            result.visa.isCustom ? " (Custom)" : ""
+                          }`}
+                        />
+                        <DetailRow
+                          label="Price"
+                          value={money(result.costs.visaCost)}
+                          bold
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {result.flight && (
+                    <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                        Flight
+                      </p>
+                      <div className="space-y-1.5 text-sm">
+                        <DetailRow
+                          label="Flight"
+                          value={`${result.flight.airlineName}${
+                            result.flight.isCustom ? " (Custom)" : ""
+                          }`}
+                        />
+                        <DetailRow
+                          label="Price"
+                          value={money(result.costs.flightCost)}
+                          bold
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {result.transport && (
                     <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
                       <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
                         Transport
                       </p>
                       <div className="space-y-1.5 text-sm">
+                        <DetailRow
+                          label="Transport"
+                          value={`${result.transport.carType}${
+                            result.transport.isCustom ? " (Custom)" : ""
+                          }`}
+                        />
                         <DetailRow
                           label="Original Price"
                           value={money(result.transport.price)}
@@ -750,13 +1174,68 @@ const CustomizePackage = () => {
                   />
                   <CostRow label="Ziyarat" value={result.costs.ziyaratCost} />
                   <div className="flex justify-between items-center px-4 py-4 bg-brand-600 text-white rounded-b-xl">
-                    <span className="font-semibold">Grand Total</span>
+                    <span className="font-semibold">
+                      Grand Total (Per Person)
+                    </span>
                     <span className="text-xl font-extrabold">
                       {money(result.costs.grandTotal)}
                     </span>
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* PRINT-ONLY: Excel-style result table */}
+            <div className="print-only-summary px-6 pb-6">
+              <table className="print-summary-table">
+                <colgroup>
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "27%" }} />
+                  <col style={{ width: "12%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "13%" }} />
+                  <col style={{ width: "8%" }} />
+                  <col style={{ width: "14%" }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Selected Item</th>
+                    <th className="num">Original Price</th>
+                    <th className="center">Persons / Passengers</th>
+                    <th className="num">Per Person Price</th>
+                    <th className="center">Nights</th>
+                    <th className="num">Total Per Person</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {printRows.map((row, idx) => (
+                    <tr key={idx}>
+                      <td>{row.category}</td>
+                      <td>{row.item}</td>
+                      <td className="num">{row.original}</td>
+                      <td className="center">{row.persons}</td>
+                      <td className="num">{row.perPerson}</td>
+                      <td className="center">{row.nights}</td>
+                      <td className="num">{row.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={6} className="num">
+                      Total Hotels Per Person
+                    </td>
+                    <td className="num">{money(result.costs.hotelCost)}</td>
+                  </tr>
+                  <tr className="grand-total">
+                    <td colSpan={6} className="num">
+                      Final Package Total Per Person
+                    </td>
+                    <td className="num">{money(result.costs.grandTotal)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>
         )}
