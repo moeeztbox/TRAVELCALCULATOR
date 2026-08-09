@@ -61,15 +61,17 @@ const CustomizePackage = () => {
 
   const [makkahHotelId, setMakkahHotelId] = useState("");
   const [makkahNights, setMakkahNights] = useState("");
+  const [makkahPersons, setMakkahPersons] = useState("");
   const [madinahHotelId, setMadinahHotelId] = useState("");
   const [madinahNights, setMadinahNights] = useState("");
+  const [madinahPersons, setMadinahPersons] = useState("");
 
   const [visaId, setVisaId] = useState("");
   const [flightId, setFlightId] = useState("");
   const [transportId, setTransportId] = useState("");
+  const [transportPassengers, setTransportPassengers] = useState("");
 
   const [selectedZiyarat, setSelectedZiyarat] = useState([]);
-  const [taxRate, setTaxRate] = useState(0);
 
   const [result, setResult] = useState(null);
 
@@ -101,6 +103,13 @@ const CustomizePackage = () => {
 
   const findById = (arr, id) => arr.find((x) => x._id === id) || null;
 
+  // Safely coerce a value to a positive number (guards against "", 0,
+  // negative, and non-numeric input causing NaN/Infinity downstream).
+  const toPositiveNumber = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
   const toggleZiyarat = (name) => {
     setSelectedZiyarat((prev) =>
       prev.includes(name) ? prev.filter((z) => z !== name) : [...prev, name]
@@ -123,42 +132,64 @@ const CustomizePackage = () => {
     const flight = findById(flights, flightId);
     const transport = findById(transports, transportId);
 
-    const makkahCost = makkahHotel
-      ? Number(makkahHotel.price) * (Number(makkahNights) || 0)
-      : 0;
-    const madinahCost = madinahHotel
-      ? Number(madinahHotel.price) * (Number(madinahNights) || 0)
-      : 0;
+    // Per-person hotel cost for the full stay: (Hotel Price / Persons) × Nights
+    const makkahNightsNum = toPositiveNumber(makkahNights);
+    const makkahPersonsNum = toPositiveNumber(makkahPersons);
+    const makkahPerPersonPrice =
+      makkahHotel && makkahPersonsNum > 0
+        ? Number(makkahHotel.price) / makkahPersonsNum
+        : 0;
+    const makkahCost = makkahPerPersonPrice * makkahNightsNum;
+
+    const madinahNightsNum = toPositiveNumber(madinahNights);
+    const madinahPersonsNum = toPositiveNumber(madinahPersons);
+    const madinahPerPersonPrice =
+      madinahHotel && madinahPersonsNum > 0
+        ? Number(madinahHotel.price) / madinahPersonsNum
+        : 0;
+    const madinahCost = madinahPerPersonPrice * madinahNightsNum;
+
+    // Hotels' contribution to the package total is the sum of each city's
+    // per-person total — never the original/full hotel prices.
     const hotelCost = makkahCost + madinahCost;
 
     const visaCost = visa ? Number(visa.price) : 0;
     const flightCost = flight ? Number(flight.price) : 0;
-    const transportCost = transport ? Number(transport.price) : 0;
+
+    // Transport cost per person: Transport Price / Total Passengers
+    const transportPassengersNum = toPositiveNumber(transportPassengers);
+    const transportCost =
+      transport && transportPassengersNum > 0
+        ? Number(transport.price) / transportPassengersNum
+        : 0;
 
     const ziyaratItems = ZIYARAT_LOCATIONS.filter((z) =>
       selectedZiyarat.includes(z.name)
     );
     const ziyaratCost = ziyaratItems.reduce((sum, z) => sum + z.charge, 0);
 
-    const subtotal =
+    const grandTotal =
       hotelCost + visaCost + flightCost + transportCost + ziyaratCost;
-    const tax = subtotal * ((Number(taxRate) || 0) / 100);
-    const grandTotal = subtotal + tax;
 
     setResult({
       packageName,
       totalDays,
       totalNights,
       makkahHotel,
-      makkahNights: Number(makkahNights) || 0,
+      makkahNights: makkahNightsNum,
+      makkahPersons: makkahPersonsNum,
+      makkahPerPersonPrice,
       makkahCost,
       madinahHotel,
-      madinahNights: Number(madinahNights) || 0,
+      madinahNights: madinahNightsNum,
+      madinahPersons: madinahPersonsNum,
+      madinahPerPersonPrice,
       madinahCost,
       visa,
       flight,
       transport,
       transportRoute: transport ? routeLabel(transport) : "",
+      transportPassengers: transportPassengersNum,
       ziyaratItems,
       costs: {
         hotelCost,
@@ -166,9 +197,6 @@ const CustomizePackage = () => {
         flightCost,
         transportCost,
         ziyaratCost,
-        subtotal,
-        taxRate: Number(taxRate) || 0,
-        tax,
         grandTotal,
       },
     });
@@ -187,13 +215,15 @@ const CustomizePackage = () => {
     setTotalNights("");
     setMakkahHotelId("");
     setMakkahNights("");
+    setMakkahPersons("");
     setMadinahHotelId("");
     setMadinahNights("");
+    setMadinahPersons("");
     setVisaId("");
     setFlightId("");
     setTransportId("");
+    setTransportPassengers("");
     setSelectedZiyarat([]);
-    setTaxRate(0);
     setResult(null);
   };
 
@@ -305,9 +335,20 @@ const CustomizePackage = () => {
                     <Field label="Nights in Makkah">
                       <input
                         type="number"
+                        min="0"
                         placeholder="0"
                         value={makkahNights}
                         onChange={(e) => setMakkahNights(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Persons">
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 2"
+                        value={makkahPersons}
+                        onChange={(e) => setMakkahPersons(e.target.value)}
                         className={inputClass}
                       />
                     </Field>
@@ -335,9 +376,20 @@ const CustomizePackage = () => {
                     <Field label="Nights in Madinah">
                       <input
                         type="number"
+                        min="0"
                         placeholder="0"
                         value={madinahNights}
                         onChange={(e) => setMadinahNights(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Persons">
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 2"
+                        value={madinahPersons}
+                        onChange={(e) => setMadinahPersons(e.target.value)}
                         className={inputClass}
                       />
                     </Field>
@@ -403,6 +455,18 @@ const CustomizePackage = () => {
                     </option>
                   ))}
                 </select>
+                <div className="mt-3">
+                  <Field label="Total Passengers">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 4"
+                      value={transportPassengers}
+                      onChange={(e) => setTransportPassengers(e.target.value)}
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
               </div>
             </div>
 
@@ -442,36 +506,25 @@ const CustomizePackage = () => {
               </div>
             </div>
 
-            {/* TAX + ACTIONS */}
+            {/* ACTIONS */}
             <div className="calc-card p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
-                <Field label="Tax (%)">
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <div className="sm:col-span-3 flex gap-3">
-                  <Button
-                    fullWidth
-                    size="lg"
-                    icon={Calculator}
-                    onClick={calculate}
-                  >
-                    Calculate Cost
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    icon={Trash2}
-                    onClick={clearAll}
-                  >
-                    Clear
-                  </Button>
-                </div>
+              <div className="flex gap-3">
+                <Button
+                  fullWidth
+                  size="lg"
+                  icon={Calculator}
+                  onClick={calculate}
+                >
+                  Calculate Cost
+                </Button>
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  icon={Trash2}
+                  onClick={clearAll}
+                >
+                  Clear
+                </Button>
               </div>
             </div>
           </div>
@@ -519,7 +572,7 @@ const CustomizePackage = () => {
                       label="Makkah"
                       value={
                         result.makkahHotel
-                          ? `${result.makkahHotel.hotelName} (${result.makkahNights} nights)`
+                          ? `${result.makkahHotel.hotelName} (${result.makkahNights} nights, ${result.makkahPersons} persons)`
                           : "Not selected"
                       }
                     />
@@ -527,7 +580,7 @@ const CustomizePackage = () => {
                       label="Madinah"
                       value={
                         result.madinahHotel
-                          ? `${result.madinahHotel.hotelName} (${result.madinahNights} nights)`
+                          ? `${result.madinahHotel.hotelName} (${result.madinahNights} nights, ${result.madinahPersons} persons)`
                           : "Not selected"
                       }
                     />
@@ -559,7 +612,7 @@ const CustomizePackage = () => {
                       label="Transport"
                       value={
                         result.transport
-                          ? `${result.transport.carType} · ${result.transportRoute}`
+                          ? `${result.transport.carType} · ${result.transportRoute} (${result.transportPassengers} passengers)`
                           : "Not selected"
                       }
                     />
@@ -594,24 +647,108 @@ const CustomizePackage = () => {
                 <h3 className="text-sm font-bold text-gray-700 mb-3">
                   Cost Breakdown
                 </h3>
+
+                {/* Per-hotel / per-transport pricing detail */}
+                <div className="space-y-3 mb-4">
+                  {result.makkahHotel && (
+                    <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                        Makkah Hotel
+                      </p>
+                      <div className="space-y-1.5 text-sm">
+                        <DetailRow
+                          label="Original Price"
+                          value={money(result.makkahHotel.price)}
+                        />
+                        <DetailRow
+                          label="Persons"
+                          value={result.makkahPersons || 0}
+                        />
+                        <DetailRow
+                          label="Per Person Price"
+                          value={money(result.makkahPerPersonPrice)}
+                        />
+                        <DetailRow
+                          label="Nights"
+                          value={result.makkahNights || 0}
+                        />
+                        <DetailRow
+                          label="Total for Makkah (Per Person)"
+                          value={money(result.makkahCost)}
+                          bold
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {result.madinahHotel && (
+                    <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                        Madinah Hotel
+                      </p>
+                      <div className="space-y-1.5 text-sm">
+                        <DetailRow
+                          label="Original Price"
+                          value={money(result.madinahHotel.price)}
+                        />
+                        <DetailRow
+                          label="Persons"
+                          value={result.madinahPersons || 0}
+                        />
+                        <DetailRow
+                          label="Per Person Price"
+                          value={money(result.madinahPerPersonPrice)}
+                        />
+                        <DetailRow
+                          label="Nights"
+                          value={result.madinahNights || 0}
+                        />
+                        <DetailRow
+                          label="Total for Madinah (Per Person)"
+                          value={money(result.madinahCost)}
+                          bold
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {result.transport && (
+                    <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                        Transport
+                      </p>
+                      <div className="space-y-1.5 text-sm">
+                        <DetailRow
+                          label="Original Price"
+                          value={money(result.transport.price)}
+                        />
+                        <DetailRow
+                          label="Total Passengers"
+                          value={result.transportPassengers || 0}
+                        />
+                        <DetailRow
+                          label="Per Person Price"
+                          value={money(result.costs.transportCost)}
+                          bold
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
-                  <CostRow label="Hotel" value={result.costs.hotelCost} />
+                  <CostRow
+                    label="Hotels Total (Per Person)"
+                    value={result.costs.hotelCost}
+                    bold
+                  />
                   <CostRow label="Visa" value={result.costs.visaCost} />
                   <CostRow label="Flight" value={result.costs.flightCost} />
                   <CostRow
-                    label="Transport"
+                    label="Transport (Per Person)"
                     value={result.costs.transportCost}
                   />
                   <CostRow label="Ziyarat" value={result.costs.ziyaratCost} />
-                  <CostRow
-                    label="Subtotal"
-                    value={result.costs.subtotal}
-                    bold
-                  />
-                  <CostRow
-                    label={`Tax (${result.costs.taxRate}%)`}
-                    value={result.costs.tax}
-                  />
                   <div className="flex justify-between items-center px-4 py-4 bg-brand-600 text-white rounded-b-xl">
                     <span className="font-semibold">Grand Total</span>
                     <span className="text-xl font-extrabold">
@@ -632,6 +769,17 @@ const SummaryRow = ({ label, value }) => (
   <div className="flex justify-between items-center gap-4 border-b border-gray-100 pb-2">
     <span className="text-gray-500">{label}</span>
     <span className="font-medium text-gray-900 text-right">{value}</span>
+  </div>
+);
+
+const DetailRow = ({ label, value, bold = false }) => (
+  <div className="flex justify-between items-center gap-3">
+    <span className={bold ? "font-semibold text-gray-800" : "text-gray-500"}>
+      {label}
+    </span>
+    <span className={bold ? "font-bold text-gray-900" : "font-medium text-gray-700"}>
+      {value}
+    </span>
   </div>
 );
 
