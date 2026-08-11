@@ -78,7 +78,9 @@ const TransportList = () => {
   const fetchTransports = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/transports");
+      const res = await fetch("http://localhost:5000/api/transports", {
+        credentials: "include",
+      });
       const data = await res.json();
 
       if (data.success && Array.isArray(data.data)) {
@@ -135,6 +137,7 @@ const TransportList = () => {
       const res = await fetch("http://localhost:5000/api/transports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
@@ -170,6 +173,7 @@ const TransportList = () => {
     try {
       await fetch(`http://localhost:5000/api/transports/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
       fetchTransports();
     } catch (err) {
@@ -228,6 +232,7 @@ const TransportList = () => {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(payload),
         }
       );

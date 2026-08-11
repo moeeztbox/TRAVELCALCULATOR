@@ -6,10 +6,10 @@ import { verifyToken, requireAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// CRUD Routes
-router.post("/visas", createVisa);        // Create
-router.get("/visas", getVisas);           // Read
-router.put("/visas/:id", updateVisa);     // Update
-router.delete("/visas/:id", deleteVisa);  // Delete
+// CRUD Routes — reading requires any valid session; mutating requires admin.
+router.post("/visas", verifyToken, requireAdmin, createVisa);        // Create
+router.get("/visas", verifyToken, getVisas);                         // Read
+router.put("/visas/:id", verifyToken, requireAdmin, updateVisa);     // Update
+router.delete("/visas/:id", verifyToken, requireAdmin, deleteVisa);  // Delete
 
 export default router;

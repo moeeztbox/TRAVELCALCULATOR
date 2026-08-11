@@ -35,7 +35,7 @@ const PackagesView = () => {
     const fetchPackages = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API}/packages`);
+        const res = await fetch(`${API}/packages`, { credentials: "include" });
         const data = await res.json();
         if (data.success && Array.isArray(data.data)) setPackages(data.data);
         else setPackages([]);

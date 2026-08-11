@@ -4,9 +4,10 @@ import { verifyToken, requireAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/tickets", createTicket);
-router.get("/tickets", getTickets);
-router.put("/tickets/:id", updateTicket);
-router.delete("/tickets/:id", deleteTicket);
+// Reading requires any valid session; mutating requires admin.
+router.post("/tickets", verifyToken, requireAdmin, createTicket);
+router.get("/tickets", verifyToken, getTickets);
+router.put("/tickets/:id", verifyToken, requireAdmin, updateTicket);
+router.delete("/tickets/:id", verifyToken, requireAdmin, deleteTicket);
 
 export default router;

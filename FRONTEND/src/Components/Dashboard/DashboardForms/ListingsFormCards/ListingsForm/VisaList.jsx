@@ -48,7 +48,9 @@ const VisaList = () => {
   const fetchVisas = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/visas");
+      const res = await fetch("http://localhost:5000/api/visas", {
+        credentials: "include",
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) setVisas(data.data);
       else setVisas([]);
@@ -77,6 +79,7 @@ const VisaList = () => {
       const res = await fetch("http://localhost:5000/api/visas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(newVisa),
       });
       const data = await res.json();
@@ -107,6 +110,7 @@ const VisaList = () => {
     try {
       const res = await fetch(`http://localhost:5000/api/visas/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
       const data = await res.json();
       if (data.success) fetchVisas();
@@ -150,6 +154,7 @@ const VisaList = () => {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(editVisa),
         }
       );

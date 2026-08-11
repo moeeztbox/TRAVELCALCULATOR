@@ -5,10 +5,12 @@ import React, {
   useRef,
   useState,
 } from "react";
-import api from "../api/axios";
+import api, { setUnauthorizedHandler } from "../api/axios";
 import {
   SESSION_TIMEOUT_MS,
   SESSION_LAST_ACTIVITY_KEY,
+  getLastActivityMs,
+  isSessionExpired,
 } from "../config/session";
 
 // Real user interaction resets the idle countdown. Throttled below so a
@@ -30,6 +32,10 @@ export const AuthProvider = ({ children }) => {
 
   const timeoutRef = useRef(null);
   const lastThrottledResetRef = useRef(0);
+  // Guards against overlapping calls — e.g. several protected requests
+  // in flight (like NormalPackage's parallel hotel/visa/flight/transport
+  // fetches) can all 401 back-to-back and each try to trigger this.
+  const loggingOutRef = useRef(false);
 
   const clearAutoLogoutTimer = () => {
     if (timeoutRef.current) {
@@ -38,10 +44,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Ends the session because the user was idle for SESSION_TIMEOUT_MS (as
-  // opposed to a manual logout) — same cleanup as logout(), plus the
-  // sessionExpired flag.
+  // Ends the session — because the idle timer expired (possibly caught up
+  // late via the revalidation effect below), or because the backend itself
+  // rejected a request with 401 (expired/invalid/missing token, reported
+  // via the axios interceptor). Same cleanup as logout(), plus the
+  // sessionExpired flag so the app redirects to /login with an explanation.
   const autoLogout = async () => {
+    if (loggingOutRef.current) return;
+    loggingOutRef.current = true;
     clearAutoLogoutTimer();
     try {
       await api.post("/auth/logout");
@@ -51,6 +61,7 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem(SESSION_LAST_ACTIVITY_KEY);
     setUser(null);
     setSessionExpired(true);
+    loggingOutRef.current = false;
   };
 
   // (Re)starts the idle countdown based on the last recorded activity time.
@@ -84,10 +95,27 @@ export const AuthProvider = ({ children }) => {
       try {
         const res = await api.get("/auth/me");
         const restoredUser = res.data?.user || null;
-        if (!cancelled) setUser(restoredUser);
 
-        // Loading the page counts as activity — resets the idle window.
-        if (restoredUser) registerActivity();
+        if (restoredUser) {
+          // The backend session cookie/JWT can easily outlive the much
+          // shorter frontend inactivity window (SESSION_TIMEOUT_MS), so a
+          // valid cookie alone doesn't mean the idle session is still
+          // valid. A page load/refresh must NOT silently resurrect an
+          // already-expired session just because the tab happened to
+          // reload — that would let re-entering a protected URL (which is
+          // a full navigation, not an SPA transition) or a plain refresh
+          // bypass the inactivity timeout entirely.
+          if (isSessionExpired()) {
+            await autoLogout();
+          } else {
+            if (!cancelled) setUser(restoredUser);
+            // Loading the page while still within the idle window counts
+            // as activity — resets the countdown.
+            registerActivity();
+          }
+        } else if (!cancelled) {
+          setUser(null);
+        }
       } catch (err) {
         if (!cancelled) setUser(null);
       } finally {
@@ -125,6 +153,65 @@ export const AuthProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // The scheduled auto-logout `setTimeout` can be delayed or effectively
+  // frozen by the browser while the page is hidden/backgrounded — most
+  // notably while a native `window.print()` dialog is open, but the same
+  // applies to a minimized window, a backgrounded tab, or the device
+  // sleeping. None of those pause the real inactivity clock, so relying on
+  // the timer callback alone to fire at the right wall-clock moment isn't
+  // reliable. Whenever the page becomes visible/focused again (or the print
+  // dialog closes), re-derive elapsed idle time from the absolute
+  // `lastActivityMs` timestamp in sessionStorage and act on that directly —
+  // logging out immediately if it's already past due, or just re-arming the
+  // timer against the correct remaining time otherwise. This never counts
+  // as activity itself (it doesn't touch the stored timestamp), so opening
+  // or closing the print dialog can't reset or extend the countdown.
+  useEffect(() => {
+    if (!user) return;
+
+    const revalidateSession = () => {
+      const lastActivityMs = getLastActivityMs();
+      if (lastActivityMs === null) return;
+
+      if (Date.now() - lastActivityMs >= SESSION_TIMEOUT_MS) {
+        autoLogout();
+      } else {
+        // Re-arm against the same stored timestamp — a delayed/throttled
+        // timer is corrected, but this is not treated as new activity.
+        scheduleAutoLogout(lastActivityMs);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") revalidateSession();
+    };
+
+    window.addEventListener("focus", revalidateSession);
+    window.addEventListener("afterprint", revalidateSession);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", revalidateSession);
+      window.removeEventListener("afterprint", revalidateSession);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // The backend is the real authority on session validity, not this
+  // context's local `user` state or the inactivity timer. Any protected API
+  // call that comes back 401 (missing/invalid/expired JWT — see the axios
+  // interceptor in api/axios.js) means the server has already rejected the
+  // session, so we react the same way as an idle timeout: clear local auth
+  // state and let App.jsx's sessionExpired effect redirect to /login. This
+  // is what stops a print dialog (or a backgrounded tab, tampered frontend
+  // state, or a token that simply outlived the browser session) from being
+  // able to keep using a session the backend no longer considers valid.
+  useEffect(() => {
+    setUnauthorizedHandler(autoLogout);
+    return () => setUnauthorizedHandler(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Called on successful login with the backend `user` object.
   // The session token itself lives only in the httpOnly cookie the
   // server just set on the response — the frontend never touches it.
@@ -160,6 +247,11 @@ export const AuthProvider = ({ children }) => {
     logout,
     sessionExpired,
     clearSessionExpired,
+    // Exposed for PrivateRoute: a synchronous, side-effect-free check
+    // (safe to call during render) plus the same autoLogout flow used
+    // everywhere else, aliased here for call-site clarity.
+    isSessionExpired,
+    expireSession: autoLogout,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,5 +1,5 @@
-import React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Building2,
@@ -10,6 +10,7 @@ import {
   Sparkles,
   ListChecks,
   LogOut,
+  ChevronDown,
 } from "lucide-react";
 import logo from "../../Assets/logo-mark.png";
 import { useAuth } from "../../context/AuthContext";
@@ -32,7 +33,14 @@ const NAV = [
     label: "Packages",
     items: [
       { to: "/dashboard/packages", icon: Package, text: "Packages" },
-      { to: "/dashboard/customize-package", icon: Sparkles, text: "Customize Package" },
+      {
+        icon: Sparkles,
+        text: "Customize Package",
+        children: [
+          { to: "/dashboard/customize-package/normal", text: "Normal Package" },
+          { to: "/dashboard/customize-package/explanatory", text: "Explanatory Package" },
+        ],
+      },
     ],
   },
   {
@@ -43,7 +51,13 @@ const NAV = [
 
 const Sidebar = ({ onNavigate }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
+
+  // Which expandable parent item the user manually toggled open. A parent
+  // with an active child route is always shown expanded regardless of this
+  // (so you can never navigate to a page and have its section collapsed).
+  const [manuallyOpen, setManuallyOpen] = useState(null);
 
   const handleLogout = async () => {
     await logout();
@@ -75,31 +89,92 @@ const Sidebar = ({ onNavigate }) => {
               {group.label}
             </p>
             <div className="space-y-1">
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.end}
-                  onClick={onNavigate}
-                  className={({ isActive }) =>
-                    `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-white text-brand-800 shadow-soft"
-                        : "text-white/70 hover:text-white hover:bg-white/10"
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <item.icon
-                        size={18}
-                        className={isActive ? "text-brand-600" : "text-white/60 group-hover:text-white"}
-                      />
-                      <span className="truncate">{item.text}</span>
-                    </>
-                  )}
-                </NavLink>
-              ))}
+              {group.items.map((item) => {
+                if (item.children) {
+                  const isChildActive = item.children.some((child) =>
+                    location.pathname.startsWith(child.to)
+                  );
+                  const isOpen = isChildActive || manuallyOpen === item.text;
+
+                  return (
+                    <div key={item.text}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setManuallyOpen((prev) =>
+                            prev === item.text ? null : item.text
+                          )
+                        }
+                        aria-expanded={isOpen}
+                        className={`group flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer ${
+                          isChildActive
+                            ? "bg-white/10 text-white"
+                            : "text-white/70 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <item.icon
+                          size={18}
+                          className={isChildActive ? "text-white" : "text-white/60 group-hover:text-white"}
+                        />
+                        <span className="truncate flex-1 text-left">{item.text}</span>
+                        <ChevronDown
+                          size={16}
+                          className={`text-white/50 transition-transform duration-200 ${
+                            isOpen ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {isOpen && (
+                        <div className="mt-1 space-y-1">
+                          {item.children.map((child) => (
+                            <NavLink
+                              key={child.to}
+                              to={child.to}
+                              onClick={onNavigate}
+                              className={({ isActive }) =>
+                                `flex items-center gap-2 pl-11 pr-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 ${
+                                  isActive
+                                    ? "bg-white text-brand-800 shadow-soft"
+                                    : "text-white/60 hover:text-white hover:bg-white/10"
+                                }`
+                              }
+                            >
+                              <span className="truncate">{child.text}</span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        isActive
+                          ? "bg-white text-brand-800 shadow-soft"
+                          : "text-white/70 hover:text-white hover:bg-white/10"
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <item.icon
+                          size={18}
+                          className={isActive ? "text-brand-600" : "text-white/60 group-hover:text-white"}
+                        />
+                        <span className="truncate">{item.text}</span>
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
             </div>
           </div>
         ))}

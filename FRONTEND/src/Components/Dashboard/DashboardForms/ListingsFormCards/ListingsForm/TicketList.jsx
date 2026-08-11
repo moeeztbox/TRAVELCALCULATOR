@@ -54,7 +54,9 @@ const TicketList = () => {
   const fetchTickets = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/tickets");
+      const res = await fetch("http://localhost:5000/api/tickets", {
+        credentials: "include",
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) setTickets(data.data);
       else setTickets([]);
@@ -83,6 +85,7 @@ const TicketList = () => {
       const res = await fetch("http://localhost:5000/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(newTicket),
       });
       const data = await res.json();
@@ -116,6 +119,7 @@ const TicketList = () => {
     try {
       const res = await fetch(`http://localhost:5000/api/tickets/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
       const data = await res.json();
       if (data.success) fetchTickets();
@@ -166,6 +170,7 @@ const TicketList = () => {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(editTicket),
         }
       );

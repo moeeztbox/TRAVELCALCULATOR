@@ -38,7 +38,9 @@ export default function TicketForm() {
 
   const fetchTickets = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/tickets");
+      const response = await fetch("http://localhost:5000/api/tickets", {
+        credentials: "include",
+      });
       const data = await response.json();
       if (data.success) {
         setTickets(data.data);

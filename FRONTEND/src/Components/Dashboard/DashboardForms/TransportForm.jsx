@@ -43,7 +43,9 @@ export default function TransportCalculator() {
 
   const fetchTransports = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/transports");
+      const response = await fetch("http://localhost:5000/api/transports", {
+        credentials: "include",
+      });
       const data = await response.json();
       if (data.success) {
         setTransports(data.data);

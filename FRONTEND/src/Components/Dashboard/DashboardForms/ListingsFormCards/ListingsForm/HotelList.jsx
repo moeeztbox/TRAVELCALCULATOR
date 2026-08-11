@@ -86,7 +86,9 @@ const HotelList = () => {
   const fetchHotels = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/hotels");
+      const res = await fetch("http://localhost:5000/api/hotels", {
+        credentials: "include",
+      });
       const data = await res.json();
 
       if (data.success && Array.isArray(data.data)) {
@@ -148,6 +150,7 @@ const HotelList = () => {
       const res = await fetch("http://localhost:5000/api/hotels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ ...newHotel, roomTypes }),
       });
 
@@ -174,6 +177,7 @@ const HotelList = () => {
     try {
       const res = await fetch(`http://localhost:5000/api/hotels/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -213,6 +217,7 @@ const HotelList = () => {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(editHotel),
         }
       );

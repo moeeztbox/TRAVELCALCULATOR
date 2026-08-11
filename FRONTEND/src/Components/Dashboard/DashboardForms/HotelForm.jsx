@@ -58,7 +58,9 @@ export default function HotelCalculator() {
 
   const fetchHotels = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/hotels");
+      const response = await fetch("http://localhost:5000/api/hotels", {
+        credentials: "include",
+      });
       const data = await response.json();
       if (data.success) {
         setHotels(data.data);

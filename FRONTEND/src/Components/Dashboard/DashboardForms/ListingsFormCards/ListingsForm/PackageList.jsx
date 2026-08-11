@@ -70,7 +70,9 @@ const PackageList = () => {
   const fetchPackages = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/packages");
+      const res = await fetch("http://localhost:5000/api/packages", {
+        credentials: "include",
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) setPackages(data.data);
       else setPackages([]);
@@ -98,6 +100,7 @@ const PackageList = () => {
       const res = await fetch("http://localhost:5000/api/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(newPackage),
       });
       const data = await res.json();
@@ -120,6 +123,7 @@ const PackageList = () => {
     try {
       const res = await fetch(`http://localhost:5000/api/packages/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
       const data = await res.json();
       if (data.success) fetchPackages();
@@ -153,6 +157,7 @@ const PackageList = () => {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(editPackage),
         }
       );

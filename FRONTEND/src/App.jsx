@@ -64,7 +64,11 @@ const AppRoutes = () => {
       <Route path="/dashboard/tickets" element={<PrivateRoute><TicketForm /></PrivateRoute>} />
       <Route path="/dashboard/transport" element={<PrivateRoute><TransportForm /></PrivateRoute>} />
       <Route path="/dashboard/listings" element={<PrivateRoute><ListingsForm /></PrivateRoute>} />
-      <Route path="/dashboard/customize-package" element={<PrivateRoute><CustomizePackage /></PrivateRoute>} />
+      <Route
+        path="/dashboard/customize-package"
+        element={<Navigate to="/dashboard/customize-package/normal" replace />}
+      />
+      <Route path="/dashboard/customize-package/:tab" element={<PrivateRoute><CustomizePackage /></PrivateRoute>} />
 
       {/* Listing sub-routes */}
       <Route path="/dashboard/listings/hotels" element={<PrivateRoute><HotelList /></PrivateRoute>} />

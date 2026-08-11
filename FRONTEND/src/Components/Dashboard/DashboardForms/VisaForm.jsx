@@ -27,7 +27,9 @@ export default function VisaForm() {
 
   const fetchVisas = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/visas");
+      const res = await fetch("http://localhost:5000/api/visas", {
+        credentials: "include",
+      });
       const data = await res.json();
       if (data.success) {
         setVisaData(data.data);
