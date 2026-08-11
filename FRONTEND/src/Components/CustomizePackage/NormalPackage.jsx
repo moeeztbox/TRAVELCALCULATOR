@@ -4,6 +4,10 @@ import {
   FileText,
   Plane,
   Car,
+  Train,
+  Sparkles,
+  ListChecks,
+  Plus,
   Calculator,
   Printer,
   Trash2,
@@ -13,18 +17,19 @@ import {
 import { Field, inputClass } from "../Main/FormControls";
 import Button from "../UI/Button";
 import SearchableCombobox from "../UI/SearchableCombobox";
-import useDualCurrencyPrice from "./useDualCurrencyPrice";
+import useDualCurrencyPrice, { toPKR, toSAR } from "./useDualCurrencyPrice";
 
 const API = "http://localhost:5000/api";
+const MAX_MISC_ITEMS = 5;
 
 const money = (n) => `SAR ${Number(n || 0).toLocaleString()}`;
 const moneyPKR = (n) => `PKR ${Number(n || 0).toLocaleString()}`;
-// A SAR figure shown alongside its PKR equivalent. PKR is always derived by
-// multiplying the SAR figure by the conversion rate at display time — this
-// is the only place the multiplication happens, so every PKR number shown
-// (per-person prices, totals, the grand total) is guaranteed to stay
-// mathematically consistent with its SAR counterpart × the current rate.
-const dual = (sarAmount, rate) => `${money(sarAmount)} | ${moneyPKR(sarAmount * rate)}`;
+// Two already-computed SAR/PKR figures shown side by side. This never
+// performs a conversion itself — Original and Selling sides use different
+// rates, so every SAR/PKR pair must arrive pre-converted from the single
+// canonical calculation (buildServiceRecord below), not be recomputed ad
+// hoc at display time.
+const pair = (sar, pkr) => `${money(sar)} | ${moneyPKR(pkr)}`;
 
 // Normalize a transport record's route (can be a string or legacy object)
 const routeLabel = (t) => {
@@ -36,100 +41,154 @@ const routeLabel = (t) => {
   return t.routeString || "";
 };
 
-// Flatten a calculated `result` into the row shape the printable Excel-style
-// table needs. Only categories that were actually selected/entered appear —
-// unselected categories are simply omitted, never shown as broken/blank rows.
+// The single canonical per-service calculation (see task requirement to
+// avoid separately-drifting totals). Every included service — a hotel, a
+// visa, a flight, transport, a train ticket, or a misc item — is reduced to
+// exactly this shape using its own already-per-person (or per-person-per-
+// night, or per-person-per-passenger) SAR figures; everything downstream
+// (package totals, profit) is then just a sum over these records.
+const buildServiceRecord = (
+  name,
+  isCustom,
+  originalPerPerson,
+  sellingPerPerson,
+  conversionRateNum,
+  sellingConversionRateNum,
+  meta = {}
+) => {
+  const profitSAR = sellingPerPerson - originalPerPerson;
+  return {
+    name,
+    isCustom,
+    originalSAR: originalPerPerson,
+    originalPKR: originalPerPerson * conversionRateNum,
+    sellingSAR: sellingPerPerson,
+    sellingPKR: sellingPerPerson * sellingConversionRateNum,
+    profitSAR,
+    // Profit PKR always derives from profit SAR × the Selling Conversion
+    // Rate — one canonical rate — rather than subtracting two PKR totals
+    // that were each converted at a *different* rate, which would produce
+    // a number with no coherent real-world meaning.
+    profitPKR: profitSAR * sellingConversionRateNum,
+    ...meta,
+  };
+};
+
+// Customer-facing print rows — selling side only, always. No original
+// price, no cost conversion rate, and no profit field is ever read here.
 const buildPrintRows = (result) => {
-  const rate = result.conversionRate;
   const rows = [];
 
-  if (result.makkahHotel) {
+  if (result.makkahService) {
+    const s = result.makkahService;
     rows.push({
       category: "Makkah Hotel",
-      item: `${result.makkahHotel.hotelName}${
-        result.makkahHotel.isCustom ? " (Custom)" : ""
-      }`,
-      originalSAR: money(result.makkahHotel.price),
-      originalPKR: moneyPKR(result.makkahHotel.price * rate),
-      persons: result.makkahPersons || "-",
-      nights: result.makkahNights || "-",
-      perPersonSAR: money(result.makkahPerPersonPrice),
-      perPersonPKR: moneyPKR(result.makkahPerPersonPrice * rate),
-      totalSAR: money(result.makkahCost),
-      totalPKR: moneyPKR(result.makkahCost * rate),
+      item: `${s.name}${s.isCustom ? " (Custom)" : ""}`,
+      persons: s.persons || "-",
+      nights: s.nights || "-",
+      sellingSAR: money(s.sellingPerPersonPerNight),
+      sellingPKR: moneyPKR(s.sellingPerPersonPerNightPKR),
+      totalSAR: money(s.sellingSAR),
+      totalPKR: moneyPKR(s.sellingPKR),
     });
   }
 
-  if (result.madinahHotel) {
+  if (result.madinahService) {
+    const s = result.madinahService;
     rows.push({
       category: "Madinah Hotel",
-      item: `${result.madinahHotel.hotelName}${
-        result.madinahHotel.isCustom ? " (Custom)" : ""
-      }`,
-      originalSAR: money(result.madinahHotel.price),
-      originalPKR: moneyPKR(result.madinahHotel.price * rate),
-      persons: result.madinahPersons || "-",
-      nights: result.madinahNights || "-",
-      perPersonSAR: money(result.madinahPerPersonPrice),
-      perPersonPKR: moneyPKR(result.madinahPerPersonPrice * rate),
-      totalSAR: money(result.madinahCost),
-      totalPKR: moneyPKR(result.madinahCost * rate),
+      item: `${s.name}${s.isCustom ? " (Custom)" : ""}`,
+      persons: s.persons || "-",
+      nights: s.nights || "-",
+      sellingSAR: money(s.sellingPerPersonPerNight),
+      sellingPKR: moneyPKR(s.sellingPerPersonPerNightPKR),
+      totalSAR: money(s.sellingSAR),
+      totalPKR: moneyPKR(s.sellingPKR),
     });
   }
 
-  if (result.visa) {
+  if (result.visaService) {
+    const s = result.visaService;
     rows.push({
       category: "Visa",
-      item: `${result.visa.category}${
-        result.visa.isCustom ? " (Custom)" : ""
-      }`,
-      originalSAR: money(result.visa.price),
-      originalPKR: moneyPKR(result.visa.price * rate),
+      item: `${s.name}${s.isCustom ? " (Custom)" : ""}`,
       persons: "-",
       nights: "-",
-      perPersonSAR: money(result.costs.visaCost),
-      perPersonPKR: moneyPKR(result.costs.visaCost * rate),
-      totalSAR: money(result.costs.visaCost),
-      totalPKR: moneyPKR(result.costs.visaCost * rate),
+      sellingSAR: money(s.sellingSAR),
+      sellingPKR: moneyPKR(s.sellingPKR),
+      totalSAR: money(s.sellingSAR),
+      totalPKR: moneyPKR(s.sellingPKR),
     });
   }
 
-  if (result.flight) {
+  if (result.flightService) {
+    const s = result.flightService;
     rows.push({
       category: "Flight",
-      item: `${result.flight.airlineName}${
-        result.flight.isCustom ? " (Custom)" : ""
-      }`,
-      originalSAR: money(result.flight.price),
-      originalPKR: moneyPKR(result.flight.price * rate),
+      item: `${s.name}${s.isCustom ? " (Custom)" : ""}`,
       persons: "-",
       nights: "-",
-      perPersonSAR: money(result.costs.flightCost),
-      perPersonPKR: moneyPKR(result.costs.flightCost * rate),
-      totalSAR: money(result.costs.flightCost),
-      totalPKR: moneyPKR(result.costs.flightCost * rate),
+      sellingSAR: money(s.sellingSAR),
+      sellingPKR: moneyPKR(s.sellingPKR),
+      totalSAR: money(s.sellingSAR),
+      totalPKR: moneyPKR(s.sellingPKR),
     });
   }
 
-  if (result.transport) {
+  if (result.transportService) {
+    const s = result.transportService;
     rows.push({
       category: "Transport",
-      item: `${result.transport.carType}${
-        result.transport.isCustom ? " (Custom)" : ""
-      }`,
-      originalSAR: money(result.transport.price),
-      originalPKR: moneyPKR(result.transport.price * rate),
-      persons: result.transportPassengers || "-",
+      item: `${s.name}${s.isCustom ? " (Custom)" : ""}`,
+      persons: s.passengers || "-",
       nights: "-",
-      perPersonSAR: money(result.costs.transportCost),
-      perPersonPKR: moneyPKR(result.costs.transportCost * rate),
-      totalSAR: money(result.costs.transportCost),
-      totalPKR: moneyPKR(result.costs.transportCost * rate),
+      sellingSAR: money(s.sellingSAR),
+      sellingPKR: moneyPKR(s.sellingPKR),
+      totalSAR: money(s.sellingSAR),
+      totalPKR: moneyPKR(s.sellingPKR),
     });
   }
+
+  if (result.trainTicketService) {
+    const s = result.trainTicketService;
+    rows.push({
+      category: "Train Ticket",
+      item: s.name,
+      persons: "-",
+      nights: "-",
+      sellingSAR: money(s.sellingSAR),
+      sellingPKR: moneyPKR(s.sellingPKR),
+      totalSAR: money(s.sellingSAR),
+      totalPKR: moneyPKR(s.sellingPKR),
+    });
+  }
+
+  result.miscServices.forEach((s) => {
+    rows.push({
+      category: "Miscellaneous",
+      item: s.name,
+      persons: "-",
+      nights: "-",
+      sellingSAR: money(s.sellingSAR),
+      sellingPKR: moneyPKR(s.sellingPKR),
+      totalSAR: money(s.sellingSAR),
+      totalPKR: moneyPKR(s.sellingPKR),
+    });
+  });
 
   return rows;
 };
+
+const createMiscItem = () => ({
+  id: `misc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  name: "",
+  originalSAR: "",
+  originalPKR: "",
+  originalSource: "sar",
+  sellingSAR: "",
+  sellingPKR: "",
+  sellingSource: "sar",
+});
 
 const NormalPackage = () => {
   // Listings loaded from backend
@@ -143,8 +202,11 @@ const NormalPackage = () => {
   const [packageName, setPackageName] = useState("");
   const [totalDays, setTotalDays] = useState("");
 
-  // Manually entered conversion rate: 1 SAR = ? PKR. Never fetched live.
+  // Two independent, manually entered rates. Conversion Rate governs every
+  // Original (cost) price; Selling Conversion Rate governs every Selling
+  // price. Neither is ever used for the other side's math.
   const [conversionRate, setConversionRate] = useState("");
+  const [sellingConversionRate, setSellingConversionRate] = useState("");
 
   // Safely coerce a value to a positive number (guards against "", 0,
   // negative, and non-numeric input causing NaN/Infinity downstream).
@@ -154,12 +216,14 @@ const NormalPackage = () => {
   };
 
   const conversionRateNum = toPositiveNumber(conversionRate);
+  const sellingConversionRateNum = toPositiveNumber(sellingConversionRate);
 
   // Makkah hotel — `*Selected` holds the matched database record (or null
   // when the typed text is a temporary custom hotel not backed by an ID).
   const [makkahHotelText, setMakkahHotelText] = useState("");
   const [makkahHotelSelected, setMakkahHotelSelected] = useState(null);
   const makkahHotelPrice = useDualCurrencyPrice(conversionRateNum);
+  const makkahSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
   const [makkahNights, setMakkahNights] = useState("");
   const [makkahPersons, setMakkahPersons] = useState("");
 
@@ -167,24 +231,178 @@ const NormalPackage = () => {
   const [madinahHotelText, setMadinahHotelText] = useState("");
   const [madinahHotelSelected, setMadinahHotelSelected] = useState(null);
   const madinahHotelPrice = useDualCurrencyPrice(conversionRateNum);
+  const madinahSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
   const [madinahNights, setMadinahNights] = useState("");
   const [madinahPersons, setMadinahPersons] = useState("");
+
+  // Optional services — Flight/Visa/Transport/Train Ticket/Miscellaneous
+  // are all opt-in; a package can include just Hotels, just one of these,
+  // or any mix.
+  const [includeFlight, setIncludeFlight] = useState(false);
+  const [includeVisa, setIncludeVisa] = useState(false);
+  const [includeTransport, setIncludeTransport] = useState(false);
+  const [includeTrainTicket, setIncludeTrainTicket] = useState(false);
+  const [includeMisc, setIncludeMisc] = useState(false);
 
   // Visa
   const [visaTypeText, setVisaTypeText] = useState("");
   const [visaSelected, setVisaSelected] = useState(null);
   const visaPrice = useDualCurrencyPrice(conversionRateNum);
+  const visaSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
 
   // Flight
   const [flightText, setFlightText] = useState("");
   const [flightSelected, setFlightSelected] = useState(null);
   const flightPrice = useDualCurrencyPrice(conversionRateNum);
+  const flightSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
 
   // Transport
   const [transportText, setTransportText] = useState("");
   const [transportSelected, setTransportSelected] = useState(null);
   const transportPrice = useDualCurrencyPrice(conversionRateNum);
+  const transportSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
   const [transportPassengers, setTransportPassengers] = useState("");
+
+  // Train Ticket — no database source exists for this yet (the "tickets"
+  // collection is airline tickets, already used by Flight above), so this
+  // is a free-text, always-custom entry. Original/Selling Price still use
+  // the same SAR/PKR conversion hook as every other item.
+  const [trainTicketText, setTrainTicketText] = useState("");
+  const trainTicketPrice = useDualCurrencyPrice(conversionRateNum);
+  const trainTicketSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
+
+  // Miscellaneous — up to MAX_MISC_ITEMS free-form temporary items (e.g.
+  // Dates, Zam Zam, Ziyarat). Never saved to the database. Each item can't
+  // use the useDualCurrencyPrice hook directly (hooks can't be called a
+  // variable number of times for a dynamic list), so the same SAR<->PKR
+  // synchronization logic is replicated here using the hook's own exported
+  // toPKR/toSAR pure functions, applied over the whole array at once.
+  const [miscItems, setMiscItems] = useState([]);
+
+  const addMiscItem = () => {
+    setMiscItems((prev) =>
+      prev.length >= MAX_MISC_ITEMS ? prev : [...prev, createMiscItem()]
+    );
+  };
+
+  const removeMiscItem = (id) => {
+    setMiscItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const updateMiscItem = (id, field, value) => {
+    setMiscItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        if (field === "name") return { ...item, name: value };
+        if (field === "originalSAR")
+          return {
+            ...item,
+            originalSAR: value,
+            originalSource: "sar",
+            originalPKR: toPKR(value, conversionRateNum),
+          };
+        if (field === "originalPKR")
+          return {
+            ...item,
+            originalPKR: value,
+            originalSource: "pkr",
+            originalSAR: toSAR(value, conversionRateNum),
+          };
+        if (field === "sellingSAR")
+          return {
+            ...item,
+            sellingSAR: value,
+            sellingSource: "sar",
+            sellingPKR: toPKR(value, sellingConversionRateNum),
+          };
+        if (field === "sellingPKR")
+          return {
+            ...item,
+            sellingPKR: value,
+            sellingSource: "pkr",
+            sellingSAR: toSAR(value, sellingConversionRateNum),
+          };
+        return item;
+      })
+    );
+  };
+
+  const handleToggleMisc = (checked) => {
+    setIncludeMisc(checked);
+    if (checked) {
+      setMiscItems((prev) => (prev.length > 0 ? prev : [createMiscItem()]));
+    } else {
+      setMiscItems([]);
+    }
+  };
+
+  // Re-derive every misc item's derived currency whenever the relevant rate
+  // changes — mirrors useDualCurrencyPrice's own internal effect, just
+  // applied across the whole array in one pass instead of per-item.
+  useEffect(() => {
+    setMiscItems((prev) => {
+      if (prev.length === 0) return prev;
+      return prev.map((item) =>
+        item.originalSource === "pkr"
+          ? { ...item, originalSAR: toSAR(item.originalPKR, conversionRateNum) }
+          : { ...item, originalPKR: toPKR(item.originalSAR, conversionRateNum) }
+      );
+    });
+  }, [conversionRateNum]);
+
+  useEffect(() => {
+    setMiscItems((prev) => {
+      if (prev.length === 0) return prev;
+      return prev.map((item) =>
+        item.sellingSource === "pkr"
+          ? { ...item, sellingSAR: toSAR(item.sellingPKR, sellingConversionRateNum) }
+          : { ...item, sellingPKR: toPKR(item.sellingSAR, sellingConversionRateNum) }
+      );
+    });
+  }, [sellingConversionRateNum]);
+
+  // Unchecking an optional section also clears its temporary form state,
+  // so a value left over from before it was hidden can never accidentally
+  // leak into a later Calculate Cost run.
+  const handleToggleVisa = (checked) => {
+    setIncludeVisa(checked);
+    if (!checked) {
+      setVisaTypeText("");
+      setVisaSelected(null);
+      visaPrice.reset();
+      visaSellingPrice.reset();
+    }
+  };
+
+  const handleToggleFlight = (checked) => {
+    setIncludeFlight(checked);
+    if (!checked) {
+      setFlightText("");
+      setFlightSelected(null);
+      flightPrice.reset();
+      flightSellingPrice.reset();
+    }
+  };
+
+  const handleToggleTransport = (checked) => {
+    setIncludeTransport(checked);
+    if (!checked) {
+      setTransportText("");
+      setTransportSelected(null);
+      transportPrice.reset();
+      transportSellingPrice.reset();
+      setTransportPassengers("");
+    }
+  };
+
+  const handleToggleTrainTicket = (checked) => {
+    setIncludeTrainTicket(checked);
+    if (!checked) {
+      setTrainTicketText("");
+      trainTicketPrice.reset();
+      trainTicketSellingPrice.reset();
+    }
+  };
 
   const [result, setResult] = useState(null);
 
@@ -256,21 +474,33 @@ const NormalPackage = () => {
     ? "Makkah and Madinah nights do not match the Total Days."
     : "";
 
-  // Conversion Rate validation. Only required once at least one priced
-  // category is actually being used — a blank form never shows this error.
+  // Conversion Rate / Selling Conversion Rate validation. Only required
+  // once at least one priced category is actually being used — a blank
+  // form never shows these errors.
+  const miscInUse =
+    includeMisc && miscItems.some((item) => (item.name || "").trim());
   const pricingInUse = !!(
     makkahHotelText.trim() ||
     madinahHotelText.trim() ||
     visaTypeText.trim() ||
     flightText.trim() ||
-    transportText.trim()
+    transportText.trim() ||
+    trainTicketText.trim() ||
+    miscInUse
   );
   const conversionRateError = !pricingInUse
     ? ""
     : conversionRate === ""
-    ? "Enter a Conversion Rate to calculate PKR prices."
+    ? "Enter a Conversion Rate to calculate original/cost PKR prices."
     : conversionRateNum <= 0
     ? "Conversion Rate must be a positive number."
+    : "";
+  const sellingConversionRateError = !pricingInUse
+    ? ""
+    : sellingConversionRate === ""
+    ? "Enter a Selling Conversion Rate to calculate selling PKR prices."
+    : sellingConversionRateNum <= 0
+    ? "Selling Conversion Rate must be a positive number."
     : "";
 
   const calculate = () => {
@@ -289,6 +519,11 @@ const NormalPackage = () => {
       return;
     }
 
+    if (sellingConversionRateError) {
+      alert(sellingConversionRateError);
+      return;
+    }
+
     const makkahHotel = resolveItem(
       makkahHotelText,
       makkahHotelSelected,
@@ -301,89 +536,230 @@ const NormalPackage = () => {
       madinahHotelPrice.sar,
       "hotelName"
     );
-    const visa = resolveItem(
-      visaTypeText,
-      visaSelected,
-      visaPrice.sar,
-      "category"
-    );
-    const flight = resolveItem(
-      flightText,
-      flightSelected,
-      flightPrice.sar,
-      "airlineName"
-    );
-    const transport = resolveItem(
-      transportText,
-      transportSelected,
-      transportPrice.sar,
-      "carType"
-    );
+    // Unchecked optional sections are excluded outright — even if some
+    // stale text/price were still sitting in state, it never reaches the
+    // result, the totals, or the print output.
+    const visa = includeVisa
+      ? resolveItem(visaTypeText, visaSelected, visaPrice.sar, "category")
+      : null;
+    const flight = includeFlight
+      ? resolveItem(flightText, flightSelected, flightPrice.sar, "airlineName")
+      : null;
+    const transport = includeTransport
+      ? resolveItem(transportText, transportSelected, transportPrice.sar, "carType")
+      : null;
+    const trainTicket = includeTrainTicket
+      ? resolveItem(trainTicketText, null, trainTicketPrice.sar, "name")
+      : null;
 
-    if (!makkahHotel && !madinahHotel && !visa && !flight && !transport) {
+    const miscResolved = includeMisc
+      ? miscItems.reduce((acc, item) => {
+          const trimmedName = (item.name || "").trim();
+          if (trimmedName) {
+            acc.push({
+              name: trimmedName,
+              originalSAR: safePrice(item.originalSAR),
+              sellingSAR: safePrice(item.sellingSAR),
+            });
+          }
+          return acc;
+        }, [])
+      : [];
+
+    if (
+      !makkahHotel &&
+      !madinahHotel &&
+      !visa &&
+      !flight &&
+      !transport &&
+      !trainTicket &&
+      miscResolved.length === 0
+    ) {
       alert("Please add at least one service to build your package.");
       return;
     }
 
-    // Per-person hotel cost for the full stay: (Hotel Price / Persons) × Nights
+    // --- Makkah: (Price / Persons) × Nights, for both Original and Selling ---
     const makkahPersonsNum = toPositiveNumber(makkahPersons);
-    const makkahPerPersonPrice =
+    const makkahOriginalPerPersonPerNight =
       makkahHotel && makkahPersonsNum > 0
         ? safePrice(makkahHotel.price) / makkahPersonsNum
         : 0;
-    const makkahCost = makkahPerPersonPrice * makkahNightsNum;
+    const makkahSellingPerPersonPerNight =
+      makkahHotel && makkahPersonsNum > 0
+        ? safePrice(makkahSellingPrice.sar) / makkahPersonsNum
+        : 0;
+    const makkahService = makkahHotel
+      ? buildServiceRecord(
+          makkahHotel.hotelName,
+          makkahHotel.isCustom,
+          makkahOriginalPerPersonPerNight * makkahNightsNum,
+          makkahSellingPerPersonPerNight * makkahNightsNum,
+          conversionRateNum,
+          sellingConversionRateNum,
+          {
+            persons: makkahPersonsNum,
+            nights: makkahNightsNum,
+            originalPerPersonPerNight: makkahOriginalPerPersonPerNight,
+            originalPerPersonPerNightPKR:
+              makkahOriginalPerPersonPerNight * conversionRateNum,
+            sellingPerPersonPerNight: makkahSellingPerPersonPerNight,
+            sellingPerPersonPerNightPKR:
+              makkahSellingPerPersonPerNight * sellingConversionRateNum,
+          }
+        )
+      : null;
 
+    // --- Madinah: identical structure ---
     const madinahPersonsNum = toPositiveNumber(madinahPersons);
-    const madinahPerPersonPrice =
+    const madinahOriginalPerPersonPerNight =
       madinahHotel && madinahPersonsNum > 0
         ? safePrice(madinahHotel.price) / madinahPersonsNum
         : 0;
-    const madinahCost = madinahPerPersonPrice * madinahNightsNum;
+    const madinahSellingPerPersonPerNight =
+      madinahHotel && madinahPersonsNum > 0
+        ? safePrice(madinahSellingPrice.sar) / madinahPersonsNum
+        : 0;
+    const madinahService = madinahHotel
+      ? buildServiceRecord(
+          madinahHotel.hotelName,
+          madinahHotel.isCustom,
+          madinahOriginalPerPersonPerNight * madinahNightsNum,
+          madinahSellingPerPersonPerNight * madinahNightsNum,
+          conversionRateNum,
+          sellingConversionRateNum,
+          {
+            persons: madinahPersonsNum,
+            nights: madinahNightsNum,
+            originalPerPersonPerNight: madinahOriginalPerPersonPerNight,
+            originalPerPersonPerNightPKR:
+              madinahOriginalPerPersonPerNight * conversionRateNum,
+            sellingPerPersonPerNight: madinahSellingPerPersonPerNight,
+            sellingPerPersonPerNightPKR:
+              madinahSellingPerPersonPerNight * sellingConversionRateNum,
+          }
+        )
+      : null;
 
-    // Hotels' contribution to the package total is the sum of each city's
-    // per-person total — never the original/full hotel prices.
-    const hotelCost = makkahCost + madinahCost;
+    // --- Visa / Flight: flat, no division — consistent with the existing
+    // per-person package structure (these were never divided by persons). ---
+    const visaService = visa
+      ? buildServiceRecord(
+          visa.category,
+          visa.isCustom,
+          safePrice(visa.price),
+          safePrice(visaSellingPrice.sar),
+          conversionRateNum,
+          sellingConversionRateNum
+        )
+      : null;
 
-    const visaCost = visa ? safePrice(visa.price) : 0;
-    const flightCost = flight ? safePrice(flight.price) : 0;
+    const flightService = flight
+      ? buildServiceRecord(
+          flight.airlineName,
+          flight.isCustom,
+          safePrice(flight.price),
+          safePrice(flightSellingPrice.sar),
+          conversionRateNum,
+          sellingConversionRateNum
+        )
+      : null;
 
-    // Transport cost per person: Transport Price / Total Passengers
+    // --- Transport: Price / Total Passengers, for both Original and Selling ---
     const transportPassengersNum = toPositiveNumber(transportPassengers);
-    const transportCost =
+    const transportOriginalPerPerson =
       transport && transportPassengersNum > 0
         ? safePrice(transport.price) / transportPassengersNum
         : 0;
+    const transportSellingPerPerson =
+      transport && transportPassengersNum > 0
+        ? safePrice(transportSellingPrice.sar) / transportPassengersNum
+        : 0;
+    const transportService = transport
+      ? buildServiceRecord(
+          transport.carType,
+          transport.isCustom,
+          transportOriginalPerPerson,
+          transportSellingPerPerson,
+          conversionRateNum,
+          sellingConversionRateNum,
+          {
+            passengers: transportPassengersNum,
+            originalGroupPrice: safePrice(transport.price),
+            originalGroupPricePKR: safePrice(transport.price) * conversionRateNum,
+            sellingGroupPrice: safePrice(transportSellingPrice.sar),
+            sellingGroupPricePKR:
+              safePrice(transportSellingPrice.sar) * sellingConversionRateNum,
+          }
+        )
+      : null;
 
-    // Grand total is strictly per-person: every component above is already
-    // a per-person figure (hotels divided by persons, transport divided by
-    // passengers), so summing them yields the price for one person. PKR
-    // equivalents are derived from these SAR figures at display time only.
-    const grandTotal = hotelCost + visaCost + flightCost + transportCost;
+    // --- Train Ticket: flat, always custom ---
+    const trainTicketService = trainTicket
+      ? buildServiceRecord(
+          trainTicket.name,
+          true,
+          safePrice(trainTicket.price),
+          safePrice(trainTicketSellingPrice.sar),
+          conversionRateNum,
+          sellingConversionRateNum
+        )
+      : null;
+
+    // --- Miscellaneous: flat, always custom, one record per named item ---
+    const miscServices = miscResolved.map((m) =>
+      buildServiceRecord(
+        m.name,
+        true,
+        m.originalSAR,
+        m.sellingSAR,
+        conversionRateNum,
+        sellingConversionRateNum
+      )
+    );
+
+    // Package totals are purely a sum over the canonical per-service
+    // records above — nothing here is calculated independently, so there
+    // is nothing that can drift out of sync with the per-service figures.
+    const allServices = [
+      makkahService,
+      madinahService,
+      visaService,
+      flightService,
+      transportService,
+      trainTicketService,
+      ...miscServices,
+    ].filter(Boolean);
+
+    const originalPackageTotalSAR = allServices.reduce(
+      (sum, s) => sum + s.originalSAR,
+      0
+    );
+    const sellingPackageTotalSAR = allServices.reduce(
+      (sum, s) => sum + s.sellingSAR,
+      0
+    );
+    const totalProfitSAR = allServices.reduce((sum, s) => sum + s.profitSAR, 0);
 
     setResult({
       packageName,
       totalDays,
       conversionRate: conversionRateNum,
-      makkahHotel,
-      makkahNights: makkahNightsNum,
-      makkahPersons: makkahPersonsNum,
-      makkahPerPersonPrice,
-      makkahCost,
-      madinahHotel,
-      madinahNights: madinahNightsNum,
-      madinahPersons: madinahPersonsNum,
-      madinahPerPersonPrice,
-      madinahCost,
-      visa,
-      flight,
-      transport,
-      transportPassengers: transportPassengersNum,
-      costs: {
-        hotelCost,
-        visaCost,
-        flightCost,
-        transportCost,
-        grandTotal,
+      sellingConversionRate: sellingConversionRateNum,
+      makkahService,
+      madinahService,
+      visaService,
+      flightService,
+      transportService,
+      trainTicketService,
+      miscServices,
+      totals: {
+        originalSAR: originalPackageTotalSAR,
+        originalPKR: originalPackageTotalSAR * conversionRateNum,
+        sellingSAR: sellingPackageTotalSAR,
+        sellingPKR: sellingPackageTotalSAR * sellingConversionRateNum,
+        profitSAR: totalProfitSAR,
+        profitPKR: totalProfitSAR * sellingConversionRateNum,
       },
     });
 
@@ -399,31 +775,48 @@ const NormalPackage = () => {
     setPackageName("");
     setTotalDays("");
     setConversionRate("");
+    setSellingConversionRate("");
 
     setMakkahHotelText("");
     setMakkahHotelSelected(null);
     makkahHotelPrice.reset();
+    makkahSellingPrice.reset();
     setMakkahNights("");
     setMakkahPersons("");
 
     setMadinahHotelText("");
     setMadinahHotelSelected(null);
     madinahHotelPrice.reset();
+    madinahSellingPrice.reset();
     setMadinahNights("");
     setMadinahPersons("");
 
+    setIncludeVisa(false);
     setVisaTypeText("");
     setVisaSelected(null);
     visaPrice.reset();
+    visaSellingPrice.reset();
 
+    setIncludeFlight(false);
     setFlightText("");
     setFlightSelected(null);
     flightPrice.reset();
+    flightSellingPrice.reset();
 
+    setIncludeTransport(false);
     setTransportText("");
     setTransportSelected(null);
     transportPrice.reset();
+    transportSellingPrice.reset();
     setTransportPassengers("");
+
+    setIncludeTrainTicket(false);
+    setTrainTicketText("");
+    trainTicketPrice.reset();
+    trainTicketSellingPrice.reset();
+
+    setIncludeMisc(false);
+    setMiscItems([]);
 
     setResult(null);
   };
@@ -440,7 +833,8 @@ const NormalPackage = () => {
   };
 
   const printRows = result ? buildPrintRows(result) : [];
-  const canCalculate = !nightsValidationError && !conversionRateError;
+  const canCalculate =
+    !nightsValidationError && !conversionRateError && !sellingConversionRateError;
 
   return (
     <>
@@ -507,7 +901,7 @@ const NormalPackage = () => {
               <PackageCheck size={20} className="text-red-600" />
               Package Details
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <Field label="Package Name" required>
                 <input
                   type="text"
@@ -532,21 +926,37 @@ const NormalPackage = () => {
                   type="number"
                   min="0"
                   step="0.01"
-                  placeholder="e.g. 75"
+                  placeholder="e.g. 74"
                   value={conversionRate}
                   onChange={(e) => setConversionRate(e.target.value)}
                   className={inputClass}
                 />
               </Field>
+              <Field label="Selling Conversion Rate (1 SAR = ? PKR)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 76"
+                  value={sellingConversionRate}
+                  onChange={(e) => setSellingConversionRate(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
             </div>
 
-            {(nightsValidationError || conversionRateError) && (
+            {(nightsValidationError ||
+              conversionRateError ||
+              sellingConversionRateError) && (
               <div className="mt-4 space-y-2">
                 {nightsValidationError && (
                   <ValidationBanner message={nightsValidationError} />
                 )}
                 {conversionRateError && (
                   <ValidationBanner message={conversionRateError} />
+                )}
+                {sellingConversionRateError && (
+                  <ValidationBanner message={sellingConversionRateError} />
                 )}
               </div>
             )}
@@ -588,9 +998,10 @@ const NormalPackage = () => {
                       isSelected={!!makkahHotelSelected}
                     />
                   </Field>
-                  <DualPriceFields
+                  <PriceGroups
                     isDbLocked={!!makkahHotelSelected}
-                    priceState={makkahHotelPrice}
+                    originalPriceState={makkahHotelPrice}
+                    sellingPriceState={makkahSellingPrice}
                   />
                   <Field label="Nights in Makkah">
                     <input
@@ -644,9 +1055,10 @@ const NormalPackage = () => {
                       isSelected={!!madinahHotelSelected}
                     />
                   </Field>
-                  <DualPriceFields
+                  <PriceGroups
                     isDbLocked={!!madinahHotelSelected}
-                    priceState={madinahHotelPrice}
+                    originalPriceState={madinahHotelPrice}
+                    sellingPriceState={madinahSellingPrice}
                   />
                   <Field label="Nights in Madinah">
                     <input
@@ -673,114 +1085,261 @@ const NormalPackage = () => {
             </div>
           </div>
 
-          {/* VISA / FLIGHT / TRANSPORT */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="calc-card p-6">
-              <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
-                <FileText size={18} className="text-blue-600" />
-                Visa
-              </h2>
-              <div className="space-y-3">
-                <Field label="Visa Type">
-                  <SearchableCombobox
-                    value={visaTypeText}
-                    onTextChange={(text) => {
-                      setVisaTypeText(text);
-                      setVisaSelected(null);
-                    }}
-                    onSelect={(v) => {
-                      setVisaSelected(v);
-                      setVisaTypeText(v.category);
-                      visaPrice.setFromDatabase(v.price);
-                    }}
-                    options={visas}
-                    getLabel={(v) => v.category}
-                    getSubLabel={(v) => `${v.passenger} · ${money(v.price)}`}
-                    placeholder="Search or type a visa type"
-                    isSelected={!!visaSelected}
-                  />
-                </Field>
-                <DualPriceFields
-                  isDbLocked={!!visaSelected}
-                  priceState={visaPrice}
-                />
-              </div>
-            </div>
-
-            <div className="calc-card p-6">
-              <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
-                <Plane size={18} className="text-blue-600" />
-                Flight
-              </h2>
-              <div className="space-y-3">
-                <Field label="Flight">
-                  <SearchableCombobox
-                    value={flightText}
-                    onTextChange={(text) => {
-                      setFlightText(text);
-                      setFlightSelected(null);
-                    }}
-                    onSelect={(f) => {
-                      setFlightSelected(f);
-                      setFlightText(f.airlineName);
-                      flightPrice.setFromDatabase(f.price);
-                    }}
-                    options={flights}
-                    getLabel={(f) => f.airlineName}
-                    getSubLabel={(f) => `${f.category} · ${money(f.price)}`}
-                    placeholder="Search or type a flight"
-                    isSelected={!!flightSelected}
-                  />
-                </Field>
-                <DualPriceFields
-                  isDbLocked={!!flightSelected}
-                  priceState={flightPrice}
-                />
-              </div>
-            </div>
-
-            <div className="calc-card p-6">
-              <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
-                <Car size={18} className="text-blue-600" />
-                Transport
-              </h2>
-              <div className="space-y-3">
-                <Field label="Transport">
-                  <SearchableCombobox
-                    value={transportText}
-                    onTextChange={(text) => {
-                      setTransportText(text);
-                      setTransportSelected(null);
-                    }}
-                    onSelect={(t) => {
-                      setTransportSelected(t);
-                      setTransportText(t.carType);
-                      transportPrice.setFromDatabase(t.price);
-                    }}
-                    options={transports}
-                    getLabel={(t) => t.carType}
-                    getSubLabel={(t) => `${routeLabel(t)} · ${money(t.price)}`}
-                    placeholder="Search or type a transport option"
-                    isSelected={!!transportSelected}
-                  />
-                </Field>
-                <DualPriceFields
-                  isDbLocked={!!transportSelected}
-                  priceState={transportPrice}
-                />
-                <Field label="Total Passengers">
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="e.g. 4"
-                    value={transportPassengers}
-                    onChange={(e) => setTransportPassengers(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
+          {/* OPTIONAL SERVICES */}
+          <div className="calc-card p-6">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
+              <ListChecks size={20} className="text-blue-600" />
+              Optional Services
+            </h2>
+            <div className="flex flex-wrap gap-3">
+              <OptionalServiceToggle
+                label="Flight"
+                checked={includeFlight}
+                onChange={handleToggleFlight}
+              />
+              <OptionalServiceToggle
+                label="Visa"
+                checked={includeVisa}
+                onChange={handleToggleVisa}
+              />
+              <OptionalServiceToggle
+                label="Transport"
+                checked={includeTransport}
+                onChange={handleToggleTransport}
+              />
+              <OptionalServiceToggle
+                label="Train Ticket"
+                checked={includeTrainTicket}
+                onChange={handleToggleTrainTicket}
+              />
+              <OptionalServiceToggle
+                label="Miscellaneous"
+                checked={includeMisc}
+                onChange={handleToggleMisc}
+              />
             </div>
           </div>
+
+          {/* FLIGHT / VISA / TRANSPORT / TRAIN TICKET — only the checked ones render */}
+          {(includeFlight || includeVisa || includeTransport || includeTrainTicket) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {includeFlight && (
+                <div className="calc-card p-6">
+                  <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                    <Plane size={18} className="text-blue-600" />
+                    Flight
+                  </h2>
+                  <div className="space-y-3">
+                    <Field label="Flight">
+                      <SearchableCombobox
+                        value={flightText}
+                        onTextChange={(text) => {
+                          setFlightText(text);
+                          setFlightSelected(null);
+                        }}
+                        onSelect={(f) => {
+                          setFlightSelected(f);
+                          setFlightText(f.airlineName);
+                          flightPrice.setFromDatabase(f.price);
+                        }}
+                        options={flights}
+                        getLabel={(f) => f.airlineName}
+                        getSubLabel={(f) => `${f.category} · ${money(f.price)}`}
+                        placeholder="Search or type a flight"
+                        isSelected={!!flightSelected}
+                      />
+                    </Field>
+                    <PriceGroups
+                      isDbLocked={!!flightSelected}
+                      originalPriceState={flightPrice}
+                      sellingPriceState={flightSellingPrice}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {includeVisa && (
+                <div className="calc-card p-6">
+                  <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                    <FileText size={18} className="text-blue-600" />
+                    Visa
+                  </h2>
+                  <div className="space-y-3">
+                    <Field label="Visa Type">
+                      <SearchableCombobox
+                        value={visaTypeText}
+                        onTextChange={(text) => {
+                          setVisaTypeText(text);
+                          setVisaSelected(null);
+                        }}
+                        onSelect={(v) => {
+                          setVisaSelected(v);
+                          setVisaTypeText(v.category);
+                          visaPrice.setFromDatabase(v.price);
+                        }}
+                        options={visas}
+                        getLabel={(v) => v.category}
+                        getSubLabel={(v) => `${v.passenger} · ${money(v.price)}`}
+                        placeholder="Search or type a visa type"
+                        isSelected={!!visaSelected}
+                      />
+                    </Field>
+                    <PriceGroups
+                      isDbLocked={!!visaSelected}
+                      originalPriceState={visaPrice}
+                      sellingPriceState={visaSellingPrice}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {includeTransport && (
+                <div className="calc-card p-6">
+                  <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                    <Car size={18} className="text-blue-600" />
+                    Transport
+                  </h2>
+                  <div className="space-y-3">
+                    <Field label="Transport">
+                      <SearchableCombobox
+                        value={transportText}
+                        onTextChange={(text) => {
+                          setTransportText(text);
+                          setTransportSelected(null);
+                        }}
+                        onSelect={(t) => {
+                          setTransportSelected(t);
+                          setTransportText(t.carType);
+                          transportPrice.setFromDatabase(t.price);
+                        }}
+                        options={transports}
+                        getLabel={(t) => t.carType}
+                        getSubLabel={(t) => `${routeLabel(t)} · ${money(t.price)}`}
+                        placeholder="Search or type a transport option"
+                        isSelected={!!transportSelected}
+                      />
+                    </Field>
+                    <PriceGroups
+                      isDbLocked={!!transportSelected}
+                      originalPriceState={transportPrice}
+                      sellingPriceState={transportSellingPrice}
+                    />
+                    <Field label="Total Passengers">
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 4"
+                        value={transportPassengers}
+                        onChange={(e) => setTransportPassengers(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              )}
+
+              {includeTrainTicket && (
+                <div className="calc-card p-6">
+                  <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
+                    <Train size={18} className="text-blue-600" />
+                    Train Ticket
+                  </h2>
+                  <div className="space-y-3">
+                    <Field label="Train Ticket">
+                      <input
+                        type="text"
+                        placeholder="e.g. Lahore → Karachi Express"
+                        value={trainTicketText}
+                        onChange={(e) => setTrainTicketText(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <PriceGroups
+                      isDbLocked={false}
+                      originalPriceState={trainTicketPrice}
+                      sellingPriceState={trainTicketSellingPrice}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MISCELLANEOUS — up to MAX_MISC_ITEMS temporary items */}
+          {includeMisc && (
+            <div className="calc-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+                  <Sparkles size={20} className="text-blue-600" />
+                  Miscellaneous
+                </h2>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={Plus}
+                  onClick={addMiscItem}
+                  disabled={miscItems.length >= MAX_MISC_ITEMS}
+                >
+                  Add Item
+                </Button>
+              </div>
+              <div className="space-y-4">
+                {miscItems.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-gray-200 p-4 bg-gray-50"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                        Miscellaneous {idx + 1}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => removeMiscItem(item.id)}
+                        className="text-red-500 hover:text-red-700 cursor-pointer"
+                        title="Remove this item"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      <Field label="Name">
+                        <input
+                          type="text"
+                          placeholder="e.g. Dates, Zam Zam, Ziyarat, Special Service"
+                          value={item.name}
+                          onChange={(e) =>
+                            updateMiscItem(item.id, "name", e.target.value)
+                          }
+                          className={inputClass}
+                        />
+                      </Field>
+                      <PriceGroups
+                        isDbLocked={false}
+                        originalPriceState={{
+                          sar: item.originalSAR,
+                          pkr: item.originalPKR,
+                          setSar: (v) => updateMiscItem(item.id, "originalSAR", v),
+                          setPkr: (v) => updateMiscItem(item.id, "originalPKR", v),
+                        }}
+                        sellingPriceState={{
+                          sar: item.sellingSAR,
+                          pkr: item.sellingPKR,
+                          setSar: (v) => updateMiscItem(item.id, "sellingSAR", v),
+                          setPkr: (v) => updateMiscItem(item.id, "sellingPKR", v),
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {miscItems.length >= MAX_MISC_ITEMS && (
+                <p className="mt-3 text-xs text-gray-400">
+                  Maximum of {MAX_MISC_ITEMS} miscellaneous items reached.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ACTIONS */}
           <div className="calc-card p-6">
@@ -813,7 +1372,8 @@ const NormalPackage = () => {
           id="package-summary"
           className="bg-surface rounded-2xl border border-hair shadow-soft mt-8 overflow-hidden animate-fade-in-up"
         >
-          {/* Summary header */}
+          {/* Summary header — shared between screen and print, so it must
+              never mention the cost side (Conversion Rate/Original Price). */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-hair bg-linear-to-r from-brand-50 to-surface">
             <div>
               <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">
@@ -823,8 +1383,8 @@ const NormalPackage = () => {
                 {result.packageName}
               </h2>
               <p className="text-sm text-muted mt-1">
-                {result.totalDays || "—"} Days · 1 SAR = {result.conversionRate}{" "}
-                PKR · Price shown is per person
+                {result.totalDays || "—"} Days · Selling Rate: 1 SAR ={" "}
+                {result.sellingConversionRate} PKR · Price shown is per person
               </p>
             </div>
             <Button
@@ -837,321 +1397,182 @@ const NormalPackage = () => {
             </Button>
           </div>
 
-          <div className="screen-only-summary grid grid-cols-1 lg:grid-cols-2 gap-8 p-6">
-            {/* LEFT: selections */}
-            <div className="space-y-6">
-              <div>
-                <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                  <Building2 size={16} className="text-blue-600" /> Hotels
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <SummaryRow
-                    label="Makkah"
-                    value={
-                      result.makkahHotel
-                        ? `${result.makkahHotel.hotelName}${
-                            result.makkahHotel.isCustom ? " (Custom)" : ""
-                          } (${result.makkahNights} nights, ${
-                            result.makkahPersons
-                          } persons)`
-                        : "Not selected"
-                    }
-                  />
-                  <SummaryRow
-                    label="Madinah"
-                    value={
-                      result.madinahHotel
-                        ? `${result.madinahHotel.hotelName}${
-                            result.madinahHotel.isCustom ? " (Custom)" : ""
-                          } (${result.madinahNights} nights, ${
-                            result.madinahPersons
-                          } persons)`
-                        : "Not selected"
-                    }
-                  />
-                </div>
-              </div>
+          {/* SCREEN-ONLY: full internal/admin breakdown — Original, Selling
+              and Profit for every included service. */}
+          <div className="screen-only-summary p-6 space-y-4">
+            <ServiceDetailCard
+              title="Makkah Hotel"
+              service={result.makkahService}
+              extraRows={
+                result.makkahService && (
+                  <>
+                    <DetailRow label="Persons" value={result.makkahService.persons} />
+                    <DetailRow label="Nights" value={result.makkahService.nights} />
+                    <DetailRow
+                      label="Original Per Person / Night"
+                      value={pair(
+                        result.makkahService.originalPerPersonPerNight,
+                        result.makkahService.originalPerPersonPerNightPKR
+                      )}
+                    />
+                    <DetailRow
+                      label="Selling Per Person / Night"
+                      value={pair(
+                        result.makkahService.sellingPerPersonPerNight,
+                        result.makkahService.sellingPerPersonPerNightPKR
+                      )}
+                    />
+                  </>
+                )
+              }
+            />
 
-              <div>
-                <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
-                  <FileText size={16} className="text-blue-600" /> Services
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <SummaryRow
-                    label="Visa"
-                    value={
-                      result.visa
-                        ? `${result.visa.category}${
-                            result.visa.isCustom ? " (Custom)" : ""
-                          } · ${dual(result.costs.visaCost, result.conversionRate)}`
-                        : "Not selected"
-                    }
-                  />
-                  <SummaryRow
-                    label="Flight"
-                    value={
-                      result.flight
-                        ? `${result.flight.airlineName}${
-                            result.flight.isCustom ? " (Custom)" : ""
-                          } · ${dual(result.costs.flightCost, result.conversionRate)}`
-                        : "Not selected"
-                    }
-                  />
-                  <SummaryRow
-                    label="Transport"
-                    value={
-                      result.transport
-                        ? `${result.transport.carType}${
-                            result.transport.isCustom
-                              ? " (Custom)"
-                              : ` · ${routeLabel(result.transport)}`
-                          } (${result.transportPassengers} passengers)`
-                        : "Not selected"
-                    }
-                  />
-                </div>
+            <ServiceDetailCard
+              title="Madinah Hotel"
+              service={result.madinahService}
+              extraRows={
+                result.madinahService && (
+                  <>
+                    <DetailRow label="Persons" value={result.madinahService.persons} />
+                    <DetailRow label="Nights" value={result.madinahService.nights} />
+                    <DetailRow
+                      label="Original Per Person / Night"
+                      value={pair(
+                        result.madinahService.originalPerPersonPerNight,
+                        result.madinahService.originalPerPersonPerNightPKR
+                      )}
+                    />
+                    <DetailRow
+                      label="Selling Per Person / Night"
+                      value={pair(
+                        result.madinahService.sellingPerPersonPerNight,
+                        result.madinahService.sellingPerPersonPerNightPKR
+                      )}
+                    />
+                  </>
+                )
+              }
+            />
+
+            <ServiceDetailCard title="Visa" service={result.visaService} />
+            <ServiceDetailCard title="Flight" service={result.flightService} />
+
+            <ServiceDetailCard
+              title="Transport"
+              service={result.transportService}
+              extraRows={
+                result.transportService && (
+                  <>
+                    <DetailRow
+                      label="Total Passengers"
+                      value={result.transportService.passengers}
+                    />
+                    <DetailRow
+                      label="Original Group Price"
+                      value={pair(
+                        result.transportService.originalGroupPrice,
+                        result.transportService.originalGroupPricePKR
+                      )}
+                    />
+                    <DetailRow
+                      label="Selling Group Price"
+                      value={pair(
+                        result.transportService.sellingGroupPrice,
+                        result.transportService.sellingGroupPricePKR
+                      )}
+                    />
+                  </>
+                )
+              }
+            />
+
+            <ServiceDetailCard title="Train Ticket" service={result.trainTicketService} />
+
+            {result.miscServices.map((s, idx) => (
+              <ServiceDetailCard
+                key={idx}
+                title={`Miscellaneous ${idx + 1}`}
+                service={s}
+              />
+            ))}
+
+            {/* PACKAGE TOTALS */}
+            <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
+              <CostRow
+                label="Original Package Total (Per Person) — SAR"
+                value={money(result.totals.originalSAR)}
+              />
+              <CostRow
+                label="Original Package Total (Per Person) — PKR"
+                value={moneyPKR(result.totals.originalPKR)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1 px-4 py-4 bg-brand-600 text-white rounded-xl">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold">
+                  Selling Package Total (Per Person) — SAR
+                </span>
+                <span className="text-xl font-extrabold">
+                  {money(result.totals.sellingSAR)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-white/85">
+                <span className="text-sm font-medium">
+                  Selling Package Total (Per Person) — PKR
+                </span>
+                <span className="text-lg font-bold">
+                  {moneyPKR(result.totals.sellingPKR)}
+                </span>
               </div>
             </div>
 
-            {/* RIGHT: cost breakdown */}
-            <div>
-              <h3 className="text-sm font-bold text-gray-700 mb-3">
-                Cost Breakdown (Per Person) — SAR | PKR
-              </h3>
-
-              {/* Per-item pricing detail */}
-              <div className="space-y-3 mb-4">
-                {result.makkahHotel && (
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                      Makkah Hotel
-                    </p>
-                    <div className="space-y-1.5 text-sm">
-                      <DetailRow
-                        label="Hotel"
-                        value={`${result.makkahHotel.hotelName}${
-                          result.makkahHotel.isCustom ? " (Custom)" : ""
-                        }`}
-                      />
-                      <DetailRow
-                        label="Original Price"
-                        value={dual(result.makkahHotel.price, result.conversionRate)}
-                      />
-                      <DetailRow
-                        label="Persons"
-                        value={result.makkahPersons || 0}
-                      />
-                      <DetailRow
-                        label="Per Person / Night"
-                        value={dual(
-                          result.makkahPerPersonPrice,
-                          result.conversionRate
-                        )}
-                      />
-                      <DetailRow
-                        label="Nights"
-                        value={result.makkahNights || 0}
-                      />
-                      <DetailRow
-                        label="Total for Makkah (Per Person)"
-                        value={dual(result.makkahCost, result.conversionRate)}
-                        bold
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {result.madinahHotel && (
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                      Madinah Hotel
-                    </p>
-                    <div className="space-y-1.5 text-sm">
-                      <DetailRow
-                        label="Hotel"
-                        value={`${result.madinahHotel.hotelName}${
-                          result.madinahHotel.isCustom ? " (Custom)" : ""
-                        }`}
-                      />
-                      <DetailRow
-                        label="Original Price"
-                        value={dual(
-                          result.madinahHotel.price,
-                          result.conversionRate
-                        )}
-                      />
-                      <DetailRow
-                        label="Persons"
-                        value={result.madinahPersons || 0}
-                      />
-                      <DetailRow
-                        label="Per Person / Night"
-                        value={dual(
-                          result.madinahPerPersonPrice,
-                          result.conversionRate
-                        )}
-                      />
-                      <DetailRow
-                        label="Nights"
-                        value={result.madinahNights || 0}
-                      />
-                      <DetailRow
-                        label="Total for Madinah (Per Person)"
-                        value={dual(result.madinahCost, result.conversionRate)}
-                        bold
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {result.visa && (
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                      Visa
-                    </p>
-                    <div className="space-y-1.5 text-sm">
-                      <DetailRow
-                        label="Visa Type"
-                        value={`${result.visa.category}${
-                          result.visa.isCustom ? " (Custom)" : ""
-                        }`}
-                      />
-                      <DetailRow
-                        label="Price"
-                        value={dual(result.costs.visaCost, result.conversionRate)}
-                        bold
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {result.flight && (
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                      Flight
-                    </p>
-                    <div className="space-y-1.5 text-sm">
-                      <DetailRow
-                        label="Flight"
-                        value={`${result.flight.airlineName}${
-                          result.flight.isCustom ? " (Custom)" : ""
-                        }`}
-                      />
-                      <DetailRow
-                        label="Price"
-                        value={dual(result.costs.flightCost, result.conversionRate)}
-                        bold
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {result.transport && (
-                  <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                      Transport
-                    </p>
-                    <div className="space-y-1.5 text-sm">
-                      <DetailRow
-                        label="Transport"
-                        value={`${result.transport.carType}${
-                          result.transport.isCustom ? " (Custom)" : ""
-                        }`}
-                      />
-                      <DetailRow
-                        label="Original Price"
-                        value={dual(
-                          result.transport.price,
-                          result.conversionRate
-                        )}
-                      />
-                      <DetailRow
-                        label="Total Passengers"
-                        value={result.transportPassengers || 0}
-                      />
-                      <DetailRow
-                        label="Per Person Price"
-                        value={dual(
-                          result.costs.transportCost,
-                          result.conversionRate
-                        )}
-                        bold
-                      />
-                    </div>
-                  </div>
-                )}
+            <div
+              className={`flex flex-col gap-1 px-4 py-4 rounded-xl text-white ${
+                result.totals.profitSAR < 0 ? "bg-red-600" : "bg-emerald-600"
+              }`}
+            >
+              <div className="flex justify-between items-center">
+                <span className="font-semibold">
+                  Total Profit (Per Person) — SAR
+                </span>
+                <span className="text-xl font-extrabold">
+                  {money(result.totals.profitSAR)}
+                </span>
               </div>
-
-              <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
-                <CostRow
-                  label="Hotels Total (Per Person)"
-                  value={dual(result.costs.hotelCost, result.conversionRate)}
-                  bold
-                />
-                <CostRow
-                  label="Visa"
-                  value={dual(result.costs.visaCost, result.conversionRate)}
-                />
-                <CostRow
-                  label="Flight"
-                  value={dual(result.costs.flightCost, result.conversionRate)}
-                />
-                <CostRow
-                  label="Transport (Per Person)"
-                  value={dual(
-                    result.costs.transportCost,
-                    result.conversionRate
-                  )}
-                />
-                <div className="flex flex-col gap-1 px-4 py-4 bg-brand-600 text-white rounded-b-xl">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">
-                      Grand Total (Per Person) — SAR
-                    </span>
-                    <span className="text-xl font-extrabold">
-                      {money(result.costs.grandTotal)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-white/85">
-                    <span className="text-sm font-medium">
-                      Grand Total (Per Person) — PKR
-                    </span>
-                    <span className="text-lg font-bold">
-                      {moneyPKR(
-                        result.costs.grandTotal * result.conversionRate
-                      )}
-                    </span>
-                  </div>
-                </div>
+              <div className="flex justify-between items-center text-white/85">
+                <span className="text-sm font-medium">
+                  Total Profit (Per Person) — PKR
+                </span>
+                <span className="text-lg font-bold">
+                  {moneyPKR(result.totals.profitPKR)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* PRINT-ONLY: Excel-style result table */}
+          {/* PRINT-ONLY: customer-facing Excel-style table — selling side only,
+              never original price, never the cost conversion rate, never profit. */}
           <div className="print-only-summary px-6 pb-6">
             <table className="print-summary-table">
               <colgroup>
-                <col style={{ width: "10%" }} />
-                <col style={{ width: "18%" }} />
-                <col style={{ width: "9%" }} />
-                <col style={{ width: "9%" }} />
-                <col style={{ width: "7%" }} />
-                <col style={{ width: "6%" }} />
-                <col style={{ width: "9%" }} />
-                <col style={{ width: "9%" }} />
-                <col style={{ width: "11%" }} />
                 <col style={{ width: "12%" }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "7%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "13%" }} />
               </colgroup>
               <thead>
                 <tr>
                   <th>Category</th>
                   <th>Item</th>
-                  <th className="num">Original SAR</th>
-                  <th className="num">Original PKR</th>
                   <th className="center">Persons</th>
                   <th className="center">Nights</th>
-                  <th className="num">Per Person SAR</th>
-                  <th className="num">Per Person PKR</th>
+                  <th className="num">Selling Price SAR</th>
+                  <th className="num">Selling Price PKR</th>
                   <th className="num">Total SAR</th>
                   <th className="num">Total PKR</th>
                 </tr>
@@ -1161,37 +1582,22 @@ const NormalPackage = () => {
                   <tr key={idx}>
                     <td>{row.category}</td>
                     <td>{row.item}</td>
-                    <td className="num">{row.originalSAR}</td>
-                    <td className="num">{row.originalPKR}</td>
                     <td className="center">{row.persons}</td>
                     <td className="center">{row.nights}</td>
-                    <td className="num">{row.perPersonSAR}</td>
-                    <td className="num">{row.perPersonPKR}</td>
+                    <td className="num">{row.sellingSAR}</td>
+                    <td className="num">{row.sellingPKR}</td>
                     <td className="num">{row.totalSAR}</td>
                     <td className="num">{row.totalPKR}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr>
-                  <td colSpan={8} className="num">
-                    Total Hotels Per Person
-                  </td>
-                  <td className="num">{money(result.costs.hotelCost)}</td>
-                  <td className="num">
-                    {moneyPKR(result.costs.hotelCost * result.conversionRate)}
-                  </td>
-                </tr>
                 <tr className="grand-total">
-                  <td colSpan={8} className="num">
-                    Final Package Total Per Person — SAR / PKR
+                  <td colSpan={6} className="num">
+                    Final Package Price Per Person
                   </td>
-                  <td className="num">{money(result.costs.grandTotal)}</td>
-                  <td className="num">
-                    {moneyPKR(
-                      result.costs.grandTotal * result.conversionRate
-                    )}
-                  </td>
+                  <td className="num">{money(result.totals.sellingSAR)}</td>
+                  <td className="num">{moneyPKR(result.totals.sellingPKR)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -1205,7 +1611,8 @@ const NormalPackage = () => {
 // Two side-by-side inputs for the same price in SAR and PKR. When locked
 // (an existing database record is selected) both are read-only and show the
 // database SAR price plus its live PKR equivalent. When unlocked (custom
-// item), editing either field derives the other via `priceState`.
+// item, or a Selling Price — which is never database-locked), editing
+// either field derives the other via `priceState`.
 const DualPriceFields = ({ isDbLocked, priceState }) => {
   const lockedClass = isDbLocked
     ? "bg-gray-100 text-gray-500 cursor-not-allowed"
@@ -1240,6 +1647,50 @@ const DualPriceFields = ({ isDbLocked, priceState }) => {
   );
 };
 
+// Pricing for any service (Hotels, Visa, Flight, Transport, Train Ticket,
+// Miscellaneous), grouped into two clearly separate rows: Original Price
+// (uses Conversion Rate, still database-locked/derived exactly as before)
+// and Selling Price (uses Selling Conversion Rate, always freely editable —
+// there is no database concept for a selling price).
+const PriceGroups = ({ isDbLocked, originalPriceState, sellingPriceState }) => (
+  <div className="space-y-3">
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2">
+        Original Price
+      </p>
+      <DualPriceFields isDbLocked={isDbLocked} priceState={originalPriceState} />
+    </div>
+    <div className="rounded-lg border border-gray-200 bg-white p-3">
+      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2">
+        Selling Price
+      </p>
+      <DualPriceFields isDbLocked={false} priceState={sellingPriceState} />
+    </div>
+  </div>
+);
+
+// A single checkbox pill for an optional section (Flight/Visa/Transport/
+// Train Ticket/Miscellaneous). Purely presentational — the parent decides
+// what checking or unchecking actually does (show/hide the section, reset
+// its state).
+const OptionalServiceToggle = ({ label, checked, onChange }) => (
+  <label
+    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border cursor-pointer transition-all duration-200 ${
+      checked
+        ? "border-blue-500 bg-blue-50"
+        : "border-gray-200 hover:bg-gray-50"
+    }`}
+  >
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      className="w-4 h-4 accent-blue-600"
+    />
+    <span className="text-sm font-medium text-gray-800">{label}</span>
+  </label>
+);
+
 const ValidationBanner = ({ message }) => (
   <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
     <AlertTriangle size={18} className="shrink-0 mt-0.5" />
@@ -1247,12 +1698,43 @@ const ValidationBanner = ({ message }) => (
   </div>
 );
 
-const SummaryRow = ({ label, value }) => (
-  <div className="flex justify-between items-center gap-4 border-b border-gray-100 pb-2">
-    <span className="text-gray-500">{label}</span>
-    <span className="font-medium text-gray-900 text-right">{value}</span>
-  </div>
-);
+// One included service's full internal breakdown: Original Price, Selling
+// Price, and Profit (in both SAR and PKR, color-coded green/red for
+// profit/loss). `extraRows` lets callers prepend service-specific context
+// (Persons/Nights for hotels, Passengers/group prices for Transport).
+// Renders nothing when `service` is null (the section wasn't included).
+const ServiceDetailCard = ({ title, service, extraRows = null }) => {
+  if (!service) return null;
+  const isLoss = service.profitSAR < 0;
+  return (
+    <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+        {title}: {service.name}
+        {service.isCustom ? " (Custom)" : ""}
+      </p>
+      <div className="space-y-1.5 text-sm">
+        {extraRows}
+        <DetailRow
+          label="Original Price"
+          value={pair(service.originalSAR, service.originalPKR)}
+        />
+        <DetailRow
+          label="Selling Price"
+          value={pair(service.sellingSAR, service.sellingPKR)}
+        />
+        <DetailRow
+          label="Profit"
+          value={
+            <span className={isLoss ? "text-red-600" : "text-emerald-600"}>
+              {pair(service.profitSAR, service.profitPKR)}
+            </span>
+          }
+          bold
+        />
+      </div>
+    </div>
+  );
+};
 
 const DetailRow = ({ label, value, bold = false }) => (
   <div className="flex justify-between items-center gap-3">
