@@ -30,6 +30,15 @@ const moneyPKR = (n) => `PKR ${Number(n || 0).toLocaleString()}`;
 // canonical calculation (buildServiceRecord below), not be recomputed ad
 // hoc at display time.
 const pair = (sar, pkr) => `${money(sar)} | ${moneyPKR(pkr)}`;
+// A service's profit, shown in its own native currency ONLY (never both) —
+// color-coded green/red for profit/loss.
+const profitDisplay = (service) => (
+  <span className={service.profitNative < 0 ? "text-red-600" : "text-emerald-600"}>
+    {service.nativeCurrency === "PKR"
+      ? moneyPKR(service.profitNative)
+      : money(service.profitNative)}
+  </span>
+);
 
 // Normalize a transport record's route (can be a string or legacy object)
 const routeLabel = (t) => {
@@ -43,36 +52,37 @@ const routeLabel = (t) => {
 
 // The single canonical per-service calculation (see task requirement to
 // avoid separately-drifting totals). Every included service — a hotel, a
-// visa, a flight, transport, a train ticket, or a misc item — is reduced to
-// exactly this shape using its own already-per-person (or per-person-per-
-// night, or per-person-per-passenger) SAR figures; everything downstream
-// (package totals, profit) is then just a sum over these records.
+// visa, a flight, transport, a train ticket, or a misc item — has one
+// "native" currency (the currency its price is actually quoted/entered in):
+// SAR for everything except Flight, which is quoted in PKR. Callers pass in
+// the already-computed originalSAR/originalPKR/sellingSAR/sellingPKR pair
+// (each side using its own single rate — Conversion Rate for Original,
+// Selling Conversion Rate for Selling), so this function never performs a
+// conversion itself. Profit is ALWAYS the subtraction of the two native-
+// currency raw values (never a cross-rate SAR-minus-derived-SAR or
+// PKR-minus-derived-PKR), which is the only subtraction that can't be
+// contaminated by Original and Selling using different rates.
 const buildServiceRecord = (
   name,
   isCustom,
-  originalPerPerson,
-  sellingPerPerson,
-  conversionRateNum,
-  sellingConversionRateNum,
+  nativeCurrency, // "SAR" | "PKR"
+  originalSAR,
+  originalPKR,
+  sellingSAR,
+  sellingPKR,
   meta = {}
-) => {
-  const profitSAR = sellingPerPerson - originalPerPerson;
-  return {
-    name,
-    isCustom,
-    originalSAR: originalPerPerson,
-    originalPKR: originalPerPerson * conversionRateNum,
-    sellingSAR: sellingPerPerson,
-    sellingPKR: sellingPerPerson * sellingConversionRateNum,
-    profitSAR,
-    // Profit PKR always derives from profit SAR × the Selling Conversion
-    // Rate — one canonical rate — rather than subtracting two PKR totals
-    // that were each converted at a *different* rate, which would produce
-    // a number with no coherent real-world meaning.
-    profitPKR: profitSAR * sellingConversionRateNum,
-    ...meta,
-  };
-};
+) => ({
+  name,
+  isCustom,
+  nativeCurrency,
+  originalSAR,
+  originalPKR,
+  sellingSAR,
+  sellingPKR,
+  profitNative:
+    nativeCurrency === "PKR" ? sellingPKR - originalPKR : sellingSAR - originalSAR,
+  ...meta,
+});
 
 // Customer-facing print rows — selling side only, always. No original
 // price, no cost conversion rate, and no profit field is ever read here.
@@ -207,6 +217,13 @@ const NormalPackage = () => {
   // price. Neither is ever used for the other side's math.
   const [conversionRate, setConversionRate] = useState("");
   const [sellingConversionRate, setSellingConversionRate] = useState("");
+
+  // The number of people the WHOLE package is being sold to — distinct from
+  // Makkah/Madinah Persons and Transport's Total Passengers, which only
+  // ever feed the per-service per-person math. This field is applied only
+  // once, after the complete per-person package has already been
+  // calculated, to produce the "all passengers" group totals.
+  const [totalPassengers, setTotalPassengers] = useState("");
 
   // Safely coerce a value to a positive number (guards against "", 0,
   // negative, and non-numeric input causing NaN/Infinity downstream).
@@ -455,9 +472,8 @@ const NormalPackage = () => {
     };
   };
 
-  // Total Days vs. Makkah/Madinah nights validation. A short stay/long
-  // package tolerance of 1–2 days (e.g. arrival/departure days that don't
-  // count as a hotel night) is allowed; anything else is flagged. This is
+  // Total Days vs. Makkah/Madinah nights validation. Makkah Nights +
+  // Madinah Nights must equal Total Days EXACTLY — no tolerance. This is
   // only enforced once the user has actually started entering nights —
   // a Visa/Flight-only package with no hotel nights is never blocked by it.
   const makkahNightsNum = toPositiveNumber(makkahNights);
@@ -470,8 +486,8 @@ const NormalPackage = () => {
     ? ""
     : totalDaysNum <= 0
     ? "Enter a valid Total Days to validate the Makkah/Madinah nights."
-    : nightsDifference !== 1 && nightsDifference !== 2
-    ? "Makkah and Madinah nights do not match the Total Days."
+    : nightsDifference !== 0
+    ? "Makkah Nights + Madinah Nights must equal Total Days exactly."
     : "";
 
   // Conversion Rate / Selling Conversion Rate validation. Only required
@@ -503,6 +519,19 @@ const NormalPackage = () => {
     ? "Selling Conversion Rate must be a positive number."
     : "";
 
+  // Total Passengers — required before the all-passengers group totals can
+  // be calculated. Whole number, > 0, never NaN/Infinity downstream.
+  const totalPassengersNum = toPositiveNumber(totalPassengers);
+  const totalPassengersError = !pricingInUse
+    ? ""
+    : totalPassengers === ""
+    ? "Enter Total Passengers to calculate the all-passengers package total."
+    : totalPassengersNum <= 0
+    ? "Total Passengers must be greater than 0."
+    : !Number.isInteger(totalPassengersNum)
+    ? "Total Passengers must be a whole number."
+    : "";
+
   const calculate = () => {
     if (!packageName) {
       alert("Please enter a package name.");
@@ -521,6 +550,11 @@ const NormalPackage = () => {
 
     if (sellingConversionRateError) {
       alert(sellingConversionRateError);
+      return;
+    }
+
+    if (totalPassengersError) {
+      alert(totalPassengersError);
       return;
     }
 
@@ -579,7 +613,9 @@ const NormalPackage = () => {
       return;
     }
 
-    // --- Makkah: (Price / Persons) × Nights, for both Original and Selling ---
+    // --- Makkah: SAR-native. (Price / Persons) × Nights, for both Original
+    // and Selling, entirely in SAR; PKR is only ever a display conversion
+    // of that SAR figure via the relevant side's rate. ---
     const makkahPersonsNum = toPositiveNumber(makkahPersons);
     const makkahOriginalPerPersonPerNight =
       makkahHotel && makkahPersonsNum > 0
@@ -589,17 +625,26 @@ const NormalPackage = () => {
       makkahHotel && makkahPersonsNum > 0
         ? safePrice(makkahSellingPrice.sar) / makkahPersonsNum
         : 0;
+    const makkahOriginalTotalSAR = makkahOriginalPerPersonPerNight * makkahNightsNum;
+    const makkahSellingTotalSAR = makkahSellingPerPersonPerNight * makkahNightsNum;
     const makkahService = makkahHotel
       ? buildServiceRecord(
           makkahHotel.hotelName,
           makkahHotel.isCustom,
-          makkahOriginalPerPersonPerNight * makkahNightsNum,
-          makkahSellingPerPersonPerNight * makkahNightsNum,
-          conversionRateNum,
-          sellingConversionRateNum,
+          "SAR",
+          makkahOriginalTotalSAR,
+          makkahOriginalTotalSAR * conversionRateNum,
+          makkahSellingTotalSAR,
+          makkahSellingTotalSAR * sellingConversionRateNum,
           {
             persons: makkahPersonsNum,
             nights: makkahNightsNum,
+            // The raw hotel price as entered/selected (per night, before
+            // dividing by Persons) — distinct from originalSAR/originalPKR
+            // above, which are the fully-computed per-person total for the
+            // whole stay.
+            originalHotelPrice: safePrice(makkahHotel.price),
+            originalHotelPricePKR: safePrice(makkahHotel.price) * conversionRateNum,
             originalPerPersonPerNight: makkahOriginalPerPersonPerNight,
             originalPerPersonPerNightPKR:
               makkahOriginalPerPersonPerNight * conversionRateNum,
@@ -610,7 +655,7 @@ const NormalPackage = () => {
         )
       : null;
 
-    // --- Madinah: identical structure ---
+    // --- Madinah: identical structure, SAR-native ---
     const madinahPersonsNum = toPositiveNumber(madinahPersons);
     const madinahOriginalPerPersonPerNight =
       madinahHotel && madinahPersonsNum > 0
@@ -620,17 +665,24 @@ const NormalPackage = () => {
       madinahHotel && madinahPersonsNum > 0
         ? safePrice(madinahSellingPrice.sar) / madinahPersonsNum
         : 0;
+    const madinahOriginalTotalSAR =
+      madinahOriginalPerPersonPerNight * madinahNightsNum;
+    const madinahSellingTotalSAR =
+      madinahSellingPerPersonPerNight * madinahNightsNum;
     const madinahService = madinahHotel
       ? buildServiceRecord(
           madinahHotel.hotelName,
           madinahHotel.isCustom,
-          madinahOriginalPerPersonPerNight * madinahNightsNum,
-          madinahSellingPerPersonPerNight * madinahNightsNum,
-          conversionRateNum,
-          sellingConversionRateNum,
+          "SAR",
+          madinahOriginalTotalSAR,
+          madinahOriginalTotalSAR * conversionRateNum,
+          madinahSellingTotalSAR,
+          madinahSellingTotalSAR * sellingConversionRateNum,
           {
             persons: madinahPersonsNum,
             nights: madinahNightsNum,
+            originalHotelPrice: safePrice(madinahHotel.price),
+            originalHotelPricePKR: safePrice(madinahHotel.price) * conversionRateNum,
             originalPerPersonPerNight: madinahOriginalPerPersonPerNight,
             originalPerPersonPerNightPKR:
               madinahOriginalPerPersonPerNight * conversionRateNum,
@@ -641,31 +693,45 @@ const NormalPackage = () => {
         )
       : null;
 
-    // --- Visa / Flight: flat, no division — consistent with the existing
-    // per-person package structure (these were never divided by persons). ---
+    // --- Visa: SAR-native, flat (never divided by persons — consistent with
+    // the existing per-person package structure). ---
     const visaService = visa
       ? buildServiceRecord(
           visa.category,
           visa.isCustom,
+          "SAR",
           safePrice(visa.price),
+          safePrice(visa.price) * conversionRateNum,
           safePrice(visaSellingPrice.sar),
-          conversionRateNum,
-          sellingConversionRateNum
+          safePrice(visaSellingPrice.sar) * sellingConversionRateNum
         )
       : null;
 
+    // --- Flight: PKR-native — the ONLY service quoted in PKR. Its raw PKR
+    // figures (already correctly synced by the useDualCurrencyPrice hooks,
+    // however the user actually typed them) are read directly rather than
+    // re-derived from SAR, so profit can be taken as a straight PKR
+    // subtraction with no rounding drift from a redundant round-trip. ---
+    const flightOriginalPKR = safePrice(flightPrice.pkr);
+    const flightOriginalSAR =
+      conversionRateNum > 0 ? flightOriginalPKR / conversionRateNum : 0;
+    const flightSellingPKR = safePrice(flightSellingPrice.pkr);
+    const flightSellingSAR =
+      sellingConversionRateNum > 0 ? flightSellingPKR / sellingConversionRateNum : 0;
     const flightService = flight
       ? buildServiceRecord(
           flight.airlineName,
           flight.isCustom,
-          safePrice(flight.price),
-          safePrice(flightSellingPrice.sar),
-          conversionRateNum,
-          sellingConversionRateNum
+          "PKR",
+          flightOriginalSAR,
+          flightOriginalPKR,
+          flightSellingSAR,
+          flightSellingPKR
         )
       : null;
 
-    // --- Transport: Price / Total Passengers, for both Original and Selling ---
+    // --- Transport: SAR-native. Price / Total Passengers, for both Original
+    // and Selling. ---
     const transportPassengersNum = toPositiveNumber(transportPassengers);
     const transportOriginalPerPerson =
       transport && transportPassengersNum > 0
@@ -679,10 +745,11 @@ const NormalPackage = () => {
       ? buildServiceRecord(
           transport.carType,
           transport.isCustom,
+          "SAR",
           transportOriginalPerPerson,
+          transportOriginalPerPerson * conversionRateNum,
           transportSellingPerPerson,
-          conversionRateNum,
-          sellingConversionRateNum,
+          transportSellingPerPerson * sellingConversionRateNum,
           {
             passengers: transportPassengersNum,
             originalGroupPrice: safePrice(transport.price),
@@ -694,27 +761,31 @@ const NormalPackage = () => {
         )
       : null;
 
-    // --- Train Ticket: flat, always custom ---
+    // --- Train Ticket: SAR-native, flat, always custom ---
     const trainTicketService = trainTicket
       ? buildServiceRecord(
           trainTicket.name,
           true,
+          "SAR",
           safePrice(trainTicket.price),
+          safePrice(trainTicket.price) * conversionRateNum,
           safePrice(trainTicketSellingPrice.sar),
-          conversionRateNum,
-          sellingConversionRateNum
+          safePrice(trainTicketSellingPrice.sar) * sellingConversionRateNum
         )
       : null;
 
-    // --- Miscellaneous: flat, always custom, one record per named item ---
+    // --- Miscellaneous: SAR-native (no per-item currency toggle exists yet,
+    // so every item defaults to SAR — consistent with every other service
+    // except Flight), flat, always custom, one record per named item. ---
     const miscServices = miscResolved.map((m) =>
       buildServiceRecord(
         m.name,
         true,
+        "SAR",
         m.originalSAR,
+        m.originalSAR * conversionRateNum,
         m.sellingSAR,
-        conversionRateNum,
-        sellingConversionRateNum
+        m.sellingSAR * sellingConversionRateNum
       )
     );
 
@@ -735,12 +806,47 @@ const NormalPackage = () => {
       (sum, s) => sum + s.originalSAR,
       0
     );
+    const originalPackageTotalPKR = allServices.reduce(
+      (sum, s) => sum + s.originalPKR,
+      0
+    );
     const sellingPackageTotalSAR = allServices.reduce(
       (sum, s) => sum + s.sellingSAR,
       0
     );
-    const totalProfitSAR = allServices.reduce((sum, s) => sum + s.profitSAR, 0);
+    const sellingPackageTotalPKR = allServices.reduce(
+      (sum, s) => sum + s.sellingPKR,
+      0
+    );
 
+    // Profit is aggregated separately by native currency — SAR-native
+    // profits are summed together, PKR-native profits are summed together,
+    // and the two are NEVER added directly to each other (that would mix
+    // amounts computed at two different rates). Only afterward, for a
+    // single "how much did I make, in one number" presentation, is one
+    // native subtotal converted into the other's currency — using the
+    // Selling Conversion Rate as the presentation rate for both directions.
+    const sarNativeServices = allServices.filter((s) => s.nativeCurrency === "SAR");
+    const pkrNativeServices = allServices.filter((s) => s.nativeCurrency === "PKR");
+    const nativeSARProfit = sarNativeServices.reduce(
+      (sum, s) => sum + s.profitNative,
+      0
+    );
+    const nativePKRProfit = pkrNativeServices.reduce(
+      (sum, s) => sum + s.profitNative,
+      0
+    );
+    const overallProfitSAR =
+      nativeSARProfit +
+      (sellingConversionRateNum > 0 ? nativePKRProfit / sellingConversionRateNum : 0);
+    const overallProfitPKR =
+      nativePKRProfit + nativeSARProfit * sellingConversionRateNum;
+
+    // Total Passengers is applied ONLY here, once, to the already-complete
+    // per-person package figures — never fed into any individual service's
+    // math (Makkah/Madinah Persons and Transport's own Total Passengers
+    // remain completely separate and are already baked into the per-person
+    // totals above).
     setResult({
       packageName,
       totalDays,
@@ -754,12 +860,21 @@ const NormalPackage = () => {
       trainTicketService,
       miscServices,
       totals: {
+        totalPassengers: totalPassengersNum,
         originalSAR: originalPackageTotalSAR,
-        originalPKR: originalPackageTotalSAR * conversionRateNum,
+        originalPKR: originalPackageTotalPKR,
         sellingSAR: sellingPackageTotalSAR,
-        sellingPKR: sellingPackageTotalSAR * sellingConversionRateNum,
-        profitSAR: totalProfitSAR,
-        profitPKR: totalProfitSAR * sellingConversionRateNum,
+        sellingPKR: sellingPackageTotalPKR,
+        originalPKRAllPassengers: originalPackageTotalPKR * totalPassengersNum,
+        sellingPKRAllPassengers: sellingPackageTotalPKR * totalPassengersNum,
+        nativeSARProfit,
+        nativePKRProfit,
+        overallProfitSAR,
+        overallProfitPKR,
+        nativeSARProfitAllPassengers: nativeSARProfit * totalPassengersNum,
+        nativePKRProfitAllPassengers: nativePKRProfit * totalPassengersNum,
+        overallProfitSARAllPassengers: overallProfitSAR * totalPassengersNum,
+        overallProfitPKRAllPassengers: overallProfitPKR * totalPassengersNum,
       },
     });
 
@@ -776,6 +891,7 @@ const NormalPackage = () => {
     setTotalDays("");
     setConversionRate("");
     setSellingConversionRate("");
+    setTotalPassengers("");
 
     setMakkahHotelText("");
     setMakkahHotelSelected(null);
@@ -834,7 +950,10 @@ const NormalPackage = () => {
 
   const printRows = result ? buildPrintRows(result) : [];
   const canCalculate =
-    !nightsValidationError && !conversionRateError && !sellingConversionRateError;
+    !nightsValidationError &&
+    !conversionRateError &&
+    !sellingConversionRateError &&
+    !totalPassengersError;
 
   return (
     <>
@@ -901,7 +1020,7 @@ const NormalPackage = () => {
               <PackageCheck size={20} className="text-red-600" />
               Package Details
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <Field label="Package Name" required>
                 <input
                   type="text"
@@ -943,11 +1062,23 @@ const NormalPackage = () => {
                   className={inputClass}
                 />
               </Field>
+              <Field label="Total Passengers">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="e.g. 5"
+                  value={totalPassengers}
+                  onChange={(e) => setTotalPassengers(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
             </div>
 
             {(nightsValidationError ||
               conversionRateError ||
-              sellingConversionRateError) && (
+              sellingConversionRateError ||
+              totalPassengersError) && (
               <div className="mt-4 space-y-2">
                 {nightsValidationError && (
                   <ValidationBanner message={nightsValidationError} />
@@ -957,6 +1088,9 @@ const NormalPackage = () => {
                 )}
                 {sellingConversionRateError && (
                   <ValidationBanner message={sellingConversionRateError} />
+                )}
+                {totalPassengersError && (
+                  <ValidationBanner message={totalPassengersError} />
                 )}
               </div>
             )}
@@ -1406,6 +1540,13 @@ const NormalPackage = () => {
               extraRows={
                 result.makkahService && (
                   <>
+                    <DetailRow
+                      label="Original Hotel Price"
+                      value={pair(
+                        result.makkahService.originalHotelPrice,
+                        result.makkahService.originalHotelPricePKR
+                      )}
+                    />
                     <DetailRow label="Persons" value={result.makkahService.persons} />
                     <DetailRow label="Nights" value={result.makkahService.nights} />
                     <DetailRow
@@ -1433,6 +1574,13 @@ const NormalPackage = () => {
               extraRows={
                 result.madinahService && (
                   <>
+                    <DetailRow
+                      label="Original Hotel Price"
+                      value={pair(
+                        result.madinahService.originalHotelPrice,
+                        result.madinahService.originalHotelPricePKR
+                      )}
+                    />
                     <DetailRow label="Persons" value={result.madinahService.persons} />
                     <DetailRow label="Nights" value={result.madinahService.nights} />
                     <DetailRow
@@ -1496,56 +1644,217 @@ const NormalPackage = () => {
               />
             ))}
 
-            {/* PACKAGE TOTALS */}
+            {/* PACKAGE TOTALS — PKR only; the SAR rows are dropped since
+                Original/Selling Package Total in SAR mixed figures derived
+                at two different rates would invite the same ambiguity the
+                profit rule below exists to avoid. Total Passengers is
+                applied here, once, on top of the already-complete
+                per-person figures — it never touches any individual
+                service's own math. */}
             <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
-              <CostRow
-                label="Original Package Total (Per Person) — SAR"
-                value={money(result.totals.originalSAR)}
-              />
               <CostRow
                 label="Original Package Total (Per Person) — PKR"
                 value={moneyPKR(result.totals.originalPKR)}
+              />
+              <CostRow
+                label={`Original Package Total (All ${result.totals.totalPassengers} Passengers) — PKR`}
+                value={moneyPKR(result.totals.originalPKRAllPassengers)}
+                bold
               />
             </div>
 
             <div className="flex flex-col gap-1 px-4 py-4 bg-brand-600 text-white rounded-xl">
               <div className="flex justify-between items-center">
                 <span className="font-semibold">
-                  Selling Package Total (Per Person) — SAR
+                  Selling Package Total (Per Person) — PKR
                 </span>
                 <span className="text-xl font-extrabold">
-                  {money(result.totals.sellingSAR)}
+                  {moneyPKR(result.totals.sellingPKR)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-white/85">
                 <span className="text-sm font-medium">
-                  Selling Package Total (Per Person) — PKR
+                  Selling Package Total (All {result.totals.totalPassengers} Passengers) — PKR
                 </span>
                 <span className="text-lg font-bold">
-                  {moneyPKR(result.totals.sellingPKR)}
+                  {moneyPKR(result.totals.sellingPKRAllPassengers)}
                 </span>
+              </div>
+            </div>
+
+            {/* PROFIT BREAKDOWN — every included service's profit in its own
+                native currency, then the two native subtotals kept strictly
+                separate, then one overall equivalent presented in both
+                currencies (converted using the Selling Conversion Rate).
+                Everything in this box is PER PERSON. */}
+            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+              <h3 className="text-sm font-bold text-gray-700 mb-3">
+                Profit Breakdown — Per Person
+              </h3>
+              <div className="space-y-1.5 text-sm">
+                {result.makkahService && (
+                  <DetailRow
+                    label="Makkah Hotel Profit"
+                    value={profitDisplay(result.makkahService)}
+                  />
+                )}
+                {result.madinahService && (
+                  <DetailRow
+                    label="Madinah Hotel Profit"
+                    value={profitDisplay(result.madinahService)}
+                  />
+                )}
+                {result.visaService && (
+                  <DetailRow
+                    label="Visa Profit"
+                    value={profitDisplay(result.visaService)}
+                  />
+                )}
+                {result.flightService && (
+                  <DetailRow
+                    label="Flight Profit"
+                    value={profitDisplay(result.flightService)}
+                  />
+                )}
+                {result.transportService && (
+                  <DetailRow
+                    label="Transport Profit"
+                    value={profitDisplay(result.transportService)}
+                  />
+                )}
+                {result.trainTicketService && (
+                  <DetailRow
+                    label="Train Ticket Profit"
+                    value={profitDisplay(result.trainTicketService)}
+                  />
+                )}
+                {result.miscServices.map((s, idx) => (
+                  <DetailRow
+                    key={idx}
+                    label={`Miscellaneous ${idx + 1} Profit (${s.name})`}
+                    value={profitDisplay(s)}
+                  />
+                ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5 text-sm">
+                <DetailRow
+                  label="Total Native Profit (Per Person) — SAR"
+                  value={
+                    <span
+                      className={
+                        result.totals.nativeSARProfit < 0
+                          ? "text-red-600"
+                          : "text-emerald-600"
+                      }
+                    >
+                      {money(result.totals.nativeSARProfit)}
+                    </span>
+                  }
+                  bold
+                />
+                <DetailRow
+                  label="Total Native Profit (Per Person) — PKR"
+                  value={
+                    <span
+                      className={
+                        result.totals.nativePKRProfit < 0
+                          ? "text-red-600"
+                          : "text-emerald-600"
+                      }
+                    >
+                      {moneyPKR(result.totals.nativePKRProfit)}
+                    </span>
+                  }
+                  bold
+                />
               </div>
             </div>
 
             <div
               className={`flex flex-col gap-1 px-4 py-4 rounded-xl text-white ${
-                result.totals.profitSAR < 0 ? "bg-red-600" : "bg-emerald-600"
+                result.totals.overallProfitSAR < 0 ? "bg-red-600" : "bg-emerald-600"
               }`}
             >
               <div className="flex justify-between items-center">
                 <span className="font-semibold">
-                  Total Profit (Per Person) — SAR
+                  Overall Profit Equivalent (Per Person) — SAR
                 </span>
                 <span className="text-xl font-extrabold">
-                  {money(result.totals.profitSAR)}
+                  {money(result.totals.overallProfitSAR)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-white/85">
                 <span className="text-sm font-medium">
-                  Total Profit (Per Person) — PKR
+                  Overall Profit Equivalent (Per Person) — PKR
                 </span>
                 <span className="text-lg font-bold">
-                  {moneyPKR(result.totals.profitPKR)}
+                  {moneyPKR(result.totals.overallProfitPKR)}
+                </span>
+              </div>
+            </div>
+
+            {/* PROFIT — ALL PASSENGERS: the same native-currency figures
+                above, multiplied by Total Passengers only at this final
+                step — never used to inflate any individual service. */}
+            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
+              <h3 className="text-sm font-bold text-gray-700 mb-3">
+                Profit Breakdown — All {result.totals.totalPassengers} Passengers
+              </h3>
+              <div className="space-y-1.5 text-sm">
+                <DetailRow
+                  label="Total Native Profit (All Passengers) — SAR"
+                  value={
+                    <span
+                      className={
+                        result.totals.nativeSARProfitAllPassengers < 0
+                          ? "text-red-600"
+                          : "text-emerald-600"
+                      }
+                    >
+                      {money(result.totals.nativeSARProfitAllPassengers)}
+                    </span>
+                  }
+                  bold
+                />
+                <DetailRow
+                  label="Total Native Profit (All Passengers) — PKR"
+                  value={
+                    <span
+                      className={
+                        result.totals.nativePKRProfitAllPassengers < 0
+                          ? "text-red-600"
+                          : "text-emerald-600"
+                      }
+                    >
+                      {moneyPKR(result.totals.nativePKRProfitAllPassengers)}
+                    </span>
+                  }
+                  bold
+                />
+              </div>
+            </div>
+
+            <div
+              className={`flex flex-col gap-1 px-4 py-4 rounded-xl text-white ${
+                result.totals.overallProfitSARAllPassengers < 0
+                  ? "bg-red-600"
+                  : "bg-emerald-600"
+              }`}
+            >
+              <div className="flex justify-between items-center">
+                <span className="font-semibold">
+                  Overall Profit Equivalent (All Passengers) — SAR
+                </span>
+                <span className="text-xl font-extrabold">
+                  {money(result.totals.overallProfitSARAllPassengers)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-white/85">
+                <span className="text-sm font-medium">
+                  Overall Profit Equivalent (All Passengers) — PKR
+                </span>
+                <span className="text-lg font-bold">
+                  {moneyPKR(result.totals.overallProfitPKRAllPassengers)}
                 </span>
               </div>
             </div>
@@ -1594,10 +1903,26 @@ const NormalPackage = () => {
               <tfoot>
                 <tr className="grand-total">
                   <td colSpan={6} className="num">
-                    Final Package Price Per Person
+                    Package Price Per Person
                   </td>
                   <td className="num">{money(result.totals.sellingSAR)}</td>
                   <td className="num">{moneyPKR(result.totals.sellingPKR)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={6} className="num">
+                    Total Passengers
+                  </td>
+                  <td colSpan={2} className="num">
+                    {result.totals.totalPassengers}
+                  </td>
+                </tr>
+                <tr className="grand-total">
+                  <td colSpan={6} className="num">
+                    Total Package Price (All Passengers) — PKR
+                  </td>
+                  <td colSpan={2} className="num">
+                    {moneyPKR(result.totals.sellingPKRAllPassengers)}
+                  </td>
                 </tr>
               </tfoot>
             </table>
@@ -1698,14 +2023,15 @@ const ValidationBanner = ({ message }) => (
   </div>
 );
 
-// One included service's full internal breakdown: Original Price, Selling
-// Price, and Profit (in both SAR and PKR, color-coded green/red for
-// profit/loss). `extraRows` lets callers prepend service-specific context
-// (Persons/Nights for hotels, Passengers/group prices for Transport).
-// Renders nothing when `service` is null (the section wasn't included).
+// One included service's full internal breakdown: Original Price and
+// Selling Price (both shown in SAR + PKR), and Profit — shown ONLY in the
+// service's native currency (SAR for everything except Flight, which is
+// PKR), color-coded green/red for profit/loss. `extraRows` lets callers
+// prepend service-specific context (Persons/Nights for hotels, Passengers/
+// group prices for Transport). Renders nothing when `service` is null (the
+// section wasn't included).
 const ServiceDetailCard = ({ title, service, extraRows = null }) => {
   if (!service) return null;
-  const isLoss = service.profitSAR < 0;
   return (
     <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
       <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
@@ -1723,12 +2049,8 @@ const ServiceDetailCard = ({ title, service, extraRows = null }) => {
           value={pair(service.sellingSAR, service.sellingPKR)}
         />
         <DetailRow
-          label="Profit"
-          value={
-            <span className={isLoss ? "text-red-600" : "text-emerald-600"}>
-              {pair(service.profitSAR, service.profitPKR)}
-            </span>
-          }
+          label={`Profit (${service.nativeCurrency})`}
+          value={profitDisplay(service)}
           bold
         />
       </div>
