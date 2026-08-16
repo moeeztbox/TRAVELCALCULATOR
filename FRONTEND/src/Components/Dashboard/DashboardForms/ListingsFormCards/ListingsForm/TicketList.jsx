@@ -1,5 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Plane, Printer } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Plane,
+  Printer,
+  SlidersHorizontal,
+  X,
+  ArrowUpDown,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../../../Main/Modal";
 import {
@@ -10,14 +19,36 @@ import {
 } from "../../../../Main/FormControls";
 import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
+import EmptyState from "../../../../UI/EmptyState";
 import { useAuth } from "../../../../../context/AuthContext";
 import { toUpper } from "../../../../../utils/text";
 import { API_BASE_URL } from "../../../../../config/api";
+
+const CATEGORIES = ["Group Ticket", "System Ticket"];
+const PASSENGERS = ["adult", "infant", "child"];
+
+const emptyFilters = {
+  airlineName: "",
+  categories: [],
+  passengers: [],
+  agentName: "",
+  validFrom: "",
+  validTo: "",
+  minDepartureLuggage: "",
+  minArrivalLuggage: "",
+  minDepartureBags: "",
+  minArrivalBags: "",
+  minPrice: "",
+  maxPrice: "",
+  sortByPrice: "",
+};
 
 const TicketList = () => {
   const navigate = useNavigate();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState(emptyFilters);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -226,6 +257,104 @@ const TicketList = () => {
       });
     }, 100);
   };
+
+  // ---- Advanced filtering (client-side, combinable) ----
+  const toggleFilterArray = (key, value) => {
+    setFilters((prev) => {
+      const arr = prev[key];
+      return {
+        ...prev,
+        [key]: arr.includes(value)
+          ? arr.filter((v) => v !== value)
+          : [...arr, value],
+      };
+    });
+  };
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.airlineName) count++;
+    if (filters.agentName) count++;
+    if (filters.validFrom) count++;
+    if (filters.validTo) count++;
+    if (filters.minDepartureLuggage) count++;
+    if (filters.minArrivalLuggage) count++;
+    if (filters.minDepartureBags) count++;
+    if (filters.minArrivalBags) count++;
+    if (filters.minPrice) count++;
+    if (filters.maxPrice) count++;
+    count += filters.categories.length;
+    count += filters.passengers.length;
+    return count;
+  }, [filters]);
+
+  const filteredTickets = useMemo(() => {
+    const list = tickets.filter((t) => {
+      if (
+        filters.airlineName &&
+        !t.airlineName
+          ?.toLowerCase()
+          .includes(filters.airlineName.toLowerCase())
+      )
+        return false;
+      if (filters.categories.length && !filters.categories.includes(t.category))
+        return false;
+      if (filters.passengers.length && !filters.passengers.includes(t.passenger))
+        return false;
+      if (
+        filters.agentName &&
+        !t.agentName?.toLowerCase().includes(filters.agentName.toLowerCase())
+      )
+        return false;
+      if (
+        filters.validFrom &&
+        t.validFrom &&
+        new Date(t.validFrom) < new Date(filters.validFrom)
+      )
+        return false;
+      if (
+        filters.validTo &&
+        t.validTo &&
+        new Date(t.validTo) > new Date(filters.validTo)
+      )
+        return false;
+      if (
+        filters.minDepartureLuggage &&
+        Number(t.departureLuggage) < Number(filters.minDepartureLuggage)
+      )
+        return false;
+      if (
+        filters.minArrivalLuggage &&
+        Number(t.arrivalLuggage) < Number(filters.minArrivalLuggage)
+      )
+        return false;
+      if (
+        filters.minDepartureBags &&
+        Number(t.departureBags) < Number(filters.minDepartureBags)
+      )
+        return false;
+      if (
+        filters.minArrivalBags &&
+        Number(t.arrivalBags) < Number(filters.minArrivalBags)
+      )
+        return false;
+      if (filters.minPrice && Number(t.price) < Number(filters.minPrice))
+        return false;
+      if (filters.maxPrice && Number(t.price) > Number(filters.maxPrice))
+        return false;
+      return true;
+    });
+
+    if (filters.sortByPrice === "asc") {
+      list.sort((a, b) => Number(a.price) - Number(b.price));
+    } else if (filters.sortByPrice === "desc") {
+      list.sort((a, b) => Number(b.price) - Number(a.price));
+    }
+
+    return list;
+  }, [tickets, filters]);
+
+  const clearFilters = () => setFilters(emptyFilters);
 
   // Shared field set for both Add and Edit modals
   const renderTicketFields = (data, setData) => (
@@ -478,6 +607,14 @@ const TicketList = () => {
           onBack={handleBack}
           actions={
             <>
+              <Button
+                variant="secondary"
+                icon={SlidersHorizontal}
+                onClick={() => setShowFilters((v) => !v)}
+                className="lg:hidden"
+              >
+                Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+              </Button>
               <Button variant="secondary" icon={Printer} onClick={handlePrint}>
                 Print
               </Button>
@@ -491,56 +628,270 @@ const TicketList = () => {
         />
       </div>
 
-      {/* PRINTABLE AREA */}
-      <div id="print-area">
-        {/* PRINT-ONLY HEADER */}
-        <h1 className="print-header print:block hidden">Tickets List</h1>
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
+        {/* FILTER PANEL */}
+        <aside
+          className={`no-print min-w-0 ${showFilters ? "block" : "hidden"} lg:block`}
+        >
+          <div className="table-card p-5 lg:sticky lg:top-20 space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-ink flex items-center gap-2">
+                <SlidersHorizontal size={16} className="text-brand-600" />
+                Filters
+              </h3>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs font-semibold text-brand-600 hover:text-brand-700 cursor-pointer flex items-center gap-1"
+                >
+                  <X size={13} /> Clear
+                </button>
+              )}
+            </div>
 
-        {/* TABLE */}
-        <div className="table-card mt-2 print:shadow-none print:rounded-none print:border-0">
-          <table className="data-table print-table">
-            <thead>
-              <tr>
-                <th>Airline</th>
-                <th>Category</th>
-                <th>Passenger</th>
-                <th>Agent Name</th>
-                <th>Price</th>
-                <th>Departure Luggage</th>
-                <th>Departure Bags</th>
-                <th>Arrival Luggage</th>
-                <th>Arrival Bags</th>
-                <th>Valid From</th>
-                <th>Valid To</th>
-                {isAdmin && <th className="no-print">Actions</th>}
-              </tr>
-            </thead>
+            <Field label="Airline">
+              <input
+                type="text"
+                placeholder="Search airline..."
+                value={filters.airlineName}
+                onChange={(e) =>
+                  setFilters({ ...filters, airlineName: e.target.value })
+                }
+                className={inputClass}
+              />
+            </Field>
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={isAdmin ? 12 : 11}
-                    className="py-4 px-4 text-center text-gray-500"
+            <Field label="Category">
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleFilterArray("categories", cat)}
+                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      filters.categories.includes(cat)
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                    }`}
                   >
-                    Loading...
-                  </td>
-                </tr>
-              ) : tickets.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={isAdmin ? 12 : 11}
-                    className="py-4 px-4 text-center text-gray-500"
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="Passenger">
+              <div className="flex flex-wrap gap-1.5">
+                {PASSENGERS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => toggleFilterArray("passengers", p)}
+                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border capitalize transition-colors cursor-pointer ${
+                      filters.passengers.includes(p)
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                    }`}
                   >
-                    No tickets found.
-                  </td>
-                </tr>
-              ) : (
-                tickets.map((ticket) => (
-                  <tr
-                    key={ticket._id}
-                    className="border-b hover:bg-gray-50 transition print:hover:bg-white"
-                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="Agent Name">
+              <input
+                type="text"
+                placeholder="Search agent..."
+                value={filters.agentName}
+                onChange={(e) =>
+                  setFilters({ ...filters, agentName: e.target.value })
+                }
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Valid From">
+              <input
+                type="date"
+                value={filters.validFrom}
+                onChange={(e) =>
+                  setFilters({ ...filters, validFrom: e.target.value })
+                }
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Valid To">
+              <input
+                type="date"
+                value={filters.validTo}
+                onChange={(e) =>
+                  setFilters({ ...filters, validTo: e.target.value })
+                }
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Min Luggage (KG)">
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  placeholder="Departure"
+                  value={filters.minDepartureLuggage}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      minDepartureLuggage: e.target.value,
+                    })
+                  }
+                  className={inputClass}
+                />
+                <input
+                  type="number"
+                  placeholder="Arrival"
+                  value={filters.minArrivalLuggage}
+                  onChange={(e) =>
+                    setFilters({ ...filters, minArrivalLuggage: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+            </Field>
+
+            <Field label="Min Bags">
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  placeholder="Departure"
+                  value={filters.minDepartureBags}
+                  onChange={(e) =>
+                    setFilters({ ...filters, minDepartureBags: e.target.value })
+                  }
+                  className={inputClass}
+                />
+                <input
+                  type="number"
+                  placeholder="Arrival"
+                  value={filters.minArrivalBags}
+                  onChange={(e) =>
+                    setFilters({ ...filters, minArrivalBags: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+            </Field>
+
+            <Field label="Price Range">
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={filters.minPrice}
+                  onChange={(e) =>
+                    setFilters({ ...filters, minPrice: e.target.value })
+                  }
+                  className={inputClass}
+                />
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={filters.maxPrice}
+                  onChange={(e) =>
+                    setFilters({ ...filters, maxPrice: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+            </Field>
+
+            <Field label="Sort by Price">
+              <select
+                value={filters.sortByPrice}
+                onChange={(e) =>
+                  setFilters({ ...filters, sortByPrice: e.target.value })
+                }
+                className={inputClass}
+              >
+                <option value="">Default</option>
+                <option value="asc">Cheapest first</option>
+                <option value="desc">Most expensive first</option>
+              </select>
+            </Field>
+          </div>
+        </aside>
+
+        {/* LISTING */}
+        <div className="min-w-0">
+          {/* PRINTABLE AREA */}
+          <div id="print-area">
+            {/* PRINT-ONLY HEADER */}
+            <h1 className="print-header print:block hidden">Tickets List</h1>
+
+            {!loading && (
+              <p className="no-print text-sm text-muted mb-3">
+                Showing{" "}
+                <span className="font-semibold text-ink">
+                  {filteredTickets.length}
+                </span>{" "}
+                of {tickets.length} tickets
+                {filters.sortByPrice && (
+                  <span className="inline-flex items-center gap-1 ml-2 text-brand-600 font-medium">
+                    <ArrowUpDown size={13} />
+                    {filters.sortByPrice === "asc"
+                      ? "Cheapest first"
+                      : "Most expensive first"}
+                  </span>
+                )}
+              </p>
+            )}
+
+            {/* TABLE */}
+            <div className="table-card mt-2 print:shadow-none print:rounded-none print:border-0">
+              <table className="data-table print-table">
+                <thead>
+                  <tr>
+                    <th>Airline</th>
+                    <th>Category</th>
+                    <th>Passenger</th>
+                    <th>Agent Name</th>
+                    <th>Price</th>
+                    <th>Departure Luggage</th>
+                    <th>Departure Bags</th>
+                    <th>Arrival Luggage</th>
+                    <th>Arrival Bags</th>
+                    <th>Valid From</th>
+                    <th>Valid To</th>
+                    {isAdmin && <th className="no-print">Actions</th>}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td
+                        colSpan={isAdmin ? 12 : 11}
+                        className="py-4 px-4 text-center text-gray-500"
+                      >
+                        Loading...
+                      </td>
+                    </tr>
+                  ) : filteredTickets.length === 0 ? (
+                    <tr>
+                      <td colSpan={isAdmin ? 12 : 11} className="p-0">
+                        <EmptyState
+                          icon={Plane}
+                          title="No tickets found"
+                          message="Try adjusting or clearing your filters."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTickets.map((ticket) => (
+                      <tr
+                        key={ticket._id}
+                        className="border-b hover:bg-gray-50 transition print:hover:bg-white"
+                      >
                     <td className="py-3 px-4">{ticket.airlineName}</td>
                     <td className="py-3 px-4">{ticket.category}</td>
                     <td className="py-3 px-4">{ticket.passenger}</td>
@@ -581,8 +932,10 @@ const TicketList = () => {
                   </tr>
                 ))
               )}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
