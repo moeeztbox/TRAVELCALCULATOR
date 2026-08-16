@@ -11,6 +11,7 @@ import {
 import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
 import { useAuth } from "../../../../../context/AuthContext";
+import { toUpper } from "../../../../../utils/text";
 
 const TransportList = () => {
   const navigate = useNavigate();
@@ -27,9 +28,8 @@ const TransportList = () => {
     tripType: "oneway",
     route: "",
     agentName: "",
-    agentCost: "",
-    companyCost: "",
     price: "",
+    luggage: "",
   });
 
   const [editTransport, setEditTransport] = useState({
@@ -39,9 +39,8 @@ const TransportList = () => {
     tripType: "oneway",
     route: "",
     agentName: "",
-    agentCost: "",
-    companyCost: "",
     price: "",
+    luggage: "",
   });
 
   const capacities = [
@@ -129,9 +128,8 @@ const TransportList = () => {
         tripType: newTransport.tripType,
         route: newTransport.route, // string
         agentName: newTransport.agentName,
-        agentCost: newTransport.agentCost,
-        companyCost: newTransport.companyCost,
         price: newTransport.price,
+        luggage: newTransport.luggage,
       };
 
       const res = await fetch("http://localhost:5000/api/transports", {
@@ -151,9 +149,8 @@ const TransportList = () => {
           tripType: "oneway",
           route: "",
           agentName: "",
-          agentCost: "",
-          companyCost: "",
           price: "",
+          luggage: "",
         });
         fetchTransports();
       } else {
@@ -195,9 +192,8 @@ const TransportList = () => {
       tripType: isRound ? "roundtrip" : "oneway",
       route: item.routeString || "",
       agentName: item.agentName || "",
-      agentCost: item.agentCost || "",
-      companyCost: item.companyCost || "",
       price: item.price || "",
+      luggage: item.luggage ?? "",
     });
 
     setShowEditModal(true);
@@ -222,9 +218,8 @@ const TransportList = () => {
         tripType: editTransport.tripType,
         route: editTransport.route, // string
         agentName: editTransport.agentName,
-        agentCost: editTransport.agentCost,
-        companyCost: editTransport.companyCost,
         price: editTransport.price,
+        luggage: editTransport.luggage,
       };
 
       const res = await fetch(
@@ -355,40 +350,28 @@ const TransportList = () => {
               placeholder="Agent name"
               value={data.agentName}
               onChange={(e) =>
-                setData({ ...data, agentName: e.target.value.toUpperCase() })
+                setData({ ...data, agentName: toUpper(e.target.value) })
               }
               className={inputClass}
             />
           </Field>
 
-          <Field label="Agent Cost">
-            <input
-              type="number"
-              placeholder="0"
-              value={data.agentCost}
-              onChange={(e) => setData({ ...data, agentCost: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Company Cost">
-            <input
-              type="number"
-              placeholder="0"
-              value={data.companyCost}
-              onChange={(e) =>
-                setData({ ...data, companyCost: e.target.value })
-              }
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Price" required className="sm:col-span-2">
+          <Field label="Price" required>
             <input
               type="number"
               placeholder="0"
               value={data.price}
               onChange={(e) => setData({ ...data, price: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Luggage (KG)" required>
+            <input
+              type="number"
+              placeholder="0"
+              value={data.luggage}
+              onChange={(e) => setData({ ...data, luggage: e.target.value })}
               className={inputClass}
             />
           </Field>
@@ -509,9 +492,8 @@ const TransportList = () => {
                 <th>Capacity</th>
                 <th>Route</th>
                 <th>Agent Name</th>
-                <th>Agent Cost</th>
-                <th>Company Cost</th>
                 <th>Price</th>
+                <th>Luggage (KG)</th>
                 {isAdmin && <th className="no-print">Actions</th>}
               </tr>
             </thead>
@@ -520,7 +502,7 @@ const TransportList = () => {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 8 : 7}
+                    colSpan={isAdmin ? 7 : 6}
                     className="py-4 px-4 text-center text-gray-500"
                   >
                     Loading...
@@ -529,7 +511,7 @@ const TransportList = () => {
               ) : transports.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 8 : 7}
+                    colSpan={isAdmin ? 7 : 6}
                     className="py-4 px-4 text-center text-gray-500"
                   >
                     No transport found.
@@ -545,9 +527,8 @@ const TransportList = () => {
                     <td className="py-3 px-4">{item.capacity}</td>
                     <td className="py-3 px-4">{item.routeString}</td>
                     <td className="py-3 px-4">{item.agentName}</td>
-                    <td className="py-3 px-4">{item.agentCost}</td>
-                    <td className="py-3 px-4">{item.companyCost}</td>
                     <td className="py-3 px-4">{item.price}</td>
+                    <td className="py-3 px-4">{item.luggage}</td>
 
                     {isAdmin && (
                       <td className="py-3 px-4 flex gap-4 no-print">

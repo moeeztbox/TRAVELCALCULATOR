@@ -14,11 +14,30 @@ const TicketSchema = new mongoose.Schema(
       enum: ["adult", "infant", "child"],
       required: true,
     },
-    weight: { type: Number, required: true, min: 0 },
+    // Departure and arrival/return baggage allowances are tracked
+    // separately since they're commonly different on Umrah/Hajj itineraries.
+    departureLuggage: { type: Number, required: true, min: 0 },
+    departureBags: {
+      type: Number,
+      required: true,
+      min: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: "Departure Bags must be a whole number",
+      },
+    },
+    arrivalLuggage: { type: Number, required: true, min: 0 },
+    arrivalBags: {
+      type: Number,
+      required: true,
+      min: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: "Arrival Bags must be a whole number",
+      },
+    },
     price: { type: Number, required: true, min: 0 },
     agentName: { type: String, required: true, trim: true },
-    agentCost: { type: Number, required: true, min: 0 },
-    companyCost: { type: Number, required: true, min: 0 },
     // Date fields for validity period
     validFrom: { type: Date, required: true },
     validTo: { type: Date, required: true },

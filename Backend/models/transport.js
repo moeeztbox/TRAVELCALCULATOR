@@ -28,17 +28,15 @@ const transportSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    agentCost: {
-      type: Number,
-      required: true,
-    },
-    companyCost: {
-      type: Number,
-      required: true,
-    },
     price: {
       type: Number,
       required: true,
+    },
+    // Checked-in luggage allowance for this transport option, in KG.
+    luggage: {
+      type: Number,
+      required: true,
+      min: 0,
     },
   },
   { timestamps: true }

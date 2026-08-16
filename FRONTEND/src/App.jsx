@@ -64,6 +64,7 @@ const AppRoutes = () => {
       <Route path="/dashboard/tickets" element={<PrivateRoute><TicketForm /></PrivateRoute>} />
       <Route path="/dashboard/transport" element={<PrivateRoute><TransportForm /></PrivateRoute>} />
       <Route path="/dashboard/listings" element={<PrivateRoute><ListingsForm /></PrivateRoute>} />
+      <Route path="/dashboard/packages" element={<PrivateRoute><PackagesView /></PrivateRoute>} />
       <Route
         path="/dashboard/customize-package"
         element={<Navigate to="/dashboard/customize-package/normal" replace />}

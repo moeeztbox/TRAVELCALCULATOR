@@ -9,6 +9,7 @@ import {
 import { Field, inputClass } from "../Main/FormControls";
 import Button from "../UI/Button";
 import SearchableCombobox from "../UI/SearchableCombobox";
+import { toUpper } from "../../utils/text";
 
 const API = "http://localhost:5000/api";
 
@@ -323,7 +324,7 @@ const ExplanatoryPackage = () => {
                   type="text"
                   placeholder="My Explanatory Umrah Package"
                   value={packageName}
-                  onChange={(e) => setPackageName(e.target.value)}
+                  onChange={(e) => setPackageName(toUpper(e.target.value))}
                   className={inputClass}
                 />
               </Field>
@@ -374,7 +375,7 @@ const ExplanatoryPackage = () => {
                 hotelText={makkahHotelText}
                 hotelSelected={makkahHotelSelected}
                 onHotelTextChange={(text) => {
-                  setMakkahHotelText(text);
+                  setMakkahHotelText(toUpper(text));
                   setMakkahHotelSelected(null);
                 }}
                 onHotelSelect={(hotel) => {
@@ -408,7 +409,7 @@ const ExplanatoryPackage = () => {
                 hotelText={madinahHotelText}
                 hotelSelected={madinahHotelSelected}
                 onHotelTextChange={(text) => {
-                  setMadinahHotelText(text);
+                  setMadinahHotelText(toUpper(text));
                   setMadinahHotelSelected(null);
                 }}
                 onHotelSelect={(hotel) => {

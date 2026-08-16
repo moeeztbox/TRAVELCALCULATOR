@@ -9,9 +9,8 @@ export const createTransport = async (req, res) => {
       route,
       tripType,
       agentName,
-      agentCost,
-      companyCost,
       price,
+      luggage,
     } = req.body;
     const transport = new Transport({
       carType,
@@ -19,9 +18,8 @@ export const createTransport = async (req, res) => {
       route,
       tripType,
       agentName,
-      agentCost,
-      companyCost,
       price,
+      luggage,
     });
     await transport.save();
 

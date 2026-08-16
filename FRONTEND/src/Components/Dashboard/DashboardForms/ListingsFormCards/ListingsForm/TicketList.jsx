@@ -11,6 +11,7 @@ import {
 import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
 import { useAuth } from "../../../../../context/AuthContext";
+import { toUpper } from "../../../../../utils/text";
 
 const TicketList = () => {
   const navigate = useNavigate();
@@ -24,11 +25,12 @@ const TicketList = () => {
     airlineName: "",
     category: "",
     passenger: "",
-    weight: "",
     price: "",
     agentName: "",
-    agentCost: "",
-    companyCost: "",
+    departureLuggage: "",
+    departureBags: "",
+    arrivalLuggage: "",
+    arrivalBags: "",
     validFrom: "", // Added date field
     validTo: "", // Added date field
   });
@@ -38,11 +40,12 @@ const TicketList = () => {
     airlineName: "",
     category: "",
     passenger: "",
-    weight: "",
     price: "",
     agentName: "",
-    agentCost: "",
-    companyCost: "",
+    departureLuggage: "",
+    departureBags: "",
+    arrivalLuggage: "",
+    arrivalBags: "",
     validFrom: "", // Added date field
     validTo: "", // Added date field
   });
@@ -96,11 +99,12 @@ const TicketList = () => {
           airlineName: "",
           category: "",
           passenger: "",
-          weight: "",
           price: "",
           agentName: "",
-          agentCost: "",
-          companyCost: "",
+          departureLuggage: "",
+          departureBags: "",
+          arrivalLuggage: "",
+          arrivalBags: "",
           validFrom: "",
           validTo: "",
         });
@@ -136,11 +140,12 @@ const TicketList = () => {
       airlineName: ticket.airlineName,
       category: ticket.category,
       passenger: ticket.passenger,
-      weight: ticket.weight,
       price: ticket.price,
       agentName: ticket.agentName,
-      agentCost: ticket.agentCost,
-      companyCost: ticket.companyCost,
+      departureLuggage: ticket.departureLuggage ?? "",
+      departureBags: ticket.departureBags ?? "",
+      arrivalLuggage: ticket.arrivalLuggage ?? "",
+      arrivalBags: ticket.arrivalBags ?? "",
       validFrom: ticket.validFrom
         ? new Date(ticket.validFrom).toISOString().split("T")[0]
         : "",
@@ -235,7 +240,7 @@ const TicketList = () => {
               placeholder="e.g. Saudia"
               value={data.airlineName}
               onChange={(e) =>
-                setData({ ...data, airlineName: e.target.value.toUpperCase() })
+                setData({ ...data, airlineName: toUpper(e.target.value) })
               }
               className={inputClass}
             />
@@ -266,22 +271,67 @@ const TicketList = () => {
             </select>
           </Field>
 
-          <Field label="Weight (KG)">
-            <input
-              type="number"
-              placeholder="e.g. 30"
-              value={data.weight}
-              onChange={(e) => setData({ ...data, weight: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-
           <Field label="Price" required>
             <input
               type="number"
               placeholder="0"
               value={data.price}
               onChange={(e) => setData({ ...data, price: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </div>
+
+      <div>
+        <SectionTitle>Baggage Allowance</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Departure Luggage (KG)" required>
+            <input
+              type="number"
+              placeholder="e.g. 30"
+              value={data.departureLuggage}
+              onChange={(e) =>
+                setData({ ...data, departureLuggage: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Departure Bags" required>
+            <input
+              type="number"
+              step="1"
+              placeholder="e.g. 1"
+              value={data.departureBags}
+              onChange={(e) =>
+                setData({ ...data, departureBags: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Arrival Luggage (KG)" required>
+            <input
+              type="number"
+              placeholder="e.g. 30"
+              value={data.arrivalLuggage}
+              onChange={(e) =>
+                setData({ ...data, arrivalLuggage: e.target.value })
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Arrival Bags" required>
+            <input
+              type="number"
+              step="1"
+              placeholder="e.g. 1"
+              value={data.arrivalBags}
+              onChange={(e) =>
+                setData({ ...data, arrivalBags: e.target.value })
+              }
               className={inputClass}
             />
           </Field>
@@ -313,7 +363,7 @@ const TicketList = () => {
       </div>
 
       <div>
-        <SectionTitle>Pricing &amp; Agent</SectionTitle>
+        <SectionTitle>Agent</SectionTitle>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Agent Name" className="sm:col-span-2">
             <input
@@ -321,29 +371,7 @@ const TicketList = () => {
               placeholder="Agent name"
               value={data.agentName}
               onChange={(e) =>
-                setData({ ...data, agentName: e.target.value.toUpperCase() })
-              }
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Agent Cost">
-            <input
-              type="number"
-              placeholder="0"
-              value={data.agentCost}
-              onChange={(e) => setData({ ...data, agentCost: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Company Cost">
-            <input
-              type="number"
-              placeholder="0"
-              value={data.companyCost}
-              onChange={(e) =>
-                setData({ ...data, companyCost: e.target.value })
+                setData({ ...data, agentName: toUpper(e.target.value) })
               }
               className={inputClass}
             />
@@ -371,10 +399,10 @@ const TicketList = () => {
               padding: 0;
               background: white !important;
             }
-            .print\:hidden {
+            .print\\:hidden {
               display: none !important;
             }
-            .print\:block {
+            .print\\:block {
               display: block !important;
             }
             
@@ -475,11 +503,12 @@ const TicketList = () => {
                 <th>Airline</th>
                 <th>Category</th>
                 <th>Passenger</th>
-                <th>Weight</th>
                 <th>Agent Name</th>
-                <th>Agent Cost</th>
-                <th>Company Cost</th>
                 <th>Price</th>
+                <th>Departure Luggage</th>
+                <th>Departure Bags</th>
+                <th>Arrival Luggage</th>
+                <th>Arrival Bags</th>
                 <th>Valid From</th>
                 <th>Valid To</th>
                 {isAdmin && <th className="no-print">Actions</th>}
@@ -490,7 +519,7 @@ const TicketList = () => {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 11 : 10}
+                    colSpan={isAdmin ? 12 : 11}
                     className="py-4 px-4 text-center text-gray-500"
                   >
                     Loading...
@@ -499,7 +528,7 @@ const TicketList = () => {
               ) : tickets.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 11 : 10}
+                    colSpan={isAdmin ? 12 : 11}
                     className="py-4 px-4 text-center text-gray-500"
                   >
                     No tickets found.
@@ -514,11 +543,18 @@ const TicketList = () => {
                     <td className="py-3 px-4">{ticket.airlineName}</td>
                     <td className="py-3 px-4">{ticket.category}</td>
                     <td className="py-3 px-4">{ticket.passenger}</td>
-                    <td className="py-3 px-4">{ticket.weight} KG</td>
                     <td className="py-3 px-4">{ticket.agentName}</td>
-                    <td className="py-3 px-4">{ticket.agentCost}</td>
-                    <td className="py-3 px-4">{ticket.companyCost}</td>
                     <td className="py-3 px-4">{ticket.price}</td>
+                    <td className="py-3 px-4">
+                      {ticket.departureLuggage ?? "-"} KG
+                    </td>
+                    <td className="py-3 px-4">
+                      {ticket.departureBags ?? "-"}
+                    </td>
+                    <td className="py-3 px-4">
+                      {ticket.arrivalLuggage ?? "-"} KG
+                    </td>
+                    <td className="py-3 px-4">{ticket.arrivalBags ?? "-"}</td>
                     <td className="py-3 px-4">
                       {formatDate(ticket.validFrom)}
                     </td>

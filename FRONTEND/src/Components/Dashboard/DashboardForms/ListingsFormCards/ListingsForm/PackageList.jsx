@@ -3,17 +3,15 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Eye,
   Package,
   Users,
   Building2,
   ListChecks,
   FileText,
-  Calendar,
-  Moon,
-  MapPin,
+  Printer,
   CheckCircle2,
   XCircle,
-  Printer,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../../../Main/Modal";
@@ -26,8 +24,8 @@ import {
 import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
 import SearchInput from "../../../../UI/SearchInput";
-import EmptyState from "../../../../UI/EmptyState";
 import { useAuth } from "../../../../../context/AuthContext";
+import { toUpper } from "../../../../../utils/text";
 
 const emptyPackage = {
   packageName: "",
@@ -59,6 +57,8 @@ const PackageList = () => {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewPackage, setViewPackage] = useState(null);
 
   const [newPackage, setNewPackage] = useState(emptyPackage);
   const [editPackage, setEditPackage] = useState({ ...emptyPackage, _id: "" });
@@ -134,6 +134,11 @@ const PackageList = () => {
     }
   };
 
+  const openViewModal = (pkg) => {
+    setViewPackage(pkg);
+    setShowViewModal(true);
+  };
+
   const openEditModal = (pkg) => {
     setEditPackage({ ...emptyPackage, ...pkg });
     setShowEditModal(true);
@@ -205,6 +210,21 @@ const PackageList = () => {
     );
   });
 
+  const includedBadge = (label, included) => {
+    const yes = included === "Yes";
+    return (
+      <span
+        key={label}
+        className={`flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 ${
+          yes ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
+        }`}
+      >
+        {yes ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
+        {label}
+      </span>
+    );
+  };
+
   // Shared field set for both Add and Edit modals
   const renderPackageFields = (data, setData) => (
     <div className="space-y-6">
@@ -220,7 +240,7 @@ const PackageList = () => {
               placeholder="e.g. 14-Day Umrah Deluxe"
               value={data.packageName}
               onChange={(e) =>
-                setData({ ...data, packageName: e.target.value.toUpperCase() })
+                setData({ ...data, packageName: toUpper(e.target.value) })
               }
               className={inputClass}
             />
@@ -285,7 +305,7 @@ const PackageList = () => {
               placeholder="Agent name"
               value={data.agentName}
               onChange={(e) =>
-                setData({ ...data, agentName: e.target.value.toUpperCase() })
+                setData({ ...data, agentName: toUpper(e.target.value) })
               }
               className={inputClass}
             />
@@ -335,7 +355,7 @@ const PackageList = () => {
                   onChange={(e) =>
                     setData({
                       ...data,
-                      makkahHotelName: e.target.value.toUpperCase(),
+                      makkahHotelName: toUpper(e.target.value),
                     })
                   }
                   className={inputClass}
@@ -349,7 +369,7 @@ const PackageList = () => {
                   onChange={(e) =>
                     setData({
                       ...data,
-                      makkahDistance: e.target.value.toUpperCase(),
+                      makkahDistance: toUpper(e.target.value),
                     })
                   }
                   className={inputClass}
@@ -372,7 +392,7 @@ const PackageList = () => {
                   onChange={(e) =>
                     setData({
                       ...data,
-                      madinahHotelName: e.target.value.toUpperCase(),
+                      madinahHotelName: toUpper(e.target.value),
                     })
                   }
                   className={inputClass}
@@ -386,7 +406,7 @@ const PackageList = () => {
                   onChange={(e) =>
                     setData({
                       ...data,
-                      madinahDistance: e.target.value.toUpperCase(),
+                      madinahDistance: toUpper(e.target.value),
                     })
                   }
                   className={inputClass}
@@ -453,7 +473,7 @@ const PackageList = () => {
             placeholder="Included / Not Included / custom text"
             value={data.ziyarat}
             onChange={(e) =>
-              setData({ ...data, ziyarat: e.target.value.toUpperCase() })
+              setData({ ...data, ziyarat: toUpper(e.target.value) })
             }
             className={inputClass}
           />
@@ -494,15 +514,29 @@ const PackageList = () => {
             .print\\:block { display: block !important; }
             * { background: white !important; box-shadow: none !important; }
             .rounded-xl, .rounded-lg, .rounded, .rounded-2xl { border-radius: 0 !important; }
-            .package-grid {
-              display: grid !important;
-              grid-template-columns: repeat(2, 1fr) !important;
-              gap: 12px !important;
-            }
-            .package-card {
+            .print-table {
+              width: 100%;
+              border-collapse: collapse;
               border: 1px solid #000 !important;
-              break-inside: avoid;
+            }
+            .print-table th,
+            .print-table td {
+              border: 1px solid #000 !important;
+              padding: 12px 8px !important;
+              background: white !important;
+              font-size: 12px;
+              vertical-align: middle;
+              text-align: left;
+            }
+            .print-table th {
+              background: white !important;
+              font-weight: bold;
+              border-bottom: 2px solid #000 !important;
+            }
+            .print-table tr {
+              border-bottom: 1px solid #000 !important;
               page-break-inside: avoid;
+              page-break-after: auto;
             }
             footer { display: none !important; }
             .footer, [class*="footer"], [class*="copyright"] { display: none !important; }
@@ -546,151 +580,172 @@ const PackageList = () => {
       <div id="print-area">
         <h1 className="print-header print:block hidden">Packages List</h1>
 
-        {loading ? (
-          <div className="table-card mt-2 py-14 text-center text-muted">
-            Loading packages...
-          </div>
-        ) : filteredPackages.length === 0 ? (
-          <div className="table-card mt-2">
-            <EmptyState
-              icon={Package}
-              title="No packages found"
-              message="Try a different search, or add a new package to get started."
-            />
-          </div>
-        ) : (
-          <div className="package-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-2">
-            {filteredPackages.map((pkg) => (
-              <div
-                key={pkg._id}
-                className="package-card bg-surface rounded-2xl border border-hair shadow-soft hover:shadow-lift hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden"
-              >
-                {/* Card header */}
-                <div className="px-5 pt-5 pb-4 border-b border-hair bg-linear-to-br from-gold-100 to-surface">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="w-11 h-11 rounded-xl bg-gold-100 flex items-center justify-center shrink-0">
-                      <Package className="text-gold-600 w-6 h-6" />
-                    </div>
-                    {isAdmin && (
-                      <div className="flex items-center gap-3 no-print">
-                        <button
-                          onClick={() => openEditModal(pkg)}
-                          className="text-brand-600 hover:text-brand-800 cursor-pointer"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          onClick={() => deletePackage(pkg._id)}
-                          className="text-danger hover:opacity-80 cursor-pointer"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+        <div className="table-card mt-2 print:shadow-none print:rounded-none print:border-0">
+          <table className="data-table print-table">
+            <thead>
+              <tr>
+                <th>Package Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Days</th>
+                <th>Nights</th>
+                <th>Makkah Hotel</th>
+                <th>Madinah Hotel</th>
+                <th>Included</th>
+                <th className="no-print">Actions</th>
+              </tr>
+            </thead>
 
-                  <h3 className="text-lg font-bold text-ink mt-3 leading-snug">
-                    {pkg.packageName}
-                  </h3>
-                  <span className="inline-block mt-1 text-xs font-semibold text-gold-600 bg-gold-100 rounded-full px-2.5 py-0.5">
-                    {pkg.category}
-                  </span>
-                </div>
-
-                {/* Card body */}
-                <div className="px-5 py-4 flex-1 flex flex-col gap-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-extrabold text-gray-900">
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="py-4 px-4 text-center text-gray-500">
+                    Loading...
+                  </td>
+                </tr>
+              ) : filteredPackages.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-4 px-4 text-center text-gray-500">
+                    No packages found.
+                  </td>
+                </tr>
+              ) : (
+                filteredPackages.map((pkg) => (
+                  <tr
+                    key={pkg._id}
+                    className="border-b hover:bg-gray-50 transition print:hover:bg-white"
+                  >
+                    <td className="py-3 px-4">{pkg.packageName}</td>
+                    <td className="py-3 px-4">{pkg.category}</td>
+                    <td className="py-3 px-4">
                       {Number(pkg.price || 0).toLocaleString()}
-                    </span>
-                    <div className="flex items-center gap-3 text-gray-500 text-xs">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={14} /> {pkg.totalDays} Days
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Moon size={14} /> {pkg.totalNights} Nights
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 text-gray-600">
-                    <div className="flex items-start gap-1.5">
-                      <Building2
-                        size={14}
-                        className="text-blue-600 mt-0.5 shrink-0"
-                      />
-                      <span>
-                        <span className="font-medium text-gray-800">Makkah:</span>{" "}
-                        {pkg.makkahHotelName || "-"}
-                      </span>
-                    </div>
-                    <div className="flex items-start gap-1.5">
-                      <Building2
-                        size={14}
-                        className="text-blue-600 mt-0.5 shrink-0"
-                      />
-                      <span>
-                        <span className="font-medium text-gray-800">
-                          Madinah:
-                        </span>{" "}
-                        {pkg.madinahHotelName || "-"}
-                      </span>
-                    </div>
-                    {pkg.ziyarat && (
-                      <div className="flex items-start gap-1.5">
-                        <MapPin
-                          size={14}
-                          className="text-blue-600 mt-0.5 shrink-0"
-                        />
-                        <span>
-                          <span className="font-medium text-gray-800">
-                            Ziyarat:
-                          </span>{" "}
-                          {pkg.ziyarat}
-                        </span>
+                    </td>
+                    <td className="py-3 px-4">{pkg.totalDays}</td>
+                    <td className="py-3 px-4">{pkg.totalNights}</td>
+                    <td className="py-3 px-4">{pkg.makkahHotelName || "-"}</td>
+                    <td className="py-3 px-4">{pkg.madinahHotelName || "-"}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-wrap gap-1.5">
+                        {includedBadge("Visa", pkg.visaIncluded)}
+                        {includedBadge("Flight", pkg.flightIncluded)}
+                        {includedBadge("Transport", pkg.transportIncluded)}
                       </div>
-                    )}
-                  </div>
+                    </td>
+                    <td className="py-3 px-4 flex items-center gap-4 no-print">
+                      <button
+                        className="text-gray-600 hover:text-gray-800 cursor-pointer"
+                        onClick={() => openViewModal(pkg)}
+                      >
+                        <Eye size={20} />
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                            onClick={() => openEditModal(pkg)}
+                          >
+                            <Pencil size={20} />
+                          </button>
+                          <button
+                            className="text-red-600 hover:text-red-800 cursor-pointer"
+                            onClick={() => deletePackage(pkg._id)}
+                          >
+                            <Trash2 size={20} />
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                  {/* Included badges */}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {[
-                      ["Visa", pkg.visaIncluded],
-                      ["Flight", pkg.flightIncluded],
-                      ["Transport", pkg.transportIncluded],
-                    ].map(([label, included]) => {
-                      const yes = included === "Yes";
-                      return (
-                        <span
-                          key={label}
-                          className={`flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-1 ${
-                            yes
-                              ? "bg-green-50 text-green-700"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
-                        >
-                          {yes ? (
-                            <CheckCircle2 size={13} />
-                          ) : (
-                            <XCircle size={13} />
-                          )}
-                          {label}
-                        </span>
-                      );
-                    })}
-                  </div>
-
-                  {pkg.description && (
-                    <p className="text-gray-500 text-xs leading-relaxed line-clamp-3 mt-1">
-                      {pkg.description}
-                    </p>
-                  )}
-                </div>
+      {/* VIEW MODAL */}
+      <Modal
+        open={showViewModal}
+        onClose={() => setShowViewModal(false)}
+        title="Package Details"
+        icon={<Eye size={20} className="text-brand-600" />}
+        maxWidth="max-w-2xl"
+        footer={
+          <ModalActions
+            onCancel={() => setShowViewModal(false)}
+            onSubmit={() => setShowViewModal(false)}
+            submitLabel="Close"
+          />
+        }
+      >
+        {viewPackage && (
+          <div className="space-y-4 text-sm">
+            <div>
+              <h3 className="text-lg font-bold text-ink">
+                {viewPackage.packageName}
+              </h3>
+              <span className="inline-block mt-1 text-xs font-semibold text-gold-600 bg-gold-100 rounded-full px-2.5 py-0.5">
+                {viewPackage.category}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div>
+                <p className="text-xs text-muted">Price</p>
+                <p className="font-semibold">
+                  {Number(viewPackage.price || 0).toLocaleString()}
+                </p>
               </div>
-            ))}
+              <div>
+                <p className="text-xs text-muted">Total Days</p>
+                <p className="font-semibold">{viewPackage.totalDays}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">Total Nights</p>
+                <p className="font-semibold">{viewPackage.totalNights}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-muted">Makkah Hotel</p>
+                <p className="font-medium">
+                  {viewPackage.makkahHotelName || "-"}
+                  {viewPackage.makkahDistance
+                    ? ` (${viewPackage.makkahDistance})`
+                    : ""}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">Madinah Hotel</p>
+                <p className="font-medium">
+                  {viewPackage.madinahHotelName || "-"}
+                  {viewPackage.madinahDistance
+                    ? ` (${viewPackage.madinahDistance})`
+                    : ""}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {includedBadge("Visa", viewPackage.visaIncluded)}
+              {includedBadge("Flight", viewPackage.flightIncluded)}
+              {includedBadge("Transport", viewPackage.transportIncluded)}
+            </div>
+            {viewPackage.ziyarat && (
+              <div>
+                <p className="text-xs text-muted">Ziyarat</p>
+                <p className="font-medium">{viewPackage.ziyarat}</p>
+              </div>
+            )}
+            {viewPackage.description && (
+              <div>
+                <p className="text-xs text-muted">Description</p>
+                <p className="text-gray-600 leading-relaxed">
+                  {viewPackage.description}
+                </p>
+              </div>
+            )}
           </div>
         )}
-      </div>
+      </Modal>
 
       {/* ADD PACKAGE MODAL */}
       <Modal

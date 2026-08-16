@@ -20,11 +20,12 @@ export default function TicketForm() {
   const [airlineName, setAirlineName] = useState("");
   const [category, setCategory] = useState("");
   const [passenger, setPassenger] = useState("");
-  const [weight, setWeight] = useState("");
   const [price, setPrice] = useState("");
   const [agentName, setAgentName] = useState("");
-  const [agentCost, setAgentCost] = useState("");
-  const [companyCost, setCompanyCost] = useState("");
+  const [departureLuggage, setDepartureLuggage] = useState("");
+  const [departureBags, setDepartureBags] = useState("");
+  const [arrivalLuggage, setArrivalLuggage] = useState("");
+  const [arrivalBags, setArrivalBags] = useState("");
   const [validFrom, setValidFrom] = useState("");
   const [validTo, setValidTo] = useState("");
   const [result, setResult] = useState(null);
@@ -55,11 +56,12 @@ export default function TicketForm() {
     setAirlineName(ticket.airlineName);
     setCategory(ticket.category);
     setPassenger(ticket.passenger);
-    setWeight(ticket.weight || "");
     setPrice(ticket.price || "");
     setAgentName(ticket.agentName);
-    setAgentCost(ticket.agentCost || "");
-    setCompanyCost(ticket.companyCost || "");
+    setDepartureLuggage(ticket.departureLuggage ?? "");
+    setDepartureBags(ticket.departureBags ?? "");
+    setArrivalLuggage(ticket.arrivalLuggage ?? "");
+    setArrivalBags(ticket.arrivalBags ?? "");
     setValidFrom(
       ticket.validFrom
         ? new Date(ticket.validFrom).toISOString().split("T")[0]
@@ -77,11 +79,6 @@ export default function TicketForm() {
     }
 
     const ticketPrice = parseFloat(price);
-    const agentCostValue = parseFloat(agentCost) || 0;
-    const companyCostValue = parseFloat(companyCost) || 0;
-
-    // Calculate all costs
-    const totalCost = ticketPrice + agentCostValue + companyCostValue;
 
     setResult({
       // Basic information
@@ -90,8 +87,11 @@ export default function TicketForm() {
       passenger,
       agentName,
 
-      // Weight information
-      weight,
+      // Baggage information
+      departureLuggage,
+      departureBags,
+      arrivalLuggage,
+      arrivalBags,
 
       // Validity information
       validFrom: formatDate(validFrom),
@@ -99,11 +99,7 @@ export default function TicketForm() {
 
       // Costs
       ticketPrice,
-      agentCost: agentCostValue,
-      companyCost: companyCostValue,
-
-      // Total calculation
-      totalCost,
+      totalCost: ticketPrice,
     });
   };
 
@@ -126,11 +122,12 @@ export default function TicketForm() {
     setAirlineName("");
     setCategory("");
     setPassenger("");
-    setWeight("");
     setPrice("");
     setAgentName("");
-    setAgentCost("");
-    setCompanyCost("");
+    setDepartureLuggage("");
+    setDepartureBags("");
+    setArrivalLuggage("");
+    setArrivalBags("");
     setValidFrom("");
     setValidTo("");
     setResult(null);
@@ -247,16 +244,58 @@ export default function TicketForm() {
                 </select>
               </FieldWrapper>
 
-              {/* Weight - ALWAYS DISABLED */}
+              {/* Departure Luggage - ALWAYS DISABLED */}
               <FieldWrapper>
                 <label className="text-sm font-medium text-gray-700">
-                  Weight (KG)
+                  Departure Luggage (KG)
                 </label>
                 <input
                   type="number"
                   className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                   placeholder="Will be auto-filled"
-                  value={weight}
+                  value={departureLuggage}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Departure Bags - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Departure Bags
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={departureBags}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Arrival Luggage - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Arrival Luggage (KG)
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={arrivalLuggage}
+                  readOnly
+                />
+              </FieldWrapper>
+
+              {/* Arrival Bags - ALWAYS DISABLED */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Arrival Bags
+                </label>
+                <input
+                  type="number"
+                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  placeholder="Will be auto-filled"
+                  value={arrivalBags}
                   readOnly
                 />
               </FieldWrapper>
@@ -285,34 +324,6 @@ export default function TicketForm() {
                   className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                   placeholder="Will be auto-filled"
                   value={agentName}
-                  readOnly
-                />
-              </FieldWrapper>
-
-              {/* Agent Cost - ALWAYS DISABLED */}
-              <FieldWrapper>
-                <label className="text-sm font-medium text-gray-700">
-                  Agent Cost
-                </label>
-                <input
-                  type="number"
-                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                  placeholder="Will be auto-filled"
-                  value={agentCost}
-                  readOnly
-                />
-              </FieldWrapper>
-
-              {/* Company Cost - ALWAYS DISABLED */}
-              <FieldWrapper>
-                <label className="text-sm font-medium text-gray-700">
-                  Company Cost
-                </label>
-                <input
-                  type="number"
-                  className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-                  placeholder="Will be auto-filled"
-                  value={companyCost}
                   readOnly
                 />
               </FieldWrapper>
@@ -406,16 +417,40 @@ export default function TicketForm() {
                     </div>
                   </div>
 
-                  {/* Weight Information */}
+                  {/* Baggage Information */}
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
                       <Package size={16} className="text-blue-600" />
-                      Weight Information
+                      Baggage Information
                     </h3>
-                    <div className="bg-blue-50 rounded-lg p-4">
+                    <div className="bg-blue-50 rounded-lg p-4 space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Baggage Weight:</span>
-                        <span className="font-medium">{result.weight} KG</span>
+                        <span className="text-gray-600">
+                          Departure Luggage:
+                        </span>
+                        <span className="font-medium">
+                          {result.departureLuggage} KG
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Departure Bags:</span>
+                        <span className="font-medium">
+                          {result.departureBags}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">
+                          Arrival Luggage:
+                        </span>
+                        <span className="font-medium">
+                          {result.arrivalLuggage} KG
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Arrival Bags:</span>
+                        <span className="font-medium">
+                          {result.arrivalBags}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -446,22 +481,10 @@ export default function TicketForm() {
                       Cost Details
                     </h3>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600">Ticket Price</span>
                         <span className="font-medium">
                           ${result.ticketPrice.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Agent Cost</span>
-                        <span className="font-medium text-orange-600">
-                          ${result.agentCost.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600">Company Cost</span>
-                        <span className="font-medium text-purple-600">
-                          ${result.companyCost.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -473,24 +496,6 @@ export default function TicketForm() {
                       Total Costs
                     </h3>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Ticket Price</span>
-                        <span className="font-medium">
-                          ${result.ticketPrice.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Agent Cost</span>
-                        <span className="font-medium text-red-600">
-                          ${result.agentCost.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Company Cost</span>
-                        <span className="font-medium text-green-600">
-                          ${result.companyCost.toFixed(2)}
-                        </span>
-                      </div>
                       <div className="flex justify-between items-center py-3 bg-gray-50 rounded-lg px-3 mt-4">
                         <span className="text-gray-700 font-semibold">
                           Total Final Cost

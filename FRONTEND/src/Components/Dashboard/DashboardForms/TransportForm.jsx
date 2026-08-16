@@ -62,15 +62,6 @@ export default function TransportCalculator() {
     setRoute(""); // Reset route when car type changes
     setResult(null); // Clear result when changing selections
 
-    // Filter available trip types for this car type
-    const availableTripTypesForCar = [
-      ...new Set(
-        transports
-          .filter((t) => t.carType === selectedCarType)
-          .map((t) => t.tripType)
-      ),
-    ];
-
     // Filter available routes for this car type
     const routesForCarType = transports
       .filter((t) => t.carType === selectedCarType)
@@ -116,8 +107,6 @@ export default function TransportCalculator() {
 
     // Calculate results
     const basePrice = parseFloat(selectedTransport.price);
-    const agentCost = parseFloat(selectedTransport.agentCost);
-    const companyCost = parseFloat(selectedTransport.companyCost);
 
     // Calculate final price
     let finalPrice = basePrice;
@@ -125,19 +114,16 @@ export default function TransportCalculator() {
       finalPrice = basePrice * 2;
     }
 
-    const totalCost = finalPrice + agentCost + companyCost;
-
     setResult({
       carType: selectedTransport.carType,
       capacity: selectedTransport.capacity,
       tripType: selectedTransport.tripType,
       route: selectedTransport.route,
       agentName: selectedTransport.agentName,
-      agentCost: agentCost,
-      companyCost: companyCost,
+      luggage: selectedTransport.luggage,
       price: basePrice,
       finalPrice: finalPrice,
-      totalCost: totalCost,
+      totalCost: finalPrice,
     });
   };
 
@@ -338,13 +324,19 @@ export default function TransportCalculator() {
                             : "Round Trip"}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center py-2">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
                         <span className="text-gray-600 flex items-center gap-1">
                           <RouteIcon size={14} />
                           Route
                         </span>
                         <span className="font-medium text-right max-w-xs">
                           {result.route}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600">Luggage</span>
+                        <span className="font-medium">
+                          {result.luggage} KG
                         </span>
                       </div>
                     </div>
@@ -357,15 +349,9 @@ export default function TransportCalculator() {
                       Agent Information
                     </h3>
                     <div className="bg-green-50 rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-2">
+                      <div className="flex justify-between items-center">
                         <span className="text-gray-600">Agent Name:</span>
                         <span className="font-medium">{result.agentName}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Agent Cost:</span>
-                        <span className="font-medium text-green-700">
-                          ${result.agentCost.toFixed(2)}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -394,16 +380,10 @@ export default function TransportCalculator() {
                           <span className="font-medium">× 2</span>
                         </div>
                       )}
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600">Transport Price</span>
                         <span className="font-medium text-blue-600">
                           ${result.finalPrice.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Company Cost</span>
-                        <span className="font-medium text-purple-600">
-                          ${result.companyCost.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -415,35 +395,12 @@ export default function TransportCalculator() {
                       Total Costs
                     </h3>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Transport Price</span>
-                        <span className="font-medium">
-                          ${result.finalPrice.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Agent Cost</span>
-                        <span className="font-medium text-orange-600">
-                          ${result.agentCost.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Company Cost</span>
-                        <span className="font-medium text-green-600">
-                          ${result.companyCost.toFixed(2)}
-                        </span>
-                      </div>
                       <div className="flex justify-between items-center py-3 bg-gray-50 rounded-lg px-3 mt-4">
                         <span className="text-gray-700 font-semibold">
                           Total Final Cost
                         </span>
                         <span className="font-bold text-lg text-blue-700">
-                          $
-                          {(
-                            result.finalPrice +
-                            result.agentCost +
-                            result.companyCost
-                          ).toFixed(2)}
+                          ${result.totalCost.toFixed(2)}
                         </span>
                       </div>
                     </div>

@@ -12,6 +12,7 @@ import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
 import Combobox from "../../UI/Combobox";
 import logo from "../../../Assets/logo-mark.png";
+import { toUpper } from "../../../utils/text";
 
 const COMPANY_NAME = "AlBuraq Global Travel & Tours";
 const COMPANY_WEBSITE = "www.alburaqtours.com";
@@ -36,8 +37,6 @@ export default function HotelCalculator() {
   const [category, setCategory] = useState("");
   const [roomType, setRoomType] = useState("");
   const [agentName, setAgentName] = useState("");
-  const [agentCost, setAgentCost] = useState("");
-  const [companyCost, setCompanyCost] = useState("");
   const [price, setPrice] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
@@ -83,8 +82,6 @@ export default function HotelCalculator() {
     setCategory("");
     setRoomType("");
     setAgentName("");
-    setAgentCost("");
-    setCompanyCost("");
     setPrice("");
     setCity("");
     setArea("");
@@ -126,8 +123,6 @@ export default function HotelCalculator() {
     setAvailableRoomTypes(uniqueRoomTypes);
 
     // Set default values from the selected hotel (will update when room type is selected)
-    setAgentCost(hotel.agentCost);
-    setCompanyCost(hotel.companyCost);
     setPrice(hotel.price);
   };
 
@@ -140,8 +135,6 @@ export default function HotelCalculator() {
     );
 
     if (selectedHotel) {
-      setAgentCost(selectedHotel.agentCost);
-      setCompanyCost(selectedHotel.companyCost);
       setPrice(selectedHotel.price);
       setCity(selectedHotel.city || "");
       setArea(selectedHotel.area || "");
@@ -164,14 +157,10 @@ export default function HotelCalculator() {
     }
 
     const perNightPrice = parseFloat(price);
-    const agentCostPerNight = parseFloat(agentCost);
-    const companyCostPerNight = parseFloat(companyCost);
 
     // Calculate all costs
     const totalNightsPrice = perNightPrice * nights;
-    const totalAgentCost = agentCostPerNight * nights;
-    const totalCompanyCost = companyCostPerNight * nights;
-    const totalFinalCost = totalNightsPrice + totalAgentCost + totalCompanyCost;
+    const totalFinalCost = totalNightsPrice;
 
     setResult({
       // Client
@@ -191,8 +180,6 @@ export default function HotelCalculator() {
 
       // Per night costs
       perNightPrice,
-      agentCost: agentCostPerNight,
-      companyCost: companyCostPerNight,
 
       // Stay information
       checkIn,
@@ -201,8 +188,6 @@ export default function HotelCalculator() {
 
       // Total calculations
       totalNightsPrice,
-      totalAgentCost,
-      totalCompanyCost,
       totalFinalCost,
     });
   };
@@ -223,9 +208,8 @@ export default function HotelCalculator() {
     <div className="calc">
       {/* PRINT CSS — page-specific only; the app shell (sidebar/topbar/
           footer) is handled globally in index.css. Only the dedicated
-          report block prints; the on-screen working view (including the
-          internal agent/company cost breakdown) is hidden from print
-          entirely. */}
+          report block prints; the on-screen working view is hidden from
+          print entirely. */}
       <style>
         {`
           @media print {
@@ -335,7 +319,7 @@ export default function HotelCalculator() {
                   placeholder="Enter client name"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   value={clientName}
-                  onChange={(e) => setClientName(e.target.value.toUpperCase())}
+                  onChange={(e) => setClientName(toUpper(e.target.value))}
                 />
               </FieldWrapper>
             </div>
@@ -468,26 +452,10 @@ export default function HotelCalculator() {
                       Per Night Costs
                     </h3>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600">Price per night</span>
                         <span className="font-medium">
                           ${result.perNightPrice.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">
-                          Agent cost per night
-                        </span>
-                        <span className="font-medium text-orange-600">
-                          ${result.agentCost.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600">
-                          Company cost per night
-                        </span>
-                        <span className="font-medium text-purple-600">
-                          ${result.companyCost.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -505,20 +473,6 @@ export default function HotelCalculator() {
                         </span>
                         <span className="font-medium">
                           ${result.totalNightsPrice.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Total agent cost</span>
-                        <span className="font-medium text-red-600">
-                          ${result.totalAgentCost.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">
-                          Total company cost
-                        </span>
-                        <span className="font-medium text-green-600">
-                          ${result.totalCompanyCost.toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center py-3 bg-gray-50 rounded-lg px-3 mt-4">

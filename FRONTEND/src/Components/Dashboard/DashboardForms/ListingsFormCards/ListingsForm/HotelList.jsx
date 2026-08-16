@@ -21,6 +21,7 @@ import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
 import EmptyState from "../../../../UI/EmptyState";
 import { useAuth } from "../../../../../context/AuthContext";
+import { toUpper } from "../../../../../utils/text";
 
 const ROOM_TYPES = ["single", "double", "triple", "quad", "sharing"];
 const CATEGORIES = ["5-star", "4-star", "3-star", "2-star", "1-star"];
@@ -35,8 +36,6 @@ const emptyHotelBase = {
   hotelName: "",
   category: "",
   agentName: "",
-  agentCost: "",
-  companyCost: "",
   area: "",
   city: "",
   distance: "",
@@ -342,7 +341,7 @@ const HotelList = () => {
           placeholder="e.g. Hilton Makkah"
           value={data.hotelName}
           onChange={(e) =>
-            setData({ ...data, hotelName: e.target.value.toUpperCase() })
+            setData({ ...data, hotelName: toUpper(e.target.value) })
           }
           className={inputClass}
         />
@@ -381,7 +380,7 @@ const HotelList = () => {
           placeholder="e.g. Ajyad"
           value={data.area}
           onChange={(e) =>
-            setData({ ...data, area: e.target.value.toUpperCase() })
+            setData({ ...data, area: toUpper(e.target.value) })
           }
           className={inputClass}
         />
@@ -403,7 +402,7 @@ const HotelList = () => {
           placeholder="Full hotel address"
           value={data.address}
           onChange={(e) =>
-            setData({ ...data, address: e.target.value.toUpperCase() })
+            setData({ ...data, address: toUpper(e.target.value) })
           }
           className={inputClass}
         />
@@ -419,29 +418,7 @@ const HotelList = () => {
           placeholder="Agent name"
           value={data.agentName}
           onChange={(e) =>
-            setData({ ...data, agentName: e.target.value.toUpperCase() })
-          }
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label="Agent Cost">
-        <input
-          type="number"
-          placeholder="0"
-          value={data.agentCost}
-          onChange={(e) => setData({ ...data, agentCost: e.target.value })}
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label="Company Cost">
-        <input
-          type="number"
-          placeholder="0"
-          value={data.companyCost}
-          onChange={(e) =>
-            setData({ ...data, companyCost: e.target.value })
+            setData({ ...data, agentName: toUpper(e.target.value) })
           }
           className={inputClass}
         />
@@ -562,7 +539,7 @@ const HotelList = () => {
     </div>
   );
 
-  const colSpan = isAdmin ? 9 : 8;
+  const colSpan = isAdmin ? 7 : 6;
 
   return (
     <div className="w-full">
@@ -902,8 +879,6 @@ const HotelList = () => {
                     <th>Address</th>
                     <th>Distance (m)</th>
                     <th>Agent Name</th>
-                    <th>Agent Cost</th>
-                    <th>Company Cost</th>
                     <th>Price</th>
                     {isAdmin && <th className="no-print">Actions</th>}
                   </tr>
@@ -943,8 +918,6 @@ const HotelList = () => {
                         <td className="py-3 px-4">{hotel.address || "-"}</td>
                         <td className="py-3 px-4">{hotel.distance}</td>
                         <td className="py-3 px-4">{hotel.agentName}</td>
-                        <td className="py-3 px-4">{hotel.agentCost}</td>
-                        <td className="py-3 px-4">{hotel.companyCost}</td>
                         <td className="py-3 px-4">{hotel.price}</td>
 
                         {isAdmin && (

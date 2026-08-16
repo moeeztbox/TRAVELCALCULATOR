@@ -23,14 +23,6 @@ const hotelSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    agentCost: {
-      type: Number,
-      required: true,
-    },
-    companyCost: {
-      type: Number,
-      required: true,
-    },
     price: {
       type: Number,
       required: true,

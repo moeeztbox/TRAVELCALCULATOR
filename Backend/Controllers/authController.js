@@ -38,7 +38,12 @@ const cookieOptions = () => ({
  */
 export const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    // Email must be case-insensitive ("ADMIN@gmail.com" === "admin@gmail.com")
+    // — normalize the same way the schema now normalizes on write, so the
+    // lookup matches regardless of how the user capitalizes it. Password
+    // casing is intentionally left untouched.
+    const email = (req.body.email || "").trim().toLowerCase();
 
     if (!email || !password) {
       return res.status(400).json({ success: false, message: "Email and password required" });

@@ -18,6 +18,7 @@ import { Field, inputClass } from "../Main/FormControls";
 import Button from "../UI/Button";
 import SearchableCombobox from "../UI/SearchableCombobox";
 import useDualCurrencyPrice, { toPKR, toSAR } from "./useDualCurrencyPrice";
+import { toUpper } from "../../utils/text";
 
 const API = "http://localhost:5000/api";
 const MAX_MISC_ITEMS = 5;
@@ -1026,7 +1027,7 @@ const NormalPackage = () => {
                   type="text"
                   placeholder="My Custom Umrah Package"
                   value={packageName}
-                  onChange={(e) => setPackageName(e.target.value)}
+                  onChange={(e) => setPackageName(toUpper(e.target.value))}
                   className={inputClass}
                 />
               </Field>
@@ -1113,7 +1114,7 @@ const NormalPackage = () => {
                     <SearchableCombobox
                       value={makkahHotelText}
                       onTextChange={(text) => {
-                        setMakkahHotelText(text);
+                        setMakkahHotelText(toUpper(text));
                         setMakkahHotelSelected(null);
                       }}
                       onSelect={(hotel) => {
@@ -1170,7 +1171,7 @@ const NormalPackage = () => {
                     <SearchableCombobox
                       value={madinahHotelText}
                       onTextChange={(text) => {
-                        setMadinahHotelText(text);
+                        setMadinahHotelText(toUpper(text));
                         setMadinahHotelSelected(null);
                       }}
                       onSelect={(hotel) => {
@@ -1268,7 +1269,7 @@ const NormalPackage = () => {
                       <SearchableCombobox
                         value={flightText}
                         onTextChange={(text) => {
-                          setFlightText(text);
+                          setFlightText(toUpper(text));
                           setFlightSelected(null);
                         }}
                         onSelect={(f) => {
@@ -1303,7 +1304,7 @@ const NormalPackage = () => {
                       <SearchableCombobox
                         value={visaTypeText}
                         onTextChange={(text) => {
-                          setVisaTypeText(text);
+                          setVisaTypeText(toUpper(text));
                           setVisaSelected(null);
                         }}
                         onSelect={(v) => {
@@ -1313,7 +1314,7 @@ const NormalPackage = () => {
                         }}
                         options={visas}
                         getLabel={(v) => v.category}
-                        getSubLabel={(v) => `${v.passenger} · ${money(v.price)}`}
+                        getSubLabel={(v) => `${v.agentName} · ${money(v.price)}`}
                         placeholder="Search or type a visa type"
                         isSelected={!!visaSelected}
                       />
@@ -1338,7 +1339,7 @@ const NormalPackage = () => {
                       <SearchableCombobox
                         value={transportText}
                         onTextChange={(text) => {
-                          setTransportText(text);
+                          setTransportText(toUpper(text));
                           setTransportSelected(null);
                         }}
                         onSelect={(t) => {
@@ -1384,7 +1385,9 @@ const NormalPackage = () => {
                         type="text"
                         placeholder="e.g. Lahore → Karachi Express"
                         value={trainTicketText}
-                        onChange={(e) => setTrainTicketText(e.target.value)}
+                        onChange={(e) =>
+                          setTrainTicketText(toUpper(e.target.value))
+                        }
                         className={inputClass}
                       />
                     </Field>
@@ -1443,7 +1446,11 @@ const NormalPackage = () => {
                           placeholder="e.g. Dates, Zam Zam, Ziyarat, Special Service"
                           value={item.name}
                           onChange={(e) =>
-                            updateMiscItem(item.id, "name", e.target.value)
+                            updateMiscItem(
+                              item.id,
+                              "name",
+                              toUpper(e.target.value)
+                            )
                           }
                           className={inputClass}
                         />

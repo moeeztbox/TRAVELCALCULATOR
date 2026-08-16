@@ -3,17 +3,19 @@ import Visa from "../models/visa.js";
 // ➤ CREATE VISA
 export const createVisa = async (req, res) => {
   try {
-    const { category, passenger, agentName, price, companyCost, agentCost } =
-      req.body; // Removed notes
+    const { category, agentName, price, hotelBRN, hotelBRNPrice, foodBRN, foodBRNPrice } =
+      req.body;
 
     const visa = new Visa({
       category,
-      passenger,
       agentName,
       price,
-      companyCost,
-      agentCost,
-      // Removed notes,
+      // Force the price to null whenever its checkbox is off, regardless of
+      // what the client sent — a stale/leftover price can never be saved.
+      hotelBRN: !!hotelBRN,
+      hotelBRNPrice: hotelBRN ? hotelBRNPrice : null,
+      foodBRN: !!foodBRN,
+      foodBRNPrice: foodBRN ? foodBRNPrice : null,
       createdBy: req.user?.id,
     });
 
@@ -43,8 +45,19 @@ export const getVisas = async (req, res) => {
 export const updateVisa = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedVisa = await Visa.findByIdAndUpdate(id, req.body, {
+    const update = { ...req.body };
+    // Same rule as create: an unchecked BRN can never carry a stale price.
+    if ("hotelBRN" in update) {
+      update.hotelBRN = !!update.hotelBRN;
+      update.hotelBRNPrice = update.hotelBRN ? update.hotelBRNPrice : null;
+    }
+    if ("foodBRN" in update) {
+      update.foodBRN = !!update.foodBRN;
+      update.foodBRNPrice = update.foodBRN ? update.foodBRNPrice : null;
+    }
+    const updatedVisa = await Visa.findByIdAndUpdate(id, update, {
       new: true,
+      runValidators: true,
     });
 
     if (!updatedVisa) {

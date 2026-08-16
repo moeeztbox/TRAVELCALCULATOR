@@ -11,6 +11,17 @@ import {
 import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
 import { useAuth } from "../../../../../context/AuthContext";
+import { toUpper } from "../../../../../utils/text";
+
+const emptyVisa = {
+  category: "",
+  agentName: "",
+  price: "",
+  hotelBRN: false,
+  hotelBRNPrice: "",
+  foodBRN: false,
+  foodBRNPrice: "",
+};
 
 const VisaList = () => {
   const navigate = useNavigate();
@@ -20,26 +31,8 @@ const VisaList = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  const [newVisa, setNewVisa] = useState({
-    category: "",
-    passenger: "",
-    agentName: "",
-    price: "",
-    companyCost: "",
-    agentCost: "",
-    // Removed: notes: "",
-  });
-
-  const [editVisa, setEditVisa] = useState({
-    _id: "",
-    category: "",
-    passenger: "",
-    agentName: "",
-    price: "",
-    companyCost: "",
-    agentCost: "",
-    // Removed: notes: "",
-  });
+  const [newVisa, setNewVisa] = useState({ ...emptyVisa });
+  const [editVisa, setEditVisa] = useState({ _id: "", ...emptyVisa });
 
   useEffect(() => {
     fetchVisas();
@@ -62,14 +55,25 @@ const VisaList = () => {
     }
   };
 
+  // Builds the request payload, normalizing so an unchecked BRN never sends
+  // a stale/leftover price value.
+  const buildPayload = (data) => ({
+    category: data.category,
+    agentName: data.agentName,
+    price: data.price,
+    hotelBRN: !!data.hotelBRN,
+    hotelBRNPrice: data.hotelBRN ? data.hotelBRNPrice : null,
+    foodBRN: !!data.foodBRN,
+    foodBRNPrice: data.foodBRN ? data.foodBRNPrice : null,
+  });
+
   const saveVisa = async () => {
     if (
       !newVisa.category ||
-      !newVisa.passenger ||
       !newVisa.agentName ||
       !newVisa.price ||
-      !newVisa.companyCost ||
-      !newVisa.agentCost
+      (newVisa.hotelBRN && !newVisa.hotelBRNPrice) ||
+      (newVisa.foodBRN && !newVisa.foodBRNPrice)
     ) {
       alert("Please fill all required fields");
       return;
@@ -80,21 +84,13 @@ const VisaList = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(newVisa),
+        body: JSON.stringify(buildPayload(newVisa)),
       });
       const data = await res.json();
       if (data.success) {
         alert("Visa added successfully!");
         setShowAddModal(false);
-        setNewVisa({
-          category: "",
-          passenger: "",
-          agentName: "",
-          price: "",
-          companyCost: "",
-          agentCost: "",
-          // Removed: notes: "",
-        });
+        setNewVisa({ ...emptyVisa });
         fetchVisas();
       } else {
         alert(data.message || "Error adding visa");
@@ -124,13 +120,13 @@ const VisaList = () => {
   const openEditModal = (visa) => {
     setEditVisa({
       _id: visa._id,
-      category: visa.category,
-      passenger: visa.passenger,
-      agentName: visa.agentName,
-      price: visa.price,
-      companyCost: visa.companyCost,
-      agentCost: visa.agentCost,
-      // Removed: notes: visa.notes || "",
+      category: visa.category || "",
+      agentName: visa.agentName || "",
+      price: visa.price ?? "",
+      hotelBRN: !!visa.hotelBRN,
+      hotelBRNPrice: visa.hotelBRN ? visa.hotelBRNPrice ?? "" : "",
+      foodBRN: !!visa.foodBRN,
+      foodBRNPrice: visa.foodBRN ? visa.foodBRNPrice ?? "" : "",
     });
     setShowEditModal(true);
   };
@@ -138,11 +134,10 @@ const VisaList = () => {
   const updateVisa = async () => {
     if (
       !editVisa.category ||
-      !editVisa.passenger ||
       !editVisa.agentName ||
       !editVisa.price ||
-      !editVisa.companyCost ||
-      !editVisa.agentCost
+      (editVisa.hotelBRN && !editVisa.hotelBRNPrice) ||
+      (editVisa.foodBRN && !editVisa.foodBRNPrice)
     ) {
       alert("Please fill all required fields");
       return;
@@ -155,7 +150,7 @@ const VisaList = () => {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(editVisa),
+          body: JSON.stringify(buildPayload(editVisa)),
         }
       );
       const data = await res.json();
@@ -211,57 +206,19 @@ const VisaList = () => {
               className={inputClass}
             >
               <option value="">Select Category</option>
-              <option value="with massar">with massar</option>
-              <option value="without massar">without massar</option>
+              <option value="Adult">Adult</option>
+              <option value="Child">Child</option>
+              <option value="Infant">Infant</option>
             </select>
           </Field>
 
-          <Field label="Passenger" required>
-            <select
-              value={data.passenger}
-              onChange={(e) => setData({ ...data, passenger: e.target.value })}
-              className={inputClass}
-            >
-              <option value="">Select Passenger</option>
-              <option value="adult">adult</option>
-              <option value="infant">infant</option>
-            </select>
-          </Field>
-
-          <Field label="Agent Name" required className="sm:col-span-2">
+          <Field label="Agent Name" required>
             <input
               type="text"
               placeholder="Agent name"
               value={data.agentName}
               onChange={(e) =>
-                setData({ ...data, agentName: e.target.value.toUpperCase() })
-              }
-              className={inputClass}
-            />
-          </Field>
-        </div>
-      </div>
-
-      <div>
-        <SectionTitle>Pricing</SectionTitle>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Field label="Agent Cost" required>
-            <input
-              type="number"
-              placeholder="0"
-              value={data.agentCost}
-              onChange={(e) => setData({ ...data, agentCost: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Company Cost" required>
-            <input
-              type="number"
-              placeholder="0"
-              value={data.companyCost}
-              onChange={(e) =>
-                setData({ ...data, companyCost: e.target.value })
+                setData({ ...data, agentName: toUpper(e.target.value) })
               }
               className={inputClass}
             />
@@ -275,6 +232,67 @@ const VisaList = () => {
               onChange={(e) => setData({ ...data, price: e.target.value })}
               className={inputClass}
             />
+          </Field>
+        </div>
+      </div>
+
+      <div>
+        <SectionTitle>Additional Charges</SectionTitle>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={data.hotelBRN}
+                onChange={(e) =>
+                  setData({
+                    ...data,
+                    hotelBRN: e.target.checked,
+                    hotelBRNPrice: e.target.checked ? data.hotelBRNPrice : "",
+                  })
+                }
+              />
+              Hotel BRN
+            </label>
+            {data.hotelBRN && (
+              <input
+                type="number"
+                placeholder="Hotel BRN price"
+                value={data.hotelBRNPrice}
+                onChange={(e) =>
+                  setData({ ...data, hotelBRNPrice: e.target.value })
+                }
+                className={`${inputClass} mt-2`}
+              />
+            )}
+          </Field>
+
+          <Field label="">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={data.foodBRN}
+                onChange={(e) =>
+                  setData({
+                    ...data,
+                    foodBRN: e.target.checked,
+                    foodBRNPrice: e.target.checked ? data.foodBRNPrice : "",
+                  })
+                }
+              />
+              Food BRN
+            </label>
+            {data.foodBRN && (
+              <input
+                type="number"
+                placeholder="Food BRN price"
+                value={data.foodBRNPrice}
+                onChange={(e) =>
+                  setData({ ...data, foodBRNPrice: e.target.value })
+                }
+                className={`${inputClass} mt-2`}
+              />
+            )}
           </Field>
         </div>
       </div>
@@ -299,32 +317,32 @@ const VisaList = () => {
               padding: 0;
               background: white !important;
             }
-            .print\:hidden {
+            .print\\:hidden {
               display: none !important;
             }
-            .print\:block {
+            .print\\:block {
               display: block !important;
             }
-            
+
             /* Remove all background colors and shadows */
             * {
               background: white !important;
               box-shadow: none !important;
             }
-            
+
             /* Remove border radius */
             .rounded-xl, .rounded-lg, .rounded {
               border-radius: 0 !important;
             }
-            
+
             /* Professional table styling for print only */
             .print-table {
               width: 100%;
               border-collapse: collapse;
               border: 1px solid #000 !important;
             }
-            
-            .print-table th, 
+
+            .print-table th,
             .print-table td {
               border: 1px solid #000 !important;
               padding: 14px 10px !important;
@@ -334,37 +352,37 @@ const VisaList = () => {
               vertical-align: middle;
               text-align: left;
             }
-            
+
             .print-table th {
               background: white !important;
               font-weight: bold;
               border-bottom: 2px solid #000 !important;
             }
-            
+
             .print-table tr {
               border-bottom: 1px solid #000 !important;
             }
-            
+
             /* Remove any footer */
             footer {
               display: none !important;
             }
-            
+
             /* Hide the copyright text */
             .footer, [class*="footer"], [class*="copyright"] {
               display: none !important;
             }
-            
+
             /* Ensure proper page breaks */
             .print-table {
               page-break-inside: auto;
             }
-            
+
             .print-table tr {
               page-break-inside: avoid;
               page-break-after: auto;
             }
-            
+
             /* Center the header */
             .print-header {
               text-align: center;
@@ -408,11 +426,10 @@ const VisaList = () => {
             <thead>
               <tr>
                 <th>Category</th>
-                <th>Passenger</th>
                 <th>Agent Name</th>
-                <th>Agent Cost</th>
-                <th>Company Cost</th>
                 <th>Price</th>
+                <th>Hotel BRN</th>
+                <th>Food BRN</th>
                 {isAdmin && <th className="no-print">Actions</th>}
               </tr>
             </thead>
@@ -421,7 +438,7 @@ const VisaList = () => {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 7 : 6}
+                    colSpan={isAdmin ? 6 : 5}
                     className="py-4 px-4 text-center text-gray-500"
                   >
                     Loading...
@@ -430,7 +447,7 @@ const VisaList = () => {
               ) : visas.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 7 : 6}
+                    colSpan={isAdmin ? 6 : 5}
                     className="py-4 px-4 text-center text-gray-500"
                   >
                     No visas found.
@@ -443,11 +460,14 @@ const VisaList = () => {
                     className="border-b hover:bg-gray-50 transition print:hover:bg-white"
                   >
                     <td className="py-3 px-4">{v.category}</td>
-                    <td className="py-3 px-4">{v.passenger}</td>
                     <td className="py-3 px-4">{v.agentName}</td>
-                    <td className="py-3 px-4">{v.agentCost}</td>
-                    <td className="py-3 px-4">{v.companyCost}</td>
                     <td className="py-3 px-4">{v.price}</td>
+                    <td className="py-3 px-4">
+                      {v.hotelBRN ? v.hotelBRNPrice : "-"}
+                    </td>
+                    <td className="py-3 px-4">
+                      {v.foodBRN ? v.foodBRNPrice : "-"}
+                    </td>
                     {isAdmin && (
                       <td className="py-3 px-4 flex gap-4 no-print">
                         <button
