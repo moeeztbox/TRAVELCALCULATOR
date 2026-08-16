@@ -82,8 +82,17 @@ if (fs.existsSync(frontendDistPath)) {
   });
 }
 
-// Start Server
+// Start Server — only as a real long-running listener when NOT running on
+// Vercel. Vercel sets process.env.VERCEL="1" in its build/runtime
+// environment; there, this file is instead required and invoked directly
+// as a request handler (see vercel.json), so calling app.listen() would
+// just bind an unused port. Render, local dev, and the Electron-packaged
+// build all go through this branch unchanged.
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+  });
+}
+
+export default app;
