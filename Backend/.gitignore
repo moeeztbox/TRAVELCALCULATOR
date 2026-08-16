@@ -1,0 +1,10 @@
+node_modules
+*.log
+
+# Secrets — never commit real environment values. .env.example documents
+# the variable names with safe placeholders and stays tracked.
+.env
+.env.local
+.env.production
+.env.development
+!.env.example

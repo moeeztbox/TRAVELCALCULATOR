@@ -19,8 +19,8 @@ import Button from "../UI/Button";
 import SearchableCombobox from "../UI/SearchableCombobox";
 import useDualCurrencyPrice, { toPKR, toSAR } from "./useDualCurrencyPrice";
 import { toUpper } from "../../utils/text";
+import { API_BASE_URL as API } from "../../config/api";
 
-const API = "http://localhost:5000/api";
 const MAX_MISC_ITEMS = 5;
 
 const money = (n) => `SAR ${Number(n || 0).toLocaleString()}`;

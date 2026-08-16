@@ -12,6 +12,7 @@ import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
 import { useAuth } from "../../../../../context/AuthContext";
 import { toUpper } from "../../../../../utils/text";
+import { API_BASE_URL } from "../../../../../config/api";
 
 const TicketList = () => {
   const navigate = useNavigate();
@@ -57,7 +58,7 @@ const TicketList = () => {
   const fetchTickets = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/tickets", {
+      const res = await fetch(`${API_BASE_URL}/tickets`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -85,7 +86,7 @@ const TicketList = () => {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/tickets", {
+      const res = await fetch(`${API_BASE_URL}/tickets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -121,7 +122,7 @@ const TicketList = () => {
   const deleteTicket = async (id) => {
     if (!window.confirm("Are you sure you want to delete this ticket?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/tickets/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/tickets/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -171,7 +172,7 @@ const TicketList = () => {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/tickets/${editTicket._id}`,
+        `${API_BASE_URL}/tickets/${editTicket._id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

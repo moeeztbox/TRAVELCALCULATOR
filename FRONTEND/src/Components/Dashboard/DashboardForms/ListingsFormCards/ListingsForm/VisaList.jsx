@@ -12,6 +12,7 @@ import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
 import { useAuth } from "../../../../../context/AuthContext";
 import { toUpper } from "../../../../../utils/text";
+import { API_BASE_URL } from "../../../../../config/api";
 
 const emptyVisa = {
   category: "",
@@ -41,7 +42,7 @@ const VisaList = () => {
   const fetchVisas = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/visas", {
+      const res = await fetch(`${API_BASE_URL}/visas`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -80,7 +81,7 @@ const VisaList = () => {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/visas", {
+      const res = await fetch(`${API_BASE_URL}/visas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -104,7 +105,7 @@ const VisaList = () => {
   const deleteVisa = async (id) => {
     if (!window.confirm("Are you sure you want to delete this visa?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/visas/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/visas/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -145,7 +146,7 @@ const VisaList = () => {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/visas/${editVisa._id}`,
+        `${API_BASE_URL}/visas/${editVisa._id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

@@ -10,8 +10,7 @@ import { Field, inputClass } from "../Main/FormControls";
 import Button from "../UI/Button";
 import SearchableCombobox from "../UI/SearchableCombobox";
 import { toUpper } from "../../utils/text";
-
-const API = "http://localhost:5000/api";
+import { API_BASE_URL as API } from "../../config/api";
 
 // Safety cap on how many separate stay blocks a single city can have — a
 // generous ceiling that still protects against a mistyped huge number

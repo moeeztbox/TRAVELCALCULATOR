@@ -12,6 +12,7 @@ import PageHeader from "../../../../UI/PageHeader";
 import Button from "../../../../UI/Button";
 import { useAuth } from "../../../../../context/AuthContext";
 import { toUpper } from "../../../../../utils/text";
+import { API_BASE_URL } from "../../../../../config/api";
 
 const TransportList = () => {
   const navigate = useNavigate();
@@ -77,7 +78,7 @@ const TransportList = () => {
   const fetchTransports = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/transports", {
+      const res = await fetch(`${API_BASE_URL}/transports`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -132,7 +133,7 @@ const TransportList = () => {
         luggage: newTransport.luggage,
       };
 
-      const res = await fetch("http://localhost:5000/api/transports", {
+      const res = await fetch(`${API_BASE_URL}/transports`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -168,7 +169,7 @@ const TransportList = () => {
     if (!window.confirm("Are you sure?")) return;
 
     try {
-      await fetch(`http://localhost:5000/api/transports/${id}`, {
+      await fetch(`${API_BASE_URL}/transports/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -223,7 +224,7 @@ const TransportList = () => {
       };
 
       const res = await fetch(
-        `http://localhost:5000/api/transports/${editTransport._id}`,
+        `${API_BASE_URL}/transports/${editTransport._id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

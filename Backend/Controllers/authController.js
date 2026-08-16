@@ -16,10 +16,17 @@ const isProd = process.env.NODE_ENV === "production";
 // JWT's own expiresIn below, this gives two layers of expiry: the cookie
 // dies with the browser session, and the token itself has a hard expiry
 // even if the cookie somehow persisted.
+//
+// sameSite must be "none" (plus secure: true, which browsers require to
+// accompany it) in production: the Vercel frontend and Render backend are
+// different origins, and a cross-site fetch/XHR never attaches a "lax"
+// cookie regardless of credentials/CORS config. Locally, frontend and
+// backend share a top-level site (both on localhost) via different ports,
+// so "lax" continues to work over plain HTTP without needing HTTPS.
 const cookieOptions = () => ({
   httpOnly: true, // not readable from JS — protects against XSS token theft
   secure: isProd, // HTTPS only in production
-  sameSite: "lax",
+  sameSite: isProd ? "none" : "lax",
   path: "/",
 });
 

@@ -14,8 +14,7 @@ import {
 import Modal from "../Components/Main/Modal";
 import PageHeader from "../Components/UI/PageHeader";
 import EmptyState from "../Components/UI/EmptyState";
-
-const API = "http://localhost:5000/api";
+import { API_BASE_URL as API } from "../config/api";
 
 const money = (n) => `SAR ${Number(n || 0).toLocaleString()}`;
 

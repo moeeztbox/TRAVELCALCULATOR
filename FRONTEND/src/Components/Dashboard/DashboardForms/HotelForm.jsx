@@ -13,6 +13,7 @@ import Button from "../../UI/Button";
 import Combobox from "../../UI/Combobox";
 import logo from "../../../Assets/logo-mark.png";
 import { toUpper } from "../../../utils/text";
+import { API_BASE_URL } from "../../../config/api";
 
 const COMPANY_NAME = "AlBuraq Global Travel & Tours";
 const COMPANY_WEBSITE = "www.alburaqtours.com";
@@ -57,7 +58,7 @@ export default function HotelCalculator() {
 
   const fetchHotels = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/hotels", {
+      const response = await fetch(`${API_BASE_URL}/hotels`, {
         credentials: "include",
       });
       const data = await response.json();

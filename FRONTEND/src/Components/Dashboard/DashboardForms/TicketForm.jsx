@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Plane, Calculator, Printer, Trash2, Package } from "lucide-react";
 import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
+import { API_BASE_URL } from "../../../config/api";
 
 // Module scope (not inside the component) so its identity is stable across
 // renders — otherwise React remounts this subtree (and loses input focus)
@@ -39,7 +40,7 @@ export default function TicketForm() {
 
   const fetchTickets = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/tickets", {
+      const response = await fetch(`${API_BASE_URL}/tickets`, {
         credentials: "include",
       });
       const data = await response.json();

@@ -23,12 +23,33 @@ import packageRoutes from "./Routes/package.js";
 
 const app = express();
 
+// Render (and most PaaS hosts) put the app behind a reverse proxy — without
+// this, express-rate-limit throws on the X-Forwarded-For header it sees
+// (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR) and req.ip would resolve to the
+// proxy's address instead of the real client for every request. Trusting
+// one hop is safe locally too (there's no proxy in dev, so this is a no-op).
+app.set("trust proxy", 1);
+
 // Middleware
 // credentials: true + an explicit origin are required for the browser to
 // send/receive the httpOnly session cookie (a wildcard origin won't work).
+// FRONTEND_URL may be a single origin or a comma-separated list (e.g. the
+// production Vercel URL plus a preview deployment URL).
+const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // No Origin header = same-origin or non-browser request (curl,
+      // server-to-server) — nothing to check against, so allow it.
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );

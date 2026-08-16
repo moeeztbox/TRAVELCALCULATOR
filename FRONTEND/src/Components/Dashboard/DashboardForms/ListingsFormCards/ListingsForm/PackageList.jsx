@@ -26,6 +26,7 @@ import Button from "../../../../UI/Button";
 import SearchInput from "../../../../UI/SearchInput";
 import { useAuth } from "../../../../../context/AuthContext";
 import { toUpper } from "../../../../../utils/text";
+import { API_BASE_URL } from "../../../../../config/api";
 
 const emptyPackage = {
   packageName: "",
@@ -70,7 +71,7 @@ const PackageList = () => {
   const fetchPackages = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/packages", {
+      const res = await fetch(`${API_BASE_URL}/packages`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -97,7 +98,7 @@ const PackageList = () => {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/packages", {
+      const res = await fetch(`${API_BASE_URL}/packages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -121,7 +122,7 @@ const PackageList = () => {
   const deletePackage = async (id) => {
     if (!window.confirm("Are you sure you want to delete this package?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/packages/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/packages/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -158,7 +159,7 @@ const PackageList = () => {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/packages/${editPackage._id}`,
+        `${API_BASE_URL}/packages/${editPackage._id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

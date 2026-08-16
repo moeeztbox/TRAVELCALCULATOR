@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
+import { API_BASE_URL } from "../../../config/api";
 
 // Module scope (not inside the component) so its identity is stable across
 // renders — otherwise React remounts this subtree (and loses input focus)
@@ -43,7 +44,7 @@ export default function TransportCalculator() {
 
   const fetchTransports = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/transports", {
+      const response = await fetch(`${API_BASE_URL}/transports`, {
         credentials: "include",
       });
       const data = await response.json();

@@ -22,6 +22,7 @@ import Button from "../../../../UI/Button";
 import EmptyState from "../../../../UI/EmptyState";
 import { useAuth } from "../../../../../context/AuthContext";
 import { toUpper } from "../../../../../utils/text";
+import { API_BASE_URL } from "../../../../../config/api";
 
 const ROOM_TYPES = ["single", "double", "triple", "quad", "sharing"];
 const CATEGORIES = ["5-star", "4-star", "3-star", "2-star", "1-star"];
@@ -85,7 +86,7 @@ const HotelList = () => {
   const fetchHotels = async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/hotels", {
+      const res = await fetch(`${API_BASE_URL}/hotels`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -146,7 +147,7 @@ const HotelList = () => {
     }));
 
     try {
-      const res = await fetch("http://localhost:5000/api/hotels", {
+      const res = await fetch(`${API_BASE_URL}/hotels`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -174,7 +175,7 @@ const HotelList = () => {
     if (!window.confirm("Are you sure you want to delete this hotel?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/hotels/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/hotels/${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -212,7 +213,7 @@ const HotelList = () => {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/hotels/${editHotel._id}`,
+        `${API_BASE_URL}/hotels/${editHotel._id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
