@@ -44,14 +44,28 @@ const TransportList = () => {
     luggage: "",
   });
 
+  // Vehicle master data (BASMA EMAAR PAKISTAN rate sheet) — selecting a car
+  // type below auto-fills its known capacity/bags. "SUV" is kept for
+  // editing pre-existing records that still use it.
+  const VEHICLE_META = {
+    SEDAN: { capacity: "2", luggage: "2" },
+    "GMC YUKON XL 25 MODEL": { capacity: "6", luggage: "4" },
+    STARIA: { capacity: "7", luggage: "4" },
+    HIACE: { capacity: "9", luggage: "6" },
+    COASTER: { capacity: "17", luggage: "10" },
+    "BUS 20 MODEL": { capacity: "47", luggage: "20" },
+    "BUS 25/26 MODEL": { capacity: "49", luggage: "25" },
+  };
+  const carTypes = ["SUV", ...Object.keys(VEHICLE_META)];
+
   const capacities = [
     "4 Seater",
     "6 Seater",
     "8 Seater",
     "12 Seater",
     "15 Seater",
+    ...new Set(Object.values(VEHICLE_META).map((v) => v.capacity)),
   ];
-  const carTypes = ["Hiace", "SUV", "Coaster", "Sedan"];
 
   // Route options
   const oneWayRoutes = [
@@ -61,6 +75,16 @@ const TransportList = () => {
     "Medinah → Jeddah",
     "Jeddah → Medinah",
     "Jeddah → Makkah",
+    "JEDDAH AIRPORT > MAKKAH HOTEL",
+    "MAKKAH > MADINAH",
+    "JEDDAH AIRPORT > MADINAH",
+    "MAKKAH > JEDDAH AIRPORT",
+    "MAKKAH > TAIF ZIYARAT",
+    "MAKKAH HOTEL > MAKKAH TRAIN STATION",
+    "MADINAH HOTEL > MADINAH TRAIN STATION",
+    "MAKKAH > MADINAH VIA BADR - EXTRA CHARGES",
+    "MADINAH AIRPORT > MAKKAH HOTEL",
+    "TAIF AIRPORT > MAKKAH HOTEL",
   ];
 
   const roundTripRoutes = [
@@ -69,6 +93,10 @@ const TransportList = () => {
     "Jeddah → Makkah → Medinah → Jeddah",
     "Jeddah → Medinah → Makkah → Jeddah",
     "Jeddah → Makkah → Medinah → Makkah → Jeddah",
+    "MAKKAH & MADINAH ZIYARAT",
+    "MADINAH AIRPORT <> MADINAH HOTEL",
+    "JEDDAH AIRPORT <> JEDDAH CITY",
+    "MAKKAH ZIYARAT WITH JOURANA",
   ];
 
   useEffect(() => {
@@ -285,7 +313,19 @@ const TransportList = () => {
           <Field label="Car Type" required>
             <select
               value={data.carType}
-              onChange={(e) => setData({ ...data, carType: e.target.value })}
+              onChange={(e) => {
+                const selected = e.target.value;
+                const meta = VEHICLE_META[selected];
+                setData({
+                  ...data,
+                  carType: selected,
+                  // Auto-fill known capacity/bags for this vehicle; still a
+                  // plain editable select/input afterward, not locked.
+                  ...(meta
+                    ? { capacity: meta.capacity, luggage: meta.luggage }
+                    : {}),
+                });
+              }}
               className={inputClass}
             >
               <option value="">Select Car Type</option>
@@ -367,7 +407,7 @@ const TransportList = () => {
             />
           </Field>
 
-          <Field label="Luggage (KG)" required>
+          <Field label="Luggage (Bags)" required>
             <input
               type="number"
               placeholder="0"
@@ -494,7 +534,7 @@ const TransportList = () => {
                 <th>Route</th>
                 <th>Agent Name</th>
                 <th>Price</th>
-                <th>Luggage (KG)</th>
+                <th>Luggage (Bags)</th>
                 {isAdmin && <th className="no-print">Actions</th>}
               </tr>
             </thead>

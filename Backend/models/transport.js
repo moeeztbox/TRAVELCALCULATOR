@@ -32,7 +32,8 @@ const transportSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    // Checked-in luggage allowance for this transport option, in KG.
+    // Checked-in luggage allowance for this transport option, in bags
+    // (number of bags), not weight.
     luggage: {
       type: Number,
       required: true,

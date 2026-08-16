@@ -337,7 +337,7 @@ export default function TransportCalculator() {
                       <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600">Luggage</span>
                         <span className="font-medium">
-                          {result.luggage} KG
+                          {result.luggage} Bags
                         </span>
                       </div>
                     </div>
