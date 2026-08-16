@@ -2,7 +2,7 @@ import React from "react";
 import { ShieldCheck, Sparkles } from "lucide-react";
 import AdminCard from "../Components/Home/AdminCard";
 import UserCard from "../Components/Home/UserCard";
-import logo from "../Assets/logo-mark.png";
+import logo from "../assets/logo-mark.png";
 
 const Home = () => {
   return (

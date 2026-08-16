@@ -11,7 +11,7 @@ import {
 import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
 import Combobox from "../../UI/Combobox";
-import logo from "../../../Assets/logo-mark.png";
+import logo from "../../../assets/logo-mark.png";
 import { toUpper } from "../../../utils/text";
 import { API_BASE_URL } from "../../../config/api";
 

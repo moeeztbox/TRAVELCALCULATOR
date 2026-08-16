@@ -12,7 +12,7 @@ import {
   LogOut,
   ChevronDown,
 } from "lucide-react";
-import logo from "../../Assets/logo-mark.png";
+import logo from "../../assets/logo-mark.png";
 import { useAuth } from "../../context/AuthContext";
 
 const NAV = [

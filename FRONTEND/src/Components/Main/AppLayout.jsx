@@ -3,7 +3,7 @@ import { Menu } from "lucide-react";
 import Sidebar from "./Sidebar";
 import Footer from "./Footer";
 import { useAuth } from "../../context/AuthContext";
-import logo from "../../Assets/logo-mark.png";
+import logo from "../../assets/logo-mark.png";
 
 // Authenticated app shell: fixed sidebar on desktop, slide-in drawer on
 // mobile, a slim glass topbar, the page content, and a footer.

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import logo from "../../Assets/logo-mark.png";
+import logo from "../../assets/logo-mark.png";
 
 // The splash always stays up for a fixed duration (no dependency on how fast
 // the app loads). Progress fills smoothly across the full window, then the

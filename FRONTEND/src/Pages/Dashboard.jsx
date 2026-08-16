@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import ModuleCard from "../Components/UI/ModuleCard";
 import { useAuth } from "../context/AuthContext";
-import logo from "../Assets/logo-mark.png";
+import logo from "../assets/logo-mark.png";
 
 const greeting = () => {
   const h = new Date().getHours();

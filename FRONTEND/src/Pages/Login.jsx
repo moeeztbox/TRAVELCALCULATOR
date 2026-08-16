@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
-import logo from "../Assets/logo-mark.png";
+import logo from "../assets/logo-mark.png";
 
 function Login() {
   const navigate = useNavigate();
