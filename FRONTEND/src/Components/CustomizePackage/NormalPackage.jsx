@@ -213,11 +213,11 @@ const NormalPackage = () => {
   const [packageName, setPackageName] = useState("");
   const [totalDays, setTotalDays] = useState("");
 
-  // Two independent, manually entered rates. Conversion Rate governs every
-  // Original (cost) price; Selling Conversion Rate governs every Selling
-  // price. Neither is ever used for the other side's math.
+  // Single manually entered rate. Conversion Rate governs every Original
+  // (cost) price AND every Selling price — there is no separate Selling
+  // Conversion Rate input anymore (removed per explicit request; Selling
+  // now always uses the same rate as Original).
   const [conversionRate, setConversionRate] = useState("");
-  const [sellingConversionRate, setSellingConversionRate] = useState("");
 
   // The number of people the WHOLE package is being sold to — distinct from
   // Makkah/Madinah Persons and Transport's Total Passengers, which only
@@ -234,7 +234,9 @@ const NormalPackage = () => {
   };
 
   const conversionRateNum = toPositiveNumber(conversionRate);
-  const sellingConversionRateNum = toPositiveNumber(sellingConversionRate);
+  // Alias kept so every downstream Selling-side calculation (unchanged
+  // below) transparently uses the same rate as Original.
+  const sellingConversionRateNum = conversionRateNum;
 
   // Makkah hotel — `*Selected` holds the matched database record (or null
   // when the typed text is a temporary custom hotel not backed by an ID).
@@ -508,16 +510,9 @@ const NormalPackage = () => {
   const conversionRateError = !pricingInUse
     ? ""
     : conversionRate === ""
-    ? "Enter a Conversion Rate to calculate original/cost PKR prices."
+    ? "Enter a Conversion Rate to calculate original/cost and selling PKR prices."
     : conversionRateNum <= 0
     ? "Conversion Rate must be a positive number."
-    : "";
-  const sellingConversionRateError = !pricingInUse
-    ? ""
-    : sellingConversionRate === ""
-    ? "Enter a Selling Conversion Rate to calculate selling PKR prices."
-    : sellingConversionRateNum <= 0
-    ? "Selling Conversion Rate must be a positive number."
     : "";
 
   // Total Passengers — required before the all-passengers group totals can
@@ -546,11 +541,6 @@ const NormalPackage = () => {
 
     if (conversionRateError) {
       alert(conversionRateError);
-      return;
-    }
-
-    if (sellingConversionRateError) {
-      alert(sellingConversionRateError);
       return;
     }
 
@@ -891,7 +881,6 @@ const NormalPackage = () => {
     setPackageName("");
     setTotalDays("");
     setConversionRate("");
-    setSellingConversionRate("");
     setTotalPassengers("");
 
     setMakkahHotelText("");
@@ -951,10 +940,7 @@ const NormalPackage = () => {
 
   const printRows = result ? buildPrintRows(result) : [];
   const canCalculate =
-    !nightsValidationError &&
-    !conversionRateError &&
-    !sellingConversionRateError &&
-    !totalPassengersError;
+    !nightsValidationError && !conversionRateError && !totalPassengersError;
 
   return (
     <>
@@ -1014,14 +1000,14 @@ const NormalPackage = () => {
           Loading listings...
         </div>
       ) : (
-        <div className="space-y-6 no-print">
+        <div className="space-y-4 no-print">
           {/* PACKAGE BASICS */}
-          <div className="calc-card p-6">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
-              <PackageCheck size={20} className="text-red-600" />
+          <div className="calc-card p-4">
+            <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-3">
+              <PackageCheck size={18} className="text-red-600" />
               Package Details
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <Field label="Package Name" required>
                 <input
                   type="text"
@@ -1041,7 +1027,7 @@ const NormalPackage = () => {
                   className={inputClass}
                 />
               </Field>
-              <Field label="Conversion Rate (1 SAR = ? PKR)">
+              <Field label="Conversion Rate">
                 <input
                   type="number"
                   min="0"
@@ -1049,17 +1035,6 @@ const NormalPackage = () => {
                   placeholder="e.g. 74"
                   value={conversionRate}
                   onChange={(e) => setConversionRate(e.target.value)}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Selling Conversion Rate (1 SAR = ? PKR)">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 76"
-                  value={sellingConversionRate}
-                  onChange={(e) => setSellingConversionRate(e.target.value)}
                   className={inputClass}
                 />
               </Field>
@@ -1076,19 +1051,13 @@ const NormalPackage = () => {
               </Field>
             </div>
 
-            {(nightsValidationError ||
-              conversionRateError ||
-              sellingConversionRateError ||
-              totalPassengersError) && (
-              <div className="mt-4 space-y-2">
+            {(nightsValidationError || conversionRateError || totalPassengersError) && (
+              <div className="mt-3 space-y-1.5">
                 {nightsValidationError && (
                   <ValidationBanner message={nightsValidationError} />
                 )}
                 {conversionRateError && (
                   <ValidationBanner message={conversionRateError} />
-                )}
-                {sellingConversionRateError && (
-                  <ValidationBanner message={sellingConversionRateError} />
                 )}
                 {totalPassengersError && (
                   <ValidationBanner message={totalPassengersError} />
@@ -1098,135 +1067,139 @@ const NormalPackage = () => {
           </div>
 
           {/* HOTELS */}
-          <div className="calc-card p-6">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
-              <Building2 size={20} className="text-blue-600" />
+          <div className="calc-card p-4">
+            <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-3">
+              <Building2 size={18} className="text-blue-600" />
               Hotels
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* Makkah */}
-              <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
-                  Makkah Hotel
-                </p>
-                <div className="space-y-3">
-                  <Field label="Hotel Name">
-                    <SearchableCombobox
-                      value={makkahHotelText}
-                      onTextChange={(text) => {
-                        setMakkahHotelText(toUpper(text));
-                        setMakkahHotelSelected(null);
-                      }}
-                      onSelect={(hotel) => {
-                        setMakkahHotelSelected(hotel);
-                        setMakkahHotelText(hotel.hotelName);
-                        makkahHotelPrice.setFromDatabase(hotel.price);
-                      }}
-                      options={makkahHotels}
-                      getLabel={(h) => h.hotelName}
-                      getSubLabel={(h) =>
-                        `${h.roomType ? h.roomType + " · " : ""}${money(
-                          h.price
-                        )}/night`
-                      }
-                      placeholder="Search or type a Makkah hotel"
-                      isSelected={!!makkahHotelSelected}
-                    />
-                  </Field>
-                  <PriceGroups
-                    isDbLocked={!!makkahHotelSelected}
-                    originalPriceState={makkahHotelPrice}
-                    sellingPriceState={makkahSellingPrice}
+            <div className="space-y-3">
+              {/* Makkah — one compact row. */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-3 items-end">
+                <Field label="Makkah Hotel" className="col-span-2 sm:col-span-1">
+                  <SearchableCombobox
+                    value={makkahHotelText}
+                    onTextChange={(text) => {
+                      setMakkahHotelText(toUpper(text));
+                      setMakkahHotelSelected(null);
+                    }}
+                    onSelect={(hotel) => {
+                      setMakkahHotelSelected(hotel);
+                      setMakkahHotelText(hotel.hotelName);
+                      makkahHotelPrice.setFromDatabase(hotel.price);
+                    }}
+                    options={makkahHotels}
+                    getLabel={(h) => h.hotelName}
+                    getSubLabel={(h) =>
+                      `${h.roomType ? h.roomType + " · " : ""}${money(
+                        h.price
+                      )}/night`
+                    }
+                    placeholder="Search or type a Makkah hotel"
+                    isSelected={!!makkahHotelSelected}
                   />
-                  <Field label="Nights in Makkah">
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={makkahNights}
-                      onChange={(e) => setMakkahNights(e.target.value)}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Persons">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="e.g. 2"
-                      value={makkahPersons}
-                      onChange={(e) => setMakkahPersons(e.target.value)}
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
+                </Field>
+                <CompactPriceField
+                  label="Orig SAR"
+                  value={makkahHotelPrice.sar}
+                  onChange={makkahHotelPrice.setSar}
+                  readOnly={!!makkahHotelSelected}
+                />
+                <CompactPriceField
+                  label="Sell SAR"
+                  value={makkahSellingPrice.sar}
+                  onChange={makkahSellingPrice.setSar}
+                  readOnly={false}
+                />
+                <Field label="Nights">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={makkahNights}
+                    onChange={(e) => setMakkahNights(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Persons">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 2"
+                    value={makkahPersons}
+                    onChange={(e) => setMakkahPersons(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
               </div>
 
-              {/* Madinah */}
-              <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
-                  Madinah Hotel
-                </p>
-                <div className="space-y-3">
-                  <Field label="Hotel Name">
-                    <SearchableCombobox
-                      value={madinahHotelText}
-                      onTextChange={(text) => {
-                        setMadinahHotelText(toUpper(text));
-                        setMadinahHotelSelected(null);
-                      }}
-                      onSelect={(hotel) => {
-                        setMadinahHotelSelected(hotel);
-                        setMadinahHotelText(hotel.hotelName);
-                        madinahHotelPrice.setFromDatabase(hotel.price);
-                      }}
-                      options={madinahHotels}
-                      getLabel={(h) => h.hotelName}
-                      getSubLabel={(h) =>
-                        `${h.roomType ? h.roomType + " · " : ""}${money(
-                          h.price
-                        )}/night`
-                      }
-                      placeholder="Search or type a Madinah hotel"
-                      isSelected={!!madinahHotelSelected}
-                    />
-                  </Field>
-                  <PriceGroups
-                    isDbLocked={!!madinahHotelSelected}
-                    originalPriceState={madinahHotelPrice}
-                    sellingPriceState={madinahSellingPrice}
+              {/* Madinah — identical compact row */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-3 items-end">
+                <Field label="Madinah Hotel" className="col-span-2 sm:col-span-1">
+                  <SearchableCombobox
+                    value={madinahHotelText}
+                    onTextChange={(text) => {
+                      setMadinahHotelText(toUpper(text));
+                      setMadinahHotelSelected(null);
+                    }}
+                    onSelect={(hotel) => {
+                      setMadinahHotelSelected(hotel);
+                      setMadinahHotelText(hotel.hotelName);
+                      madinahHotelPrice.setFromDatabase(hotel.price);
+                    }}
+                    options={madinahHotels}
+                    getLabel={(h) => h.hotelName}
+                    getSubLabel={(h) =>
+                      `${h.roomType ? h.roomType + " · " : ""}${money(
+                        h.price
+                      )}/night`
+                    }
+                    placeholder="Search or type a Madinah hotel"
+                    isSelected={!!madinahHotelSelected}
                   />
-                  <Field label="Nights in Madinah">
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={madinahNights}
-                      onChange={(e) => setMadinahNights(e.target.value)}
-                      className={inputClass}
-                    />
-                  </Field>
-                  <Field label="Persons">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="e.g. 2"
-                      value={madinahPersons}
-                      onChange={(e) => setMadinahPersons(e.target.value)}
-                      className={inputClass}
-                    />
-                  </Field>
-                </div>
+                </Field>
+                <CompactPriceField
+                  label="Orig SAR"
+                  value={madinahHotelPrice.sar}
+                  onChange={madinahHotelPrice.setSar}
+                  readOnly={!!madinahHotelSelected}
+                />
+                <CompactPriceField
+                  label="Sell SAR"
+                  value={madinahSellingPrice.sar}
+                  onChange={madinahSellingPrice.setSar}
+                  readOnly={false}
+                />
+                <Field label="Nights">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={madinahNights}
+                    onChange={(e) => setMadinahNights(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Persons">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 2"
+                    value={madinahPersons}
+                    onChange={(e) => setMadinahPersons(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
               </div>
             </div>
           </div>
 
           {/* OPTIONAL SERVICES */}
-          <div className="calc-card p-6">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
-              <ListChecks size={20} className="text-blue-600" />
+          <div className="calc-card p-4">
+            <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-3">
+              <ListChecks size={18} className="text-blue-600" />
               Optional Services
             </h2>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2.5">
               <OptionalServiceToggle
                 label="Flight"
                 checked={includeFlight}
@@ -1255,159 +1228,174 @@ const NormalPackage = () => {
             </div>
           </div>
 
-          {/* FLIGHT / VISA / TRANSPORT / TRAIN TICKET — only the checked ones render */}
+          {/* FLIGHT / VISA / TRANSPORT / TRAIN TICKET — each enabled service
+              is one compact row (not a card), stacked in a single container. */}
           {(includeFlight || includeVisa || includeTransport || includeTrainTicket) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="calc-card p-4 space-y-3 divide-y divide-gray-100">
               {includeFlight && (
-                <div className="calc-card p-6">
-                  <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
-                    <Plane size={18} className="text-blue-600" />
-                    Flight
-                  </h2>
-                  <div className="space-y-3">
-                    <Field label="Flight">
-                      <SearchableCombobox
-                        value={flightText}
-                        onTextChange={(text) => {
-                          setFlightText(toUpper(text));
-                          setFlightSelected(null);
-                        }}
-                        onSelect={(f) => {
-                          setFlightSelected(f);
-                          setFlightText(f.airlineName);
-                          flightPrice.setFromDatabase(f.price);
-                        }}
-                        options={flights}
-                        getLabel={(f) => f.airlineName}
-                        getSubLabel={(f) => `${f.category} · ${money(f.price)}`}
-                        placeholder="Search or type a flight"
-                        isSelected={!!flightSelected}
-                      />
-                    </Field>
-                    <PriceGroups
-                      isDbLocked={!!flightSelected}
-                      originalPriceState={flightPrice}
-                      sellingPriceState={flightSellingPrice}
+                <div className="grid grid-cols-2 lg:grid-cols-[auto_2fr_1fr_1fr] gap-3 items-end pt-3 first:pt-0">
+                  <ServiceRowLabel icon={Plane} label="Flight" />
+                  <Field label="Flight" className="col-span-2 lg:col-span-1">
+                    <SearchableCombobox
+                      value={flightText}
+                      onTextChange={(text) => {
+                        setFlightText(toUpper(text));
+                        setFlightSelected(null);
+                      }}
+                      onSelect={(f) => {
+                        setFlightSelected(f);
+                        setFlightText(f.airlineName);
+                        flightPrice.setFromDatabase(f.price);
+                      }}
+                      options={flights}
+                      getLabel={(f) => f.airlineName}
+                      getSubLabel={(f) => `${f.category} · ${money(f.price)}`}
+                      placeholder="Search or type a flight"
+                      isSelected={!!flightSelected}
                     />
-                  </div>
+                  </Field>
+                  {/* Flight is PKR-native — only the PKR fields are shown,
+                      no SAR clutter. */}
+                  <CompactPriceField
+                    label="Orig PKR"
+                    value={flightPrice.pkr}
+                    onChange={flightPrice.setPkr}
+                    readOnly={!!flightSelected}
+                  />
+                  <CompactPriceField
+                    label="Sell PKR"
+                    value={flightSellingPrice.pkr}
+                    onChange={flightSellingPrice.setPkr}
+                    readOnly={false}
+                  />
                 </div>
               )}
 
               {includeVisa && (
-                <div className="calc-card p-6">
-                  <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
-                    <FileText size={18} className="text-blue-600" />
-                    Visa
-                  </h2>
-                  <div className="space-y-3">
-                    <Field label="Visa Type">
-                      <SearchableCombobox
-                        value={visaTypeText}
-                        onTextChange={(text) => {
-                          setVisaTypeText(toUpper(text));
-                          setVisaSelected(null);
-                        }}
-                        onSelect={(v) => {
-                          setVisaSelected(v);
-                          setVisaTypeText(v.category);
-                          visaPrice.setFromDatabase(v.price);
-                        }}
-                        options={visas}
-                        getLabel={(v) => v.category}
-                        getSubLabel={(v) => `${v.agentName} · ${money(v.price)}`}
-                        placeholder="Search or type a visa type"
-                        isSelected={!!visaSelected}
-                      />
-                    </Field>
-                    <PriceGroups
-                      isDbLocked={!!visaSelected}
-                      originalPriceState={visaPrice}
-                      sellingPriceState={visaSellingPrice}
+                <div className="grid grid-cols-2 lg:grid-cols-[auto_2fr_1fr_1fr] gap-3 items-end pt-3 first:pt-0">
+                  <ServiceRowLabel icon={FileText} label="Visa" />
+                  <Field label="Visa Type" className="col-span-2 lg:col-span-1">
+                    <SearchableCombobox
+                      value={visaTypeText}
+                      onTextChange={(text) => {
+                        setVisaTypeText(toUpper(text));
+                        setVisaSelected(null);
+                      }}
+                      onSelect={(v) => {
+                        setVisaSelected(v);
+                        setVisaTypeText(v.category);
+                        visaPrice.setFromDatabase(v.price);
+                      }}
+                      options={visas}
+                      getLabel={(v) => v.category}
+                      getSubLabel={(v) => `${v.agentName} · ${money(v.price)}`}
+                      placeholder="Search or type a visa type"
+                      isSelected={!!visaSelected}
                     />
-                  </div>
+                  </Field>
+                  {/* Visa is SAR-native — only the SAR fields are shown. */}
+                  <CompactPriceField
+                    label="Orig SAR"
+                    value={visaPrice.sar}
+                    onChange={visaPrice.setSar}
+                    readOnly={!!visaSelected}
+                  />
+                  <CompactPriceField
+                    label="Sell SAR"
+                    value={visaSellingPrice.sar}
+                    onChange={visaSellingPrice.setSar}
+                    readOnly={false}
+                  />
                 </div>
               )}
 
               {includeTransport && (
-                <div className="calc-card p-6">
-                  <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
-                    <Car size={18} className="text-blue-600" />
-                    Transport
-                  </h2>
-                  <div className="space-y-3">
-                    <Field label="Transport">
-                      <SearchableCombobox
-                        value={transportText}
-                        onTextChange={(text) => {
-                          setTransportText(toUpper(text));
-                          setTransportSelected(null);
-                        }}
-                        onSelect={(t) => {
-                          setTransportSelected(t);
-                          setTransportText(t.carType);
-                          transportPrice.setFromDatabase(t.price);
-                        }}
-                        options={transports}
-                        getLabel={(t) => t.carType}
-                        getSubLabel={(t) => `${routeLabel(t)} · ${money(t.price)}`}
-                        placeholder="Search or type a transport option"
-                        isSelected={!!transportSelected}
-                      />
-                    </Field>
-                    <PriceGroups
-                      isDbLocked={!!transportSelected}
-                      originalPriceState={transportPrice}
-                      sellingPriceState={transportSellingPrice}
+                <div className="grid grid-cols-2 lg:grid-cols-[auto_2fr_1fr_1fr_1fr] gap-3 items-end pt-3 first:pt-0">
+                  <ServiceRowLabel icon={Car} label="Transport" />
+                  <Field label="Transport" className="col-span-2 lg:col-span-1">
+                    <SearchableCombobox
+                      value={transportText}
+                      onTextChange={(text) => {
+                        setTransportText(toUpper(text));
+                        setTransportSelected(null);
+                      }}
+                      onSelect={(t) => {
+                        setTransportSelected(t);
+                        setTransportText(t.carType);
+                        transportPrice.setFromDatabase(t.price);
+                      }}
+                      options={transports}
+                      getLabel={(t) => t.carType}
+                      getSubLabel={(t) => `${routeLabel(t)} · ${money(t.price)}`}
+                      placeholder="Search or type a transport option"
+                      isSelected={!!transportSelected}
                     />
-                    <Field label="Total Passengers">
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="e.g. 4"
-                        value={transportPassengers}
-                        onChange={(e) => setTransportPassengers(e.target.value)}
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
+                  </Field>
+                  {/* Transport is SAR-native — only the SAR fields are shown. */}
+                  <CompactPriceField
+                    label="Orig SAR"
+                    value={transportPrice.sar}
+                    onChange={transportPrice.setSar}
+                    readOnly={!!transportSelected}
+                  />
+                  <CompactPriceField
+                    label="Sell SAR"
+                    value={transportSellingPrice.sar}
+                    onChange={transportSellingPrice.setSar}
+                    readOnly={false}
+                  />
+                  <Field label="Passengers">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="e.g. 4"
+                      value={transportPassengers}
+                      onChange={(e) => setTransportPassengers(e.target.value)}
+                      className={inputClass}
+                    />
+                  </Field>
                 </div>
               )}
 
               {includeTrainTicket && (
-                <div className="calc-card p-6">
-                  <h2 className="flex items-center gap-2 text-base font-bold text-gray-900 mb-4">
-                    <Train size={18} className="text-blue-600" />
-                    Train Ticket
-                  </h2>
-                  <div className="space-y-3">
-                    <Field label="Train Ticket">
-                      <input
-                        type="text"
-                        placeholder="e.g. Lahore → Karachi Express"
-                        value={trainTicketText}
-                        onChange={(e) =>
-                          setTrainTicketText(toUpper(e.target.value))
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-                    <PriceGroups
-                      isDbLocked={false}
-                      originalPriceState={trainTicketPrice}
-                      sellingPriceState={trainTicketSellingPrice}
+                <div className="grid grid-cols-2 lg:grid-cols-[auto_2fr_1fr_1fr] gap-3 items-end pt-3 first:pt-0">
+                  <ServiceRowLabel icon={Train} label="Train Ticket" />
+                  <Field label="Train Ticket" className="col-span-2 lg:col-span-1">
+                    <input
+                      type="text"
+                      placeholder="e.g. Lahore → Karachi Express"
+                      value={trainTicketText}
+                      onChange={(e) =>
+                        setTrainTicketText(toUpper(e.target.value))
+                      }
+                      className={inputClass}
                     />
-                  </div>
+                  </Field>
+                  {/* Train Ticket is SAR-native — only the SAR fields are shown. */}
+                  <CompactPriceField
+                    label="Orig SAR"
+                    value={trainTicketPrice.sar}
+                    onChange={trainTicketPrice.setSar}
+                    readOnly={false}
+                  />
+                  <CompactPriceField
+                    label="Sell SAR"
+                    value={trainTicketSellingPrice.sar}
+                    onChange={trainTicketSellingPrice.setSar}
+                    readOnly={false}
+                  />
                 </div>
               )}
             </div>
           )}
 
-          {/* MISCELLANEOUS — up to MAX_MISC_ITEMS temporary items */}
+          {/* MISCELLANEOUS — up to MAX_MISC_ITEMS temporary items, each one
+              compact row instead of its own bordered card. */}
           {includeMisc && (
-            <div className="calc-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
-                  <Sparkles size={20} className="text-blue-600" />
+            <div className="calc-card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="flex items-center gap-2 text-base font-bold text-gray-900">
+                  <Sparkles size={18} className="text-blue-600" />
                   Miscellaneous
                 </h2>
                 <Button
@@ -1420,57 +1408,50 @@ const NormalPackage = () => {
                   Add Item
                 </Button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-2 divide-y divide-gray-100">
                 {miscItems.map((item, idx) => (
                   <div
                     key={item.id}
-                    className="rounded-xl border border-gray-200 p-4 bg-gray-50"
+                    className="grid grid-cols-2 lg:grid-cols-[auto_2fr_1fr_1fr_auto] gap-3 items-end pt-2 first:pt-0"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                        Miscellaneous {idx + 1}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => removeMiscItem(item.id)}
-                        className="text-red-500 hover:text-red-700 cursor-pointer"
-                        title="Remove this item"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    <div className="space-y-3">
-                      <Field label="Name">
-                        <input
-                          type="text"
-                          placeholder="e.g. Dates, Zam Zam, Ziyarat, Special Service"
-                          value={item.name}
-                          onChange={(e) =>
-                            updateMiscItem(
-                              item.id,
-                              "name",
-                              toUpper(e.target.value)
-                            )
-                          }
-                          className={inputClass}
-                        />
-                      </Field>
-                      <PriceGroups
-                        isDbLocked={false}
-                        originalPriceState={{
-                          sar: item.originalSAR,
-                          pkr: item.originalPKR,
-                          setSar: (v) => updateMiscItem(item.id, "originalSAR", v),
-                          setPkr: (v) => updateMiscItem(item.id, "originalPKR", v),
-                        }}
-                        sellingPriceState={{
-                          sar: item.sellingSAR,
-                          pkr: item.sellingPKR,
-                          setSar: (v) => updateMiscItem(item.id, "sellingSAR", v),
-                          setPkr: (v) => updateMiscItem(item.id, "sellingPKR", v),
-                        }}
+                    <ServiceRowLabel label={`Misc ${idx + 1}`} />
+                    <Field label="Name" className="col-span-2 lg:col-span-1">
+                      <input
+                        type="text"
+                        placeholder="e.g. Dates, Zam Zam, Ziyarat, Special Service"
+                        value={item.name}
+                        onChange={(e) =>
+                          updateMiscItem(
+                            item.id,
+                            "name",
+                            toUpper(e.target.value)
+                          )
+                        }
+                        className={inputClass}
                       />
-                    </div>
+                    </Field>
+                    {/* Miscellaneous is SAR-native — only the SAR fields are
+                        shown, consistent with every other SAR-native row. */}
+                    <CompactPriceField
+                      label="Orig SAR"
+                      value={item.originalSAR}
+                      onChange={(v) => updateMiscItem(item.id, "originalSAR", v)}
+                      readOnly={false}
+                    />
+                    <CompactPriceField
+                      label="Sell SAR"
+                      value={item.sellingSAR}
+                      onChange={(v) => updateMiscItem(item.id, "sellingSAR", v)}
+                      readOnly={false}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeMiscItem(item.id)}
+                      className="text-red-500 hover:text-red-700 cursor-pointer justify-self-start lg:justify-self-center pb-2.5"
+                      title="Remove this item"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1483,7 +1464,7 @@ const NormalPackage = () => {
           )}
 
           {/* ACTIONS */}
-          <div className="calc-card p-6">
+          <div className="calc-card p-4">
             <div className="flex gap-3">
               <Button
                 fullWidth
@@ -1524,7 +1505,7 @@ const NormalPackage = () => {
                 {result.packageName}
               </h2>
               <p className="text-sm text-muted mt-1">
-                {result.totalDays || "—"} Days · Selling Rate: 1 SAR ={" "}
+                {result.totalDays || "—"} Days · Rate: 1 SAR ={" "}
                 {result.sellingConversionRate} PKR · Price shown is per person
               </p>
             </div>
@@ -1540,7 +1521,7 @@ const NormalPackage = () => {
 
           {/* SCREEN-ONLY: full internal/admin breakdown — Original, Selling
               and Profit for every included service. */}
-          <div className="screen-only-summary p-6 space-y-4">
+          <div className="screen-only-summary p-4 space-y-2.5">
             <ServiceDetailCard
               title="Makkah Hotel"
               service={result.makkahService}
@@ -1657,35 +1638,39 @@ const NormalPackage = () => {
                 profit rule below exists to avoid. Total Passengers is
                 applied here, once, on top of the already-complete
                 per-person figures — it never touches any individual
-                service's own math. */}
-            <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
-              <CostRow
-                label="Original Package Total (Per Person) — PKR"
-                value={moneyPKR(result.totals.originalPKR)}
-              />
-              <CostRow
-                label={`Original Package Total (All ${result.totals.totalPassengers} Passengers) — PKR`}
-                value={moneyPKR(result.totals.originalPKRAllPassengers)}
-                bold
-              />
-            </div>
-
-            <div className="flex flex-col gap-1 px-4 py-4 bg-brand-600 text-white rounded-xl">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">
-                  Selling Package Total (Per Person) — PKR
-                </span>
-                <span className="text-xl font-extrabold">
-                  {moneyPKR(result.totals.sellingPKR)}
-                </span>
+                service's own math. Original and Selling totals sit side by
+                side (same data as before, just grouped horizontally instead
+                of stacked full-width). */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="rounded-xl border border-gray-200 divide-y divide-gray-100">
+                <CostRow
+                  label="Original Total (Per Person) — PKR"
+                  value={moneyPKR(result.totals.originalPKR)}
+                />
+                <CostRow
+                  label={`Original Total (All ${result.totals.totalPassengers}) — PKR`}
+                  value={moneyPKR(result.totals.originalPKRAllPassengers)}
+                  bold
+                />
               </div>
-              <div className="flex justify-between items-center text-white/85">
-                <span className="text-sm font-medium">
-                  Selling Package Total (All {result.totals.totalPassengers} Passengers) — PKR
-                </span>
-                <span className="text-lg font-bold">
-                  {moneyPKR(result.totals.sellingPKRAllPassengers)}
-                </span>
+
+              <div className="flex flex-col justify-center gap-1 px-4 py-3 bg-brand-600 text-white rounded-xl">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">
+                    Selling Total (Per Person) — PKR
+                  </span>
+                  <span className="text-lg font-extrabold">
+                    {moneyPKR(result.totals.sellingPKR)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-white/85">
+                  <span className="text-xs font-medium">
+                    Selling Total (All {result.totals.totalPassengers}) — PKR
+                  </span>
+                  <span className="text-sm font-bold">
+                    {moneyPKR(result.totals.sellingPKRAllPassengers)}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -1693,176 +1678,179 @@ const NormalPackage = () => {
                 native currency, then the two native subtotals kept strictly
                 separate, then one overall equivalent presented in both
                 currencies (converted using the Selling Conversion Rate).
-                Everything in this box is PER PERSON. */}
-            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-              <h3 className="text-sm font-bold text-gray-700 mb-3">
-                Profit Breakdown — Per Person
-              </h3>
-              <div className="space-y-1.5 text-sm">
-                {result.makkahService && (
+                Per Person and All Passengers sit side by side. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="rounded-xl border border-gray-200 p-3 bg-gray-50">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">
+                  Profit Breakdown — Per Person
+                </h3>
+                <div className="space-y-1 text-sm">
+                  {result.makkahService && (
+                    <DetailRow
+                      label="Makkah Hotel"
+                      value={profitDisplay(result.makkahService)}
+                    />
+                  )}
+                  {result.madinahService && (
+                    <DetailRow
+                      label="Madinah Hotel"
+                      value={profitDisplay(result.madinahService)}
+                    />
+                  )}
+                  {result.visaService && (
+                    <DetailRow label="Visa" value={profitDisplay(result.visaService)} />
+                  )}
+                  {result.flightService && (
+                    <DetailRow
+                      label="Flight"
+                      value={profitDisplay(result.flightService)}
+                    />
+                  )}
+                  {result.transportService && (
+                    <DetailRow
+                      label="Transport"
+                      value={profitDisplay(result.transportService)}
+                    />
+                  )}
+                  {result.trainTicketService && (
+                    <DetailRow
+                      label="Train Ticket"
+                      value={profitDisplay(result.trainTicketService)}
+                    />
+                  )}
+                  {result.miscServices.map((s, idx) => (
+                    <DetailRow
+                      key={idx}
+                      label={`Misc ${idx + 1} (${s.name})`}
+                      value={profitDisplay(s)}
+                    />
+                  ))}
+                </div>
+                <div className="mt-2 pt-2 border-t border-gray-200 space-y-1 text-sm">
                   <DetailRow
-                    label="Makkah Hotel Profit"
-                    value={profitDisplay(result.makkahService)}
+                    label="Total Native Profit — SAR"
+                    value={
+                      <span
+                        className={
+                          result.totals.nativeSARProfit < 0
+                            ? "text-red-600"
+                            : "text-emerald-600"
+                        }
+                      >
+                        {money(result.totals.nativeSARProfit)}
+                      </span>
+                    }
+                    bold
                   />
-                )}
-                {result.madinahService && (
                   <DetailRow
-                    label="Madinah Hotel Profit"
-                    value={profitDisplay(result.madinahService)}
+                    label="Total Native Profit — PKR"
+                    value={
+                      <span
+                        className={
+                          result.totals.nativePKRProfit < 0
+                            ? "text-red-600"
+                            : "text-emerald-600"
+                        }
+                      >
+                        {moneyPKR(result.totals.nativePKRProfit)}
+                      </span>
+                    }
+                    bold
                   />
-                )}
-                {result.visaService && (
-                  <DetailRow
-                    label="Visa Profit"
-                    value={profitDisplay(result.visaService)}
-                  />
-                )}
-                {result.flightService && (
-                  <DetailRow
-                    label="Flight Profit"
-                    value={profitDisplay(result.flightService)}
-                  />
-                )}
-                {result.transportService && (
-                  <DetailRow
-                    label="Transport Profit"
-                    value={profitDisplay(result.transportService)}
-                  />
-                )}
-                {result.trainTicketService && (
-                  <DetailRow
-                    label="Train Ticket Profit"
-                    value={profitDisplay(result.trainTicketService)}
-                  />
-                )}
-                {result.miscServices.map((s, idx) => (
-                  <DetailRow
-                    key={idx}
-                    label={`Miscellaneous ${idx + 1} Profit (${s.name})`}
-                    value={profitDisplay(s)}
-                  />
-                ))}
+                </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5 text-sm">
-                <DetailRow
-                  label="Total Native Profit (Per Person) — SAR"
-                  value={
-                    <span
-                      className={
-                        result.totals.nativeSARProfit < 0
-                          ? "text-red-600"
-                          : "text-emerald-600"
-                      }
-                    >
-                      {money(result.totals.nativeSARProfit)}
-                    </span>
-                  }
-                  bold
-                />
-                <DetailRow
-                  label="Total Native Profit (Per Person) — PKR"
-                  value={
-                    <span
-                      className={
-                        result.totals.nativePKRProfit < 0
-                          ? "text-red-600"
-                          : "text-emerald-600"
-                      }
-                    >
-                      {moneyPKR(result.totals.nativePKRProfit)}
-                    </span>
-                  }
-                  bold
-                />
+
+              {/* PROFIT — ALL PASSENGERS: the same native-currency figures
+                  above, multiplied by Total Passengers only at this final
+                  step — never used to inflate any individual service. */}
+              <div className="rounded-xl border border-gray-200 p-3 bg-gray-50">
+                <h3 className="text-sm font-bold text-gray-700 mb-2">
+                  Profit Breakdown — All {result.totals.totalPassengers} Passengers
+                </h3>
+                <div className="space-y-1 text-sm">
+                  <DetailRow
+                    label="Total Native Profit — SAR"
+                    value={
+                      <span
+                        className={
+                          result.totals.nativeSARProfitAllPassengers < 0
+                            ? "text-red-600"
+                            : "text-emerald-600"
+                        }
+                      >
+                        {money(result.totals.nativeSARProfitAllPassengers)}
+                      </span>
+                    }
+                    bold
+                  />
+                  <DetailRow
+                    label="Total Native Profit — PKR"
+                    value={
+                      <span
+                        className={
+                          result.totals.nativePKRProfitAllPassengers < 0
+                            ? "text-red-600"
+                            : "text-emerald-600"
+                        }
+                      >
+                        {moneyPKR(result.totals.nativePKRProfitAllPassengers)}
+                      </span>
+                    }
+                    bold
+                  />
+                </div>
               </div>
             </div>
 
-            <div
-              className={`flex flex-col gap-1 px-4 py-4 rounded-xl text-white ${
-                result.totals.overallProfitSAR < 0 ? "bg-red-600" : "bg-emerald-600"
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">
-                  Overall Profit Equivalent (Per Person) — SAR
-                </span>
-                <span className="text-xl font-extrabold">
-                  {money(result.totals.overallProfitSAR)}
-                </span>
+            {/* OVERALL PROFIT EQUIVALENT — Per Person and All Passengers
+                side by side. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div
+                className={`flex flex-col justify-center gap-1 px-4 py-3 rounded-xl text-white ${
+                  result.totals.overallProfitSAR < 0 ? "bg-red-600" : "bg-emerald-600"
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">
+                    Overall Profit Equiv. (Per Person) — SAR
+                  </span>
+                  <span className="text-lg font-extrabold">
+                    {money(result.totals.overallProfitSAR)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-white/85">
+                  <span className="text-xs font-medium">
+                    Overall Profit Equiv. (Per Person) — PKR
+                  </span>
+                  <span className="text-sm font-bold">
+                    {moneyPKR(result.totals.overallProfitPKR)}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center text-white/85">
-                <span className="text-sm font-medium">
-                  Overall Profit Equivalent (Per Person) — PKR
-                </span>
-                <span className="text-lg font-bold">
-                  {moneyPKR(result.totals.overallProfitPKR)}
-                </span>
-              </div>
-            </div>
 
-            {/* PROFIT — ALL PASSENGERS: the same native-currency figures
-                above, multiplied by Total Passengers only at this final
-                step — never used to inflate any individual service. */}
-            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-              <h3 className="text-sm font-bold text-gray-700 mb-3">
-                Profit Breakdown — All {result.totals.totalPassengers} Passengers
-              </h3>
-              <div className="space-y-1.5 text-sm">
-                <DetailRow
-                  label="Total Native Profit (All Passengers) — SAR"
-                  value={
-                    <span
-                      className={
-                        result.totals.nativeSARProfitAllPassengers < 0
-                          ? "text-red-600"
-                          : "text-emerald-600"
-                      }
-                    >
-                      {money(result.totals.nativeSARProfitAllPassengers)}
-                    </span>
-                  }
-                  bold
-                />
-                <DetailRow
-                  label="Total Native Profit (All Passengers) — PKR"
-                  value={
-                    <span
-                      className={
-                        result.totals.nativePKRProfitAllPassengers < 0
-                          ? "text-red-600"
-                          : "text-emerald-600"
-                      }
-                    >
-                      {moneyPKR(result.totals.nativePKRProfitAllPassengers)}
-                    </span>
-                  }
-                  bold
-                />
-              </div>
-            </div>
-
-            <div
-              className={`flex flex-col gap-1 px-4 py-4 rounded-xl text-white ${
-                result.totals.overallProfitSARAllPassengers < 0
-                  ? "bg-red-600"
-                  : "bg-emerald-600"
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-semibold">
-                  Overall Profit Equivalent (All Passengers) — SAR
-                </span>
-                <span className="text-xl font-extrabold">
-                  {money(result.totals.overallProfitSARAllPassengers)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-white/85">
-                <span className="text-sm font-medium">
-                  Overall Profit Equivalent (All Passengers) — PKR
-                </span>
-                <span className="text-lg font-bold">
-                  {moneyPKR(result.totals.overallProfitPKRAllPassengers)}
-                </span>
+              <div
+                className={`flex flex-col justify-center gap-1 px-4 py-3 rounded-xl text-white ${
+                  result.totals.overallProfitSARAllPassengers < 0
+                    ? "bg-red-600"
+                    : "bg-emerald-600"
+                }`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">
+                    Overall Profit Equiv. (All Passengers) — SAR
+                  </span>
+                  <span className="text-lg font-extrabold">
+                    {money(result.totals.overallProfitSARAllPassengers)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-white/85">
+                  <span className="text-xs font-medium">
+                    Overall Profit Equiv. (All Passengers) — PKR
+                  </span>
+                  <span className="text-sm font-bold">
+                    {moneyPKR(result.totals.overallProfitPKRAllPassengers)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -1941,63 +1929,35 @@ const NormalPackage = () => {
 };
 
 // Two side-by-side inputs for the same price in SAR and PKR. When locked
-// (an existing database record is selected) both are read-only and show the
-// database SAR price plus its live PKR equivalent. When unlocked (custom
-// item, or a Selling Price — which is never database-locked), editing
-// either field derives the other via `priceState`.
-const DualPriceFields = ({ isDbLocked, priceState }) => {
-  const lockedClass = isDbLocked
-    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-    : "";
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <Field label={isDbLocked ? "Price SAR (database)" : "Price SAR (custom)"}>
-        <input
-          type="number"
-          min="0"
-          placeholder="0"
-          value={priceState.sar}
-          onChange={(e) => priceState.setSar(e.target.value)}
-          readOnly={isDbLocked}
-          disabled={isDbLocked}
-          className={`${inputClass} ${lockedClass}`}
-        />
-      </Field>
-      <Field label={isDbLocked ? "Price PKR (database)" : "Price PKR (custom)"}>
-        <input
-          type="number"
-          min="0"
-          placeholder="0"
-          value={priceState.pkr}
-          onChange={(e) => priceState.setPkr(e.target.value)}
-          readOnly={isDbLocked}
-          disabled={isDbLocked}
-          className={`${inputClass} ${lockedClass}`}
-        />
-      </Field>
-    </div>
-  );
-};
+// (an existing database record is selected) it's read-only and shows the
+// database-derived value. Used once per currency per row — the compact
+// layout shows only a service's native currency (SAR for everything except
+// Flight, which is PKR), never both SAR and PKR side by side.
+const CompactPriceField = ({ label, value, onChange, readOnly }) => (
+  <Field label={label}>
+    <input
+      type="number"
+      min="0"
+      placeholder="0"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      readOnly={readOnly}
+      disabled={readOnly}
+      className={`${inputClass} ${
+        readOnly ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""
+      }`}
+    />
+  </Field>
+);
 
-// Pricing for any service (Hotels, Visa, Flight, Transport, Train Ticket,
-// Miscellaneous), grouped into two clearly separate rows: Original Price
-// (uses Conversion Rate, still database-locked/derived exactly as before)
-// and Selling Price (uses Selling Conversion Rate, always freely editable —
-// there is no database concept for a selling price).
-const PriceGroups = ({ isDbLocked, originalPriceState, sellingPriceState }) => (
-  <div className="space-y-3">
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
-      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2">
-        Original Price
-      </p>
-      <DualPriceFields isDbLocked={isDbLocked} priceState={originalPriceState} />
-    </div>
-    <div className="rounded-lg border border-gray-200 bg-white p-3">
-      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-2">
-        Selling Price
-      </p>
-      <DualPriceFields isDbLocked={false} priceState={sellingPriceState} />
-    </div>
+// A small fixed-width icon+label prefix identifying which service a compact
+// row belongs to, replacing the old per-service card heading.
+const ServiceRowLabel = ({ icon: Icon, label }) => (
+  <div className="flex items-center gap-1.5 pb-2.5 lg:w-28 shrink-0">
+    {Icon && <Icon size={16} className="text-blue-600 shrink-0" />}
+    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+      {label}
+    </span>
   </div>
 );
 
@@ -2040,12 +2000,12 @@ const ValidationBanner = ({ message }) => (
 const ServiceDetailCard = ({ title, service, extraRows = null }) => {
   if (!service) return null;
   return (
-    <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+    <div className="rounded-xl border border-gray-200 p-3 bg-gray-50">
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">
         {title}: {service.name}
         {service.isCustom ? " (Custom)" : ""}
       </p>
-      <div className="space-y-1.5 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
         {extraRows}
         <DetailRow
           label="Original Price"
