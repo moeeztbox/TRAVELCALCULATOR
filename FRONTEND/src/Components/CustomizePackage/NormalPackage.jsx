@@ -20,6 +20,7 @@ import Button from "../UI/Button";
 import SearchableCombobox from "../UI/SearchableCombobox";
 import ValidationErrors from "../UI/ValidationErrors";
 import SaveToHistoryModal from "../UI/SaveToHistoryModal";
+import PrintReportShell from "../UI/PrintReportShell";
 import useDualCurrencyPrice, { toPKR, toSAR } from "./useDualCurrencyPrice";
 import { toUpper } from "../../utils/text";
 import { API_BASE_URL as API } from "../../config/api";
@@ -32,8 +33,37 @@ const MAX_MISC_ITEMS = 5;
 // MAX_STAYS.
 const MAX_ROUTES = 20;
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
 const money = (n) => `SAR ${Number(n || 0).toLocaleString()}`;
 const moneyPKR = (n) => `PKR ${Number(n || 0).toLocaleString()}`;
+
+// Plain "date" input (Check-in/Check-out) — no time component.
+const formatDateOnly = (val) => {
+  if (!val) return "—";
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+// "datetime-local" input (the Flight/Travel Schedule fields) — date + time,
+// e.g. "Aug 22, 2026, 4:00 PM".
+const formatDateTime = (val) => {
+  if (!val) return "—";
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
 // Two already-computed SAR/PKR figures shown side by side. This never
 // performs a conversion itself — Original and Selling sides use different
 // rates, so every SAR/PKR pair must arrive pre-converted from the single
@@ -94,8 +124,12 @@ const buildServiceRecord = (
   ...meta,
 });
 
-// Customer-facing print rows — selling side only, always. No original
-// price, no cost conversion rate, and no profit field is ever read here.
+// Customer-facing print rows for print Table 1 (Package Services: Hotels,
+// Visa, Flight, Train) — selling side only, always. No original price, no
+// cost conversion rate, and no profit field is ever read here. Transport
+// gets its own dedicated table (every route is its own row) and
+// Miscellaneous is summarized only in the final summary table, so neither
+// is built here.
 const buildPrintRows = (result) => {
   const rows = [];
 
@@ -106,8 +140,8 @@ const buildPrintRows = (result) => {
       item: `${s.name}${s.isCustom ? " (Custom)" : ""}`,
       persons: s.persons || "-",
       nights: s.nights || "-",
-      sellingSAR: money(s.sellingPerPersonPerNight),
-      sellingPKR: moneyPKR(s.sellingPerPersonPerNightPKR),
+      sellingSAR: money(s.sellingHotelPrice),
+      sellingPKR: moneyPKR(s.sellingHotelPricePKR),
       totalSAR: money(s.sellingSAR),
       totalPKR: moneyPKR(s.sellingPKR),
     });
@@ -120,8 +154,8 @@ const buildPrintRows = (result) => {
       item: `${s.name}${s.isCustom ? " (Custom)" : ""}`,
       persons: s.persons || "-",
       nights: s.nights || "-",
-      sellingSAR: money(s.sellingPerPersonPerNight),
-      sellingPKR: moneyPKR(s.sellingPerPersonPerNightPKR),
+      sellingSAR: money(s.sellingHotelPrice),
+      sellingPKR: moneyPKR(s.sellingHotelPricePKR),
       totalSAR: money(s.sellingSAR),
       totalPKR: moneyPKR(s.sellingPKR),
     });
@@ -155,20 +189,6 @@ const buildPrintRows = (result) => {
     });
   }
 
-  if (result.transportService) {
-    const s = result.transportService;
-    rows.push({
-      category: "Transport",
-      item: `${s.name}${s.isCustom ? " (Custom)" : ""}`,
-      persons: s.passengers || "-",
-      nights: "-",
-      sellingSAR: money(s.sellingSAR),
-      sellingPKR: moneyPKR(s.sellingPKR),
-      totalSAR: money(s.sellingSAR),
-      totalPKR: moneyPKR(s.sellingPKR),
-    });
-  }
-
   if (result.trainTicketService) {
     const s = result.trainTicketService;
     rows.push({
@@ -183,20 +203,51 @@ const buildPrintRows = (result) => {
     });
   }
 
-  result.miscServices.forEach((s) => {
+  return rows;
+};
+
+// Table 3 rows — Category | Per Person PKR | All Passengers PKR. Every
+// figure here is read directly from an already-computed service/totals
+// field (Makkah+Madinah / Misc are a plain sum of those), never a new
+// pricing formula. A category only appears if it was actually included.
+const buildSummaryRows = (result) => {
+  const totalPassengers = result.totals.totalPassengers;
+  const rows = [];
+
+  if (result.makkahService || result.madinahService) {
+    rows.push({
+      category: "Hotels",
+      perPersonPKR:
+        (result.makkahService?.sellingPKR || 0) +
+        (result.madinahService?.sellingPKR || 0),
+    });
+  }
+  if (result.visaService) {
+    rows.push({ category: "Visa", perPersonPKR: result.visaService.sellingPKR });
+  }
+  if (result.flightService) {
+    rows.push({ category: "Flight", perPersonPKR: result.flightService.sellingPKR });
+  }
+  if (result.trainTicketService) {
+    rows.push({
+      category: "Train",
+      perPersonPKR: result.trainTicketService.sellingPKR,
+    });
+  }
+  if (result.transportService) {
+    rows.push({
+      category: "Transport",
+      perPersonPKR: result.transportService.sellingPKR,
+    });
+  }
+  if (result.miscServices.length > 0) {
     rows.push({
       category: "Miscellaneous",
-      item: s.name,
-      persons: "-",
-      nights: "-",
-      sellingSAR: money(s.sellingSAR),
-      sellingPKR: moneyPKR(s.sellingPKR),
-      totalSAR: money(s.sellingSAR),
-      totalPKR: moneyPKR(s.sellingPKR),
+      perPersonPKR: result.miscServices.reduce((sum, m) => sum + m.sellingPKR, 0),
     });
-  });
+  }
 
-  return rows;
+  return rows.map((r) => ({ ...r, allPassengersPKR: r.perPersonPKR * totalPassengers }));
 };
 
 const createMiscItem = () => ({
@@ -220,9 +271,20 @@ const NormalPackage = () => {
   const [loading, setLoading] = useState(true);
 
   // User selections
-  const [packageName, setPackageName] = useState("");
   const [clientName, setClientName] = useState("");
-  const [totalDays, setTotalDays] = useState("");
+
+  // Travel Dates — Total Days/Nights are derived from these, never
+  // manually typed (see tripDaysRaw/totalDaysNum/totalNightsNum below).
+  const [checkInDate, setCheckInDate] = useState("");
+  const [checkOutDate, setCheckOutDate] = useState("");
+
+  // Flight/Travel Schedule — plain datetime-local fields (date + time),
+  // display-only context carried into the result/print; not used in any
+  // calculation.
+  const [departureLahore, setDepartureLahore] = useState("");
+  const [arrivalJed, setArrivalJed] = useState("");
+  const [departureJed, setDepartureJed] = useState("");
+  const [arrivalLahore, setArrivalLahore] = useState("");
 
   // Single manually entered rate. Conversion Rate governs every Original
   // (cost) price AND every Selling price — there is no separate Selling
@@ -287,18 +349,11 @@ const NormalPackage = () => {
   const flightPrice = useDualCurrencyPrice(conversionRateNum);
   const flightSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
 
-  // Transport
-  const [transportText, setTransportText] = useState("");
-  const [transportSelected, setTransportSelected] = useState(null);
-  const transportPrice = useDualCurrencyPrice(conversionRateNum);
-  const transportSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
-  const [transportPassengers, setTransportPassengers] = useState("");
-
-  // Routes — a count-driven list of compact route rows, independent of the
-  // single Transport service above. Each row gets its OWN route, vehicle,
+  // Transport is entirely the dynamic Routes list below — a count-driven
+  // list of compact route rows. Each row gets its OWN route, vehicle,
   // Original SAR, Selling SAR, and Passengers (different routes can use
-  // different vehicles). Not wired into any calculation yet (per explicit
-  // instruction) — this only manages the input state (add/remove rows)
+  // different vehicles), combined together in calculate() into one
+  // Transport total (see routeBreakdown/transportService there).
   // safely.
   const [numberOfRoutes, setNumberOfRoutes] = useState("");
   const [routeRows, setRouteRows] = useState([]);
@@ -428,11 +483,8 @@ const NormalPackage = () => {
   const handleToggleTransport = (checked) => {
     setIncludeTransport(checked);
     if (!checked) {
-      setTransportText("");
-      setTransportSelected(null);
-      transportPrice.reset();
-      transportSellingPrice.reset();
-      setTransportPassengers("");
+      setNumberOfRoutes("");
+      setRouteRows([]);
     }
   };
 
@@ -574,13 +626,29 @@ const NormalPackage = () => {
     };
   };
 
+  // Total Days/Nights are derived from Check-in/Check-out — never manually
+  // typed. Total Days is the inclusive calendar-day count of the trip
+  // (departure day through return day); Total Nights is exactly
+  // Total Days - 1 (the exclusive nights-between convention already used
+  // for hotel stays elsewhere in this app).
+  const tripDaysRaw =
+    checkInDate && checkOutDate
+      ? Math.round((new Date(checkOutDate) - new Date(checkInDate)) / MS_PER_DAY)
+      : null;
+  const tripDatesValid = tripDaysRaw !== null && tripDaysRaw > 0;
+  const tripDateError =
+    checkInDate && checkOutDate && !tripDatesValid
+      ? "Return/Check-out date must be after Departure/Check-in date."
+      : "";
+  const totalDaysNum = tripDatesValid ? tripDaysRaw + 1 : 0;
+  const totalNightsNum = tripDatesValid ? tripDaysRaw : 0;
+
   // Total Days vs. Makkah/Madinah nights validation. Makkah Nights +
   // Madinah Nights must equal Total Days EXACTLY — no tolerance. This is
   // only enforced once the user has actually started entering nights —
   // a Visa/Flight-only package with no hotel nights is never blocked by it.
   const makkahNightsNum = toPositiveNumber(makkahNights);
   const madinahNightsNum = toPositiveNumber(madinahNights);
-  const totalDaysNum = toPositiveNumber(totalDays);
   const nightsEntered = makkahNightsNum > 0 || madinahNightsNum > 0;
   const combinedNights = makkahNightsNum + madinahNightsNum;
   const nightsDifference = totalDaysNum - combinedNights;
@@ -602,7 +670,7 @@ const NormalPackage = () => {
     madinahHotelText.trim() ||
     visaTypeText.trim() ||
     flightText.trim() ||
-    transportText.trim() ||
+    routeRows.length > 0 ||
     trainTicketText.trim() ||
     miscInUse
   );
@@ -655,7 +723,6 @@ const NormalPackage = () => {
     return [...errors, ...extra];
   };
 
-  const packageNameError = packageName.trim() ? "" : "Enter a Package Name.";
   const noServiceError = pricingInUse
     ? ""
     : "Add at least one service (hotel, visa, flight, transport, train ticket, or miscellaneous item) to build your package.";
@@ -664,7 +731,6 @@ const NormalPackage = () => {
   const madinahInUse = !!madinahHotelText.trim();
   const makkahPersonsNumTop = toPositiveNumber(makkahPersons);
   const madinahPersonsNumTop = toPositiveNumber(madinahPersons);
-  const transportPassengersNumTop = toPositiveNumber(transportPassengers);
 
   const makkahErrors = buildServiceValidation(
     makkahInUse,
@@ -702,14 +768,10 @@ const NormalPackage = () => {
     flightPrice.pkr,
     flightSellingPrice.pkr
   );
-  const transportErrors = buildServiceValidation(
-    includeTransport,
-    "a Transport option",
-    !!transportText.trim(),
-    transportPrice.sar,
-    transportSellingPrice.sar,
-    transportPassengersNumTop > 0 ? [] : ["Enter Transport Passengers."]
-  );
+  // Transport has no required-field validation right now — its old single
+  // route/vehicle/price fields were replaced by the dynamic Routes rows
+  // above, which aren't wired into the calculation yet (see the Routes
+  // section), so there's nothing yet to require here.
   const trainErrors = buildServiceValidation(
     includeTrainTicket,
     "a Train Ticket",
@@ -733,29 +795,60 @@ const NormalPackage = () => {
       })
     : [];
 
+  // Each Route row that's been started at all (any field touched) must be
+  // fully valid before Calculate is allowed — otherwise an incomplete row
+  // (e.g. no selling price entered) would silently contribute $0 to the
+  // combined Transport total instead of being flagged.
+  const routeRowErrors = includeTransport
+    ? routeRows.flatMap((r, idx) => {
+        const started = !!(r.route || r.carType || r.originalSAR || r.sellingSAR || r.passengers);
+        if (!started) return [];
+        const errs = [];
+        if (!r.route) {
+          errs.push(`Select a route for Route ${idx + 1}.`);
+        } else if (!r.carType) {
+          errs.push(`Select a vehicle for Route ${idx + 1}.`);
+        } else {
+          const origNum = Number(r.originalSAR);
+          if (!(Number.isFinite(origNum) && origNum > 0)) {
+            errs.push(`Route ${idx + 1} has no valid original price.`);
+          }
+        }
+        const sellNum = Number(r.sellingSAR);
+        if (!(Number.isFinite(sellNum) && sellNum > 0)) {
+          errs.push(`Enter a valid selling price for Route ${idx + 1}.`);
+        }
+        const paxNum = Number(r.passengers);
+        if (!(Number.isFinite(paxNum) && paxNum > 0 && Number.isInteger(paxNum))) {
+          errs.push(`Enter valid Passengers for Route ${idx + 1}.`);
+        }
+        return errs;
+      })
+    : [];
+
   const sectionValidationErrors = [
-    ...(packageNameError ? [packageNameError] : []),
     ...(noServiceError ? [noServiceError] : []),
     ...makkahErrors,
     ...madinahErrors,
     ...visaErrors,
     ...flightErrors,
-    ...transportErrors,
     ...trainErrors,
     ...miscErrors,
+    ...routeRowErrors,
   ];
 
   const hasStartedInput = !!(
-    packageName.trim() ||
-    totalDays ||
+    clientName.trim() ||
+    checkInDate ||
+    checkOutDate ||
     conversionRate ||
     totalPassengers ||
     pricingInUse
   );
 
   const calculate = () => {
-    if (!packageName) {
-      alert("Please enter a package name.");
+    if (tripDateError) {
+      alert(tripDateError);
       return;
     }
 
@@ -795,9 +888,13 @@ const NormalPackage = () => {
     const flight = includeFlight
       ? resolveItem(flightText, flightSelected, flightPrice.sar, "airlineName")
       : null;
-    const transport = includeTransport
-      ? resolveItem(transportText, transportSelected, transportPrice.sar, "carType")
-      : null;
+    // Transport is now the dynamic Routes list — every route the user
+    // actually filled in (route + vehicle + at least one passenger)
+    // contributes its own Original/Selling/Profit, all combined below into
+    // one Transport total.
+    const validRouteRows = routeRows.filter(
+      (r) => r.route && r.carType && toPositiveNumber(r.passengers) > 0
+    );
     const trainTicket = includeTrainTicket
       ? resolveItem(trainTicketText, trainSelected, trainTicketPrice.sar, "trainName")
       : null;
@@ -821,7 +918,7 @@ const NormalPackage = () => {
       !madinahHotel &&
       !visa &&
       !flight &&
-      !transport &&
+      validRouteRows.length === 0 &&
       !trainTicket &&
       miscResolved.length === 0
     ) {
@@ -861,6 +958,11 @@ const NormalPackage = () => {
             // whole stay.
             originalHotelPrice: safePrice(makkahHotel.price),
             originalHotelPricePKR: safePrice(makkahHotel.price) * conversionRateNum,
+            // Same idea, selling side — the raw Sell SAR value exactly as
+            // typed, before dividing by Persons.
+            sellingHotelPrice: safePrice(makkahSellingPrice.sar),
+            sellingHotelPricePKR:
+              safePrice(makkahSellingPrice.sar) * sellingConversionRateNum,
             originalPerPersonPerNight: makkahOriginalPerPersonPerNight,
             originalPerPersonPerNightPKR:
               makkahOriginalPerPersonPerNight * conversionRateNum,
@@ -899,6 +1001,11 @@ const NormalPackage = () => {
             nights: madinahNightsNum,
             originalHotelPrice: safePrice(madinahHotel.price),
             originalHotelPricePKR: safePrice(madinahHotel.price) * conversionRateNum,
+            // Same idea, selling side — the raw Sell SAR value exactly as
+            // typed, before dividing by Persons.
+            sellingHotelPrice: safePrice(madinahSellingPrice.sar),
+            sellingHotelPricePKR:
+              safePrice(madinahSellingPrice.sar) * sellingConversionRateNum,
             originalPerPersonPerNight: madinahOriginalPerPersonPerNight,
             originalPerPersonPerNightPKR:
               madinahOriginalPerPersonPerNight * conversionRateNum,
@@ -946,36 +1053,60 @@ const NormalPackage = () => {
         )
       : null;
 
-    // --- Transport: SAR-native. Price / Total Passengers, for both Original
-    // and Selling. ---
-    const transportPassengersNum = toPositiveNumber(transportPassengers);
-    const transportOriginalPerPerson =
-      transport && transportPassengersNum > 0
-        ? safePrice(transport.price) / transportPassengersNum
-        : 0;
-    const transportSellingPerPerson =
-      transport && transportPassengersNum > 0
-        ? safePrice(transportSellingPrice.sar) / transportPassengersNum
-        : 0;
-    const transportService = transport
-      ? buildServiceRecord(
-          transport.carType,
-          transport.isCustom,
-          "SAR",
-          transportOriginalPerPerson,
-          transportOriginalPerPerson * conversionRateNum,
-          transportSellingPerPerson,
-          transportSellingPerPerson * sellingConversionRateNum,
-          {
-            passengers: transportPassengersNum,
-            originalGroupPrice: safePrice(transport.price),
-            originalGroupPricePKR: safePrice(transport.price) * conversionRateNum,
-            sellingGroupPrice: safePrice(transportSellingPrice.sar),
-            sellingGroupPricePKR:
-              safePrice(transportSellingPrice.sar) * sellingConversionRateNum,
-          }
-        )
-      : null;
+    // --- Transport: SAR-native. Every entered route is its own group price
+    // (Original SAR / Selling SAR) divided by THAT route's own Passengers to
+    // get a per-person figure — this is "profit per transport". Every
+    // route's per-person Original and per-person Selling are then summed
+    // into ONE combined Transport total (per the selling rate), which is
+    // what actually feeds the package totals below — exactly the same
+    // "per person, Total Passengers applied once at the end" convention
+    // every other service already follows. ---
+    const routeBreakdown = validRouteRows.map((r) => {
+      const passengersNum = toPositiveNumber(r.passengers);
+      const originalGroupPrice = safePrice(r.originalSAR);
+      const sellingGroupPrice = safePrice(r.sellingSAR);
+      const originalPerPerson = originalGroupPrice / passengersNum;
+      const sellingPerPerson = sellingGroupPrice / passengersNum;
+      return {
+        route: r.route,
+        carType: r.carType,
+        passengers: passengersNum,
+        originalGroupPrice,
+        sellingGroupPrice,
+        sellingGroupPricePKR: sellingGroupPrice * sellingConversionRateNum,
+        originalPerPerson,
+        originalPerPersonPKR: originalPerPerson * conversionRateNum,
+        sellingPerPerson,
+        sellingPerPersonPKR: sellingPerPerson * sellingConversionRateNum,
+        profitPerPerson: sellingPerPerson - originalPerPerson,
+        profitPerPersonPKR:
+          sellingPerPerson * sellingConversionRateNum -
+          originalPerPerson * conversionRateNum,
+      };
+    });
+    const transportOriginalPerPerson = routeBreakdown.reduce(
+      (sum, r) => sum + r.originalPerPerson,
+      0
+    );
+    const transportSellingPerPerson = routeBreakdown.reduce(
+      (sum, r) => sum + r.sellingPerPerson,
+      0
+    );
+    const transportService =
+      routeBreakdown.length > 0
+        ? buildServiceRecord(
+            routeBreakdown.length === 1
+              ? `${routeBreakdown[0].route} (${routeBreakdown[0].carType})`
+              : `${routeBreakdown.length} Routes`,
+            false,
+            "SAR",
+            transportOriginalPerPerson,
+            transportOriginalPerPerson * conversionRateNum,
+            transportSellingPerPerson,
+            transportSellingPerPerson * sellingConversionRateNum,
+            { routes: routeBreakdown }
+          )
+        : null;
 
     // --- Train Ticket: SAR-native, flat. Same DB-or-custom shape as
     // Visa/Flight/Transport now that a Train listing exists. ---
@@ -1066,8 +1197,14 @@ const NormalPackage = () => {
     // totals above).
     setResult({
       clientName,
-      packageName,
-      totalDays,
+      checkInDate,
+      checkOutDate,
+      totalDays: totalDaysNum,
+      totalNights: totalNightsNum,
+      departureLahore,
+      arrivalJed,
+      departureJed,
+      arrivalLahore,
       conversionRate: conversionRateNum,
       sellingConversionRate: sellingConversionRateNum,
       makkahService,
@@ -1105,9 +1242,13 @@ const NormalPackage = () => {
   };
 
   const clearAll = () => {
-    setPackageName("");
     setClientName("");
-    setTotalDays("");
+    setCheckInDate("");
+    setCheckOutDate("");
+    setDepartureLahore("");
+    setArrivalJed("");
+    setDepartureJed("");
+    setArrivalLahore("");
     setConversionRate("");
     setTotalPassengers("");
 
@@ -1138,12 +1279,6 @@ const NormalPackage = () => {
     flightSellingPrice.reset();
 
     setIncludeTransport(false);
-    setTransportText("");
-    setTransportSelected(null);
-    transportPrice.reset();
-    transportSellingPrice.reset();
-    setTransportPassengers("");
-
     setNumberOfRoutes("");
     setRouteRows([]);
 
@@ -1159,16 +1294,7 @@ const NormalPackage = () => {
     setResult(null);
   };
 
-  const handlePrint = () => {
-    const navElements = document.querySelectorAll(
-      'nav, header, [role="navigation"]'
-    );
-    navElements.forEach((el) => (el.style.display = "none"));
-    window.print();
-    setTimeout(() => {
-      navElements.forEach((el) => (el.style.display = ""));
-    }, 100);
-  };
+  const handlePrint = () => window.print();
 
   const handleSaveConfirm = async (name) => {
     if (saving) return;
@@ -1199,7 +1325,9 @@ const NormalPackage = () => {
   };
 
   const printRows = result ? buildPrintRows(result) : [];
+  const summaryRows = result ? buildSummaryRows(result) : [];
   const canCalculate =
+    !tripDateError &&
     !nightsValidationError &&
     !conversionRateError &&
     !totalPassengersError &&
@@ -1207,24 +1335,19 @@ const NormalPackage = () => {
 
   return (
     <>
-      {/* PRINT CSS */}
+      {/* PRINT CSS — same convention as HotelForm.jsx: the on-screen
+          working view (including the on-screen result card) is hidden
+          from print entirely, only the dedicated report block prints. */}
       <style>
         {`
-          .print-only-summary { display: none; }
-
           @media print {
-            .no-print { display: none !important; }
-            nav, header, footer, [role="navigation"] { display: none !important; }
-            body { -webkit-print-color-adjust: exact; background: white !important; }
-            * { box-shadow: none !important; }
-            #package-summary { border: 1px solid #000 !important; }
-            .screen-only-summary { display: none !important; }
-            .print-only-summary { display: block !important; }
-
-            /* The bordered/header-shaded table look itself now lives in
-               the shared .print-report-table rule in index.css, used by
-               every calculator's print report. */
+            #package-print-report {
+              display: block !important;
+              max-width: 720px;
+              margin: 0 auto;
+            }
           }
+          #package-print-report { display: none; }
         `}
       </style>
 
@@ -1240,23 +1363,15 @@ const NormalPackage = () => {
               <PackageCheck size={18} className="text-red-600" />
               Package Details
             </h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Field label="Package Name" required>
+
+            {/* Client — Client Name, Conversion Rate, and Total Passengers. */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <Field label="Client Name">
                 <input
                   type="text"
-                  placeholder="My Custom Umrah Package"
-                  value={packageName}
-                  onChange={(e) => setPackageName(toUpper(e.target.value))}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Total Days">
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="e.g. 14"
-                  value={totalDays}
-                  onChange={(e) => setTotalDays(e.target.value)}
+                  placeholder="Enter client name"
+                  value={clientName}
+                  onChange={(e) => setClientName(toUpper(e.target.value))}
                   className={inputClass}
                 />
               </Field>
@@ -1284,24 +1399,87 @@ const NormalPackage = () => {
               </Field>
             </div>
 
-            {/* Client Name — who this quote is for, distinct from the
-                package's own title above. Kept out of the primary 4-field
-                row per the compact layout spec, same treatment Selling Rate
-                got before it was removed. */}
+            {/* Travel Dates — Total Days/Nights are read-only, derived
+                automatically from Check-in/Check-out. */}
             <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Field label="Client Name">
+              <Field label="Check-in / Departure Date">
+                <input
+                  type="date"
+                  value={checkInDate}
+                  onChange={(e) => setCheckInDate(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Check-out / Return Date">
+                <input
+                  type="date"
+                  min={checkInDate || undefined}
+                  value={checkOutDate}
+                  onChange={(e) => setCheckOutDate(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Total Days">
                 <input
                   type="text"
-                  placeholder="Enter client name"
-                  value={clientName}
-                  onChange={(e) => setClientName(toUpper(e.target.value))}
+                  readOnly
+                  value={tripDatesValid ? String(totalDaysNum) : "—"}
+                  className={`${inputClass} bg-gray-100 text-gray-600 cursor-not-allowed`}
+                />
+              </Field>
+              <Field label="Total Nights">
+                <input
+                  type="text"
+                  readOnly
+                  value={tripDatesValid ? String(totalNightsNum) : "—"}
+                  className={`${inputClass} bg-gray-100 text-gray-600 cursor-not-allowed`}
+                />
+              </Field>
+            </div>
+
+            {/* Flight/Travel Schedule — plain date+time fields, display-only
+                context (not used in any calculation). */}
+            <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <Field label="Departure from Lahore">
+                <input
+                  type="datetime-local"
+                  value={departureLahore}
+                  onChange={(e) => setDepartureLahore(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Arrival at JED">
+                <input
+                  type="datetime-local"
+                  value={arrivalJed}
+                  onChange={(e) => setArrivalJed(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Departure from JED">
+                <input
+                  type="datetime-local"
+                  value={departureJed}
+                  onChange={(e) => setDepartureJed(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Arrival at Lahore">
+                <input
+                  type="datetime-local"
+                  value={arrivalLahore}
+                  onChange={(e) => setArrivalLahore(e.target.value)}
                   className={inputClass}
                 />
               </Field>
             </div>
 
-            {(nightsValidationError || conversionRateError || totalPassengersError) && (
+            {(tripDateError ||
+              nightsValidationError ||
+              conversionRateError ||
+              totalPassengersError) && (
               <div className="mt-3 space-y-1.5">
+                {tripDateError && <ValidationBanner message={tripDateError} />}
                 {nightsValidationError && (
                   <ValidationBanner message={nightsValidationError} />
                 )}
@@ -1818,26 +1996,24 @@ const NormalPackage = () => {
       {result && (
         <div
           id="package-summary"
-          className="bg-surface rounded-2xl border border-hair shadow-soft mt-8 overflow-hidden animate-fade-in-up"
+          className="bg-surface rounded-2xl border border-hair shadow-soft mt-8 overflow-hidden animate-fade-in-up no-print"
         >
-          {/* Summary header — shared between screen and print, so it must
-              never mention the cost side (Conversion Rate/Original Price). */}
+          {/* On-screen only — the internal/admin Original/Selling/Profit
+              breakdown below never prints; the dedicated print-only report
+              (below, after this card) is what actually goes to the
+              printer. */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-hair bg-linear-to-r from-brand-50 to-surface">
             <div>
               <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">
                 Custom Package
               </p>
               <h2 className="text-2xl font-extrabold text-ink">
-                {result.packageName}
+                {result.clientName || "Custom Package"}
               </h2>
-              {result.clientName && (
-                <p className="text-sm font-medium text-ink mt-1">
-                  Client: {result.clientName}
-                </p>
-              )}
               <p className="text-sm text-muted mt-1">
-                {result.totalDays || "—"} Days · Rate: 1 SAR ={" "}
-                {result.sellingConversionRate} PKR · Price shown is per person
+                {result.totalDays || "—"} Days · {result.totalNights || "—"}{" "}
+                Nights · Rate: 1 SAR = {result.sellingConversionRate} PKR ·
+                Price shown is per person
               </p>
             </div>
             <div className="flex gap-3 no-print">
@@ -1856,7 +2032,7 @@ const NormalPackage = () => {
 
           {/* SCREEN-ONLY: full internal/admin breakdown — Original, Selling
               and Profit for every included service. */}
-          <div className="screen-only-summary p-4 space-y-2.5">
+          <div className="p-4 space-y-2.5">
             <ServiceDetailCard
               title="Makkah Hotel"
               service={result.makkahService}
@@ -1934,24 +2110,23 @@ const NormalPackage = () => {
               extraRows={
                 result.transportService && (
                   <>
-                    <DetailRow
-                      label="Total Passengers"
-                      value={result.transportService.passengers}
-                    />
-                    <DetailRow
-                      label="Original Group Price"
-                      value={pair(
-                        result.transportService.originalGroupPrice,
-                        result.transportService.originalGroupPricePKR
-                      )}
-                    />
-                    <DetailRow
-                      label="Selling Group Price"
-                      value={pair(
-                        result.transportService.sellingGroupPrice,
-                        result.transportService.sellingGroupPricePKR
-                      )}
-                    />
+                    {result.transportService.routes.map((r, idx) => (
+                      <DetailRow
+                        key={idx}
+                        label={`${r.route} — ${r.carType} (${r.passengers} pax)`}
+                        value={
+                          <span
+                            className={
+                              r.profitPerPerson < 0
+                                ? "text-red-600"
+                                : "text-emerald-600"
+                            }
+                          >
+                            Profit: {pair(r.profitPerPerson, r.profitPerPersonPKR)}
+                          </span>
+                        }
+                      />
+                    ))}
                   </>
                 )
               }
@@ -2190,10 +2365,75 @@ const NormalPackage = () => {
             </div>
           </div>
 
-          {/* PRINT-ONLY: customer-facing Excel-style table — selling side only,
-              never original price, never the cost conversion rate, never profit. */}
-          <div className="print-only-summary px-6 pb-6">
-            <table className="print-report-table">
+        </div>
+      )}
+
+      {/* PRINT-ONLY REPORT — same shared letterhead/table styling as
+          HotelForm.jsx's print report: customer-facing Excel-style table,
+          selling side only, never original price, never the cost
+          conversion rate, never profit. */}
+      {result && (
+        <div id="package-print-report">
+          <PrintReportShell
+            reportTitle="Custom Package Cost Report"
+            clientName={result.clientName || "N/A"}
+          >
+            {/* PACKAGE / TRAVEL INFORMATION — client + dates, then the
+                flight schedule. Printed before the 3 cost tables below;
+                the shell's own footer still renders last, after
+                everything here and after Tables 1–3. */}
+            <p style={{ fontWeight: "bold", fontSize: "13px", marginBottom: "6px" }}>
+              Package / Travel Information
+            </p>
+            <table className="print-report-table" style={{ marginBottom: "16px" }}>
+              <thead>
+                <tr>
+                  <th>Client Name</th>
+                  <th>Departure/Check-in Date</th>
+                  <th>Return/Check-out Date</th>
+                  <th className="center">Total Days</th>
+                  <th className="center">Total Nights</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{result.clientName || "N/A"}</td>
+                  <td>{formatDateOnly(result.checkInDate)}</td>
+                  <td>{formatDateOnly(result.checkOutDate)}</td>
+                  <td className="center">{result.totalDays || "—"}</td>
+                  <td className="center">{result.totalNights ?? "—"}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p style={{ fontWeight: "bold", fontSize: "13px", marginBottom: "6px" }}>
+              Flight / Travel Schedule
+            </p>
+            <table className="print-report-table" style={{ marginBottom: "20px" }}>
+              <thead>
+                <tr>
+                  <th>Departure Lahore</th>
+                  <th>Arrival JED</th>
+                  <th>Departure JED</th>
+                  <th>Arrival Lahore</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{formatDateTime(result.departureLahore)}</td>
+                  <td>{formatDateTime(result.arrivalJed)}</td>
+                  <td>{formatDateTime(result.departureJed)}</td>
+                  <td>{formatDateTime(result.arrivalLahore)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* TABLE 1 — Package Services (Hotels, Visa, Flight, Train).
+                No overall total here — that lives only in Table 3 below. */}
+            <p style={{ fontWeight: "bold", fontSize: "13px", marginBottom: "6px" }}>
+              Package Services
+            </p>
+            <table className="print-report-table" style={{ marginBottom: "20px" }}>
               <colgroup>
                 <col style={{ width: "12%" }} />
                 <col style={{ width: "22%" }} />
@@ -2212,8 +2452,8 @@ const NormalPackage = () => {
                   <th className="center">Nights</th>
                   <th className="num">Selling Price SAR</th>
                   <th className="num">Selling Price PKR</th>
-                  <th className="num">Total SAR</th>
-                  <th className="num">Total PKR</th>
+                  <th className="num">Total Per Person SAR</th>
+                  <th className="num">Total Per Person PKR</th>
                 </tr>
               </thead>
               <tbody>
@@ -2230,33 +2470,101 @@ const NormalPackage = () => {
                   </tr>
                 ))}
               </tbody>
+            </table>
+
+            {/* TABLE 2 — Transport Routes. Every selected route is its own
+                row, however many there are. */}
+            {result.transportService && (
+              <>
+                <p style={{ fontWeight: "bold", fontSize: "13px", marginBottom: "6px" }}>
+                  Transport Routes
+                </p>
+                <table className="print-report-table" style={{ marginBottom: "20px" }}>
+                  <colgroup>
+                    <col style={{ width: "22%" }} />
+                    <col style={{ width: "18%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "12%" }} />
+                    <col style={{ width: "12%" }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Route</th>
+                      <th>Vehicle</th>
+                      <th className="center">Passengers</th>
+                      <th className="num">Selling Price SAR</th>
+                      <th className="num">Selling Price PKR</th>
+                      <th className="num">Per Person SAR</th>
+                      <th className="num">Per Person PKR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.transportService.routes.map((r, idx) => (
+                      <tr key={idx}>
+                        <td>{r.route}</td>
+                        <td>{r.carType}</td>
+                        <td className="center">{r.passengers}</td>
+                        <td className="num">{money(r.sellingGroupPrice)}</td>
+                        <td className="num">{moneyPKR(r.sellingGroupPricePKR)}</td>
+                        <td className="num">{money(r.sellingPerPerson)}</td>
+                        <td className="num">{moneyPKR(r.sellingPerPersonPKR)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="grand-total">
+                      <td colSpan={5} className="num">
+                        Transport Total Per Person
+                      </td>
+                      <td className="num">{money(result.transportService.sellingSAR)}</td>
+                      <td className="num">
+                        {moneyPKR(result.transportService.sellingPKR)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </>
+            )}
+
+            {/* TABLE 3 — Final Package Summary. */}
+            <p style={{ fontWeight: "bold", fontSize: "13px", marginBottom: "6px" }}>
+              Final Package Summary
+            </p>
+            <table className="print-report-table">
+              <colgroup>
+                <col style={{ width: "40%" }} />
+                <col style={{ width: "30%" }} />
+                <col style={{ width: "30%" }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th className="num">Per Person PKR</th>
+                  <th className="num">All Passengers PKR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summaryRows.map((row) => (
+                  <tr key={row.category}>
+                    <td>{row.category}</td>
+                    <td className="num">{moneyPKR(row.perPersonPKR)}</td>
+                    <td className="num">{moneyPKR(row.allPassengersPKR)}</td>
+                  </tr>
+                ))}
+              </tbody>
               <tfoot>
                 <tr className="grand-total">
-                  <td colSpan={6} className="num">
-                    Package Price Per Person
-                  </td>
-                  <td className="num">{money(result.totals.sellingSAR)}</td>
+                  <td>Complete Package Total — PKR</td>
                   <td className="num">{moneyPKR(result.totals.sellingPKR)}</td>
-                </tr>
-                <tr>
-                  <td colSpan={6} className="num">
-                    Total Passengers
-                  </td>
-                  <td colSpan={2} className="num">
-                    {result.totals.totalPassengers}
-                  </td>
-                </tr>
-                <tr className="grand-total">
-                  <td colSpan={6} className="num">
-                    Total Package Price (All Passengers) — PKR
-                  </td>
-                  <td colSpan={2} className="num">
+                  <td className="num">
                     {moneyPKR(result.totals.sellingPKRAllPassengers)}
                   </td>
                 </tr>
               </tfoot>
             </table>
-          </div>
+          </PrintReportShell>
         </div>
       )}
 
