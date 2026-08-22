@@ -7,19 +7,17 @@ import {
   Trash2,
   MapPin,
   Navigation,
+  Save,
 } from "lucide-react";
 import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
 import Combobox from "../../UI/Combobox";
-import logo from "../../../assets/logo-mark.png";
+import ValidationErrors from "../../UI/ValidationErrors";
+import SaveToHistoryModal from "../../UI/SaveToHistoryModal";
+import PrintReportShell from "../../UI/PrintReportShell";
 import { toUpper } from "../../../utils/text";
 import { API_BASE_URL } from "../../../config/api";
-
-const COMPANY_NAME = "AlBuraq Global Travel & Tours";
-const COMPANY_WEBSITE = "www.alburaqtours.com";
-const COMPANY_ADDRESS =
-  "Plaza No. 54, Block A, Commercial Area, Eden City, DHA Phase 8";
-const COMPANY_PHONES = ["0321-4440467", "0327-3276060", "0316-9214727"];
+import { saveCalculation } from "../../../utils/savedCalculations";
 
 // Defined at module scope (not inside the component) so its identity stays
 // stable across renders — defining a component inside another component's
@@ -45,6 +43,8 @@ export default function HotelCalculator() {
   const [result, setResult] = useState(null);
   const [hotels, setHotels] = useState([]);
   const [availableRoomTypes, setAvailableRoomTypes] = useState([]);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // New fields for location
   const [city, setCity] = useState("");
@@ -144,20 +144,40 @@ export default function HotelCalculator() {
     }
   };
 
+  // Required-field validation — the Calculate button stays disabled and
+  // these messages are shown until every required field is present and
+  // valid. Price is auto-filled from the selected hotel/room type (there's
+  // no free-typed price input), but is still checked in case of bad data.
+  const nights =
+    checkIn && checkOut
+      ? (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24)
+      : 0;
+  const priceNum = parseFloat(price);
+  const hasStartedInput = !!(hotelName || checkIn || checkOut);
+
+  const validationErrors = [];
+  if (!hotelName) validationErrors.push("Select a hotel.");
+  if (hotelName && !roomType) validationErrors.push("Select a room type.");
+  if (!checkIn) validationErrors.push("Select a check-in date.");
+  if (!checkOut) validationErrors.push("Select a check-out date.");
+  if (checkIn && checkOut && nights <= 0)
+    validationErrors.push("Check-out date must be after check-in date.");
+  if (hotelName && roomType && !(Number.isFinite(priceNum) && priceNum > 0))
+    validationErrors.push("Selected room has no valid price.");
+
+  const canCalculate =
+    !!hotelName &&
+    !!roomType &&
+    !!checkIn &&
+    !!checkOut &&
+    nights > 0 &&
+    Number.isFinite(priceNum) &&
+    priceNum > 0;
+
   const calculate = () => {
-    if (!hotelName || !roomType || !checkIn || !checkOut || !price) {
-      alert("Please fill all required fields!");
-      return;
-    }
+    if (!canCalculate) return;
 
-    const nights =
-      (new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24);
-    if (nights <= 0) {
-      alert("Checkout date must be after check-in date!");
-      return;
-    }
-
-    const perNightPrice = parseFloat(price);
+    const perNightPrice = priceNum;
 
     // Calculate all costs
     const totalNightsPrice = perNightPrice * nights;
@@ -195,6 +215,34 @@ export default function HotelCalculator() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleSaveConfirm = async (name) => {
+    if (saving) return;
+    if (!name.trim()) {
+      alert("Please enter a client name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const data = await saveCalculation({
+        type: "hotel",
+        clientName: name.trim(),
+        snapshot: result,
+        total: result.totalFinalCost,
+      });
+      if (data.success) {
+        alert(`Saved to history as ${data.data.referenceNumber}`);
+        setShowSaveModal(false);
+      } else {
+        alert(data.message || "Error saving to history");
+      }
+    } catch (err) {
+      console.error("Error saving to history:", err);
+      alert("Error saving to history");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const clearForm = () => {
@@ -325,9 +373,21 @@ export default function HotelCalculator() {
               </FieldWrapper>
             </div>
 
+            {hasStartedInput && (
+              <div className="mt-4">
+                <ValidationErrors messages={validationErrors} />
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex gap-3 mt-6">
-              <Button fullWidth size="lg" icon={Calculator} onClick={calculate}>
+              <Button
+                fullWidth
+                size="lg"
+                icon={Calculator}
+                onClick={calculate}
+                disabled={!canCalculate}
+              >
                 Calculate Costs
               </Button>
               <Button
@@ -350,9 +410,18 @@ export default function HotelCalculator() {
                   <Calculator size={20} className="text-green-600" />
                   Calculation Results
                 </h2>
-                <Button variant="success" icon={Printer} onClick={handlePrint}>
-                  Print Report
-                </Button>
+                <div className="flex gap-3">
+                  <Button
+                    variant="secondary"
+                    icon={Save}
+                    onClick={() => setShowSaveModal(true)}
+                  >
+                    Save
+                  </Button>
+                  <Button variant="success" icon={Printer} onClick={handlePrint}>
+                    Print Report
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -506,169 +575,66 @@ export default function HotelCalculator() {
           )}
         </div>
 
-        {/* ============ PROFESSIONAL PRINT-ONLY REPORT ============ */}
+        {/* ============ PRINT-ONLY REPORT — one clean Excel-style table ============ */}
         {result && (
           <div id="hotel-print-report">
-            {/* Header — first (and only) page */}
-            <div
-              style={{
-                textAlign: "center",
-                borderBottom: "2px solid #000",
-                paddingBottom: "16px",
-                marginBottom: "24px",
-              }}
+            <PrintReportShell
+              reportTitle="Hotel Booking Cost Report"
+              clientName={result.clientName || "N/A"}
             >
-              <img
-                src={logo}
-                alt="AlBuraq Global"
-                style={{ width: "64px", height: "64px", margin: "0 auto 8px" }}
-              />
-              <h1 style={{ fontSize: "22px", fontWeight: "bold", margin: 0 }}>
-                {COMPANY_NAME}
-              </h1>
-              <p style={{ fontSize: "14px", marginTop: "10px" }}>
-                <strong>Report Title:</strong> Hotel Booking Cost Report
-              </p>
-              <p style={{ fontSize: "14px" }}>
-                <strong>Client Name:</strong> {result.clientName || "N/A"}
-              </p>
-            </div>
-
-            {/* Body — customer-facing details only, no internal cost breakdown */}
-            <div style={{ fontSize: "13px" }}>
-              <h2
-                style={{
-                  fontSize: "15px",
-                  fontWeight: "bold",
-                  marginBottom: "8px",
-                  borderBottom: "1px solid #000",
-                  paddingBottom: "4px",
-                }}
-              >
-                Hotel &amp; Stay Details
-              </h2>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  marginBottom: "20px",
-                }}
-              >
-                <tbody>
-                  {[
-                    ["Hotel Name", result.hotelName],
-                    ["Category", result.category],
-                    ["Room Type", result.roomType],
-                    ["Address", result.address || "N/A"],
-                    ["City", result.city],
-                    ["Area", result.area],
-                    ["Distance from Center", `${result.distance} m`],
-                    ["Check-in Date", result.checkIn],
-                    ["Check-out Date", result.checkOut],
-                    [
-                      "Total Nights",
-                      `${result.totalNights} night${
-                        result.totalNights !== 1 ? "s" : ""
-                      }`,
-                    ],
-                  ].map(([label, val]) => (
-                    <tr key={label}>
-                      <td
-                        style={{
-                          border: "1px solid #000",
-                          padding: "8px 10px",
-                          fontWeight: "bold",
-                          width: "40%",
-                        }}
-                      >
-                        {label}
-                      </td>
-                      <td style={{ border: "1px solid #000", padding: "8px 10px" }}>
-                        {val}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <h2
-                style={{
-                  fontSize: "15px",
-                  fontWeight: "bold",
-                  marginBottom: "8px",
-                  borderBottom: "1px solid #000",
-                  paddingBottom: "4px",
-                }}
-              >
-                Cost Summary
-              </h2>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="print-report-table">
+                <thead>
+                  <tr>
+                    <th>Hotel Name</th>
+                    <th>Category</th>
+                    <th>Room Type</th>
+                    <th>City</th>
+                    <th>Area</th>
+                    <th>Address</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th className="center">Nights</th>
+                    <th className="num">Price/Night</th>
+                    <th className="num">Total Final Cost</th>
+                  </tr>
+                </thead>
                 <tbody>
                   <tr>
-                    <td
-                      style={{
-                        border: "1px solid #000",
-                        padding: "8px 10px",
-                        fontWeight: "bold",
-                        width: "40%",
-                      }}
-                    >
-                      Price per Night
-                    </td>
-                    <td style={{ border: "1px solid #000", padding: "8px 10px" }}>
-                      ${result.perNightPrice.toFixed(2)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      style={{
-                        border: "1px solid #000",
-                        padding: "10px",
-                        fontWeight: "bold",
-                        fontSize: "14px",
-                      }}
-                    >
-                      Grand Total
-                    </td>
-                    <td
-                      style={{
-                        border: "1px solid #000",
-                        padding: "10px",
-                        fontWeight: "bold",
-                        fontSize: "14px",
-                      }}
-                    >
-                      ${result.totalFinalCost.toFixed(2)}
-                    </td>
+                    <td>{result.hotelName}</td>
+                    <td>{result.category}</td>
+                    <td>{result.roomType}</td>
+                    <td>{result.city}</td>
+                    <td>{result.area}</td>
+                    <td>{result.address || "N/A"}</td>
+                    <td>{result.checkIn}</td>
+                    <td>{result.checkOut}</td>
+                    <td className="center">{result.totalNights}</td>
+                    <td className="num">${result.perNightPrice.toFixed(2)}</td>
+                    <td className="num">${result.totalFinalCost.toFixed(2)}</td>
                   </tr>
                 </tbody>
+                <tfoot>
+                  <tr className="grand-total">
+                    <td colSpan={10} className="num">
+                      Total Final Cost
+                    </td>
+                    <td className="num">${result.totalFinalCost.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
               </table>
-            </div>
-
-            {/* Footer — first (and only) page */}
-            <div
-              style={{
-                marginTop: "32px",
-                paddingTop: "12px",
-                borderTop: "2px solid #000",
-                fontSize: "11px",
-                textAlign: "center",
-                lineHeight: 1.6,
-              }}
-            >
-              <p>
-                <strong>Website:</strong> {COMPANY_WEBSITE}
-              </p>
-              <p>
-                <strong>Address:</strong> {COMPANY_ADDRESS}
-              </p>
-              <p>
-                <strong>Contact Numbers:</strong> {COMPANY_PHONES.join("  |  ")}
-              </p>
-            </div>
+            </PrintReportShell>
           </div>
         )}
       </div>
+
+      <SaveToHistoryModal
+        open={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onConfirm={handleSaveConfirm}
+        label="Client Name"
+        defaultValue={clientName}
+        saving={saving}
+      />
     </div>
   );
 }

@@ -6,9 +6,11 @@ import {
   Stamp,
   Plane,
   Car,
+  Train,
   Package,
   Sparkles,
   ListChecks,
+  History,
   LogOut,
   ChevronDown,
 } from "lucide-react";
@@ -27,6 +29,7 @@ const NAV = [
       { to: "/dashboard/visa", icon: Stamp, text: "Visa" },
       { to: "/dashboard/tickets", icon: Plane, text: "Tickets" },
       { to: "/dashboard/transport", icon: Car, text: "Transport" },
+      { to: "/dashboard/train", icon: Train, text: "Train" },
     ],
   },
   {
@@ -46,6 +49,10 @@ const NAV = [
   {
     label: "Management",
     items: [{ to: "/dashboard/listings", icon: ListChecks, text: "Listings" }],
+  },
+  {
+    label: "History",
+    items: [{ to: "/dashboard/history", icon: History, text: "Saved History" }],
   },
 ];
 

@@ -5,12 +5,17 @@ import {
   PackageCheck,
   Trash2,
   AlertTriangle,
+  Printer,
+  Save,
 } from "lucide-react";
 import { Field, inputClass } from "../Main/FormControls";
 import Button from "../UI/Button";
 import SearchableCombobox from "../UI/SearchableCombobox";
+import SaveToHistoryModal from "../UI/SaveToHistoryModal";
+import PrintReportShell from "../UI/PrintReportShell";
 import { toUpper } from "../../utils/text";
 import { API_BASE_URL as API } from "../../config/api";
+import { saveCalculation } from "../../utils/savedCalculations";
 
 // Safety cap on how many separate stay blocks a single city can have — a
 // generous ceiling that still protects against a mistyped huge number
@@ -124,6 +129,7 @@ const ExplanatoryPackage = () => {
   const [loading, setLoading] = useState(true);
 
   const [packageName, setPackageName] = useState("");
+  const [clientName, setClientName] = useState("");
   const [packageCheckIn, setPackageCheckIn] = useState("");
   const [packageCheckOut, setPackageCheckOut] = useState("");
 
@@ -140,6 +146,8 @@ const ExplanatoryPackage = () => {
   const [madinahStays, setMadinahStays] = useState([emptyStay()]);
 
   const [result, setResult] = useState(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -251,6 +259,7 @@ const ExplanatoryPackage = () => {
 
     setResult({
       packageName: packageName.trim(),
+      clientName,
       packageCheckIn,
       packageCheckOut,
       totalDays: packageDaysValid ? packageDaysRaw : 0,
@@ -285,6 +294,7 @@ const ExplanatoryPackage = () => {
 
   const clearAll = () => {
     setPackageName("");
+    setClientName("");
     setPackageCheckIn("");
     setPackageCheckOut("");
 
@@ -303,14 +313,60 @@ const ExplanatoryPackage = () => {
     setResult(null);
   };
 
+  const handlePrint = () => window.print();
+
+  const handleSaveConfirm = async (name) => {
+    if (saving) return;
+    if (!name.trim()) {
+      alert("Please enter a client name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const data = await saveCalculation({
+        type: "package",
+        clientName: name.trim(),
+        snapshot: { ...result, packageKind: "explanatory" },
+        total: 0,
+      });
+      if (data.success) {
+        alert(`Saved to history as ${data.data.referenceNumber}`);
+        setShowSaveModal(false);
+      } else {
+        alert(data.message || "Error saving to history");
+      }
+    } catch (err) {
+      console.error("Error saving to history:", err);
+      alert("Error saving to history");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* PRINT CSS — same convention as HotelForm.jsx: the on-screen working
+          view is hidden from print entirely, only the dedicated report
+          block prints. */}
+      <style>
+        {`
+          @media print {
+            #explanatory-print-report {
+              display: block !important;
+              max-width: 720px;
+              margin: 0 auto;
+            }
+          }
+          #explanatory-print-report { display: none; }
+        `}
+      </style>
+
       {loading ? (
-        <div className="calc-card p-8 text-center text-muted">
+        <div className="calc-card p-8 text-center text-muted no-print">
           Loading listings...
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 no-print">
           {/* PACKAGE BASICS */}
           <div className="calc-card p-6">
             <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 mb-4">
@@ -324,6 +380,15 @@ const ExplanatoryPackage = () => {
                   placeholder="My Explanatory Umrah Package"
                   value={packageName}
                   onChange={(e) => setPackageName(toUpper(e.target.value))}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Client Name" className="sm:col-span-2">
+                <input
+                  type="text"
+                  placeholder="Enter client name"
+                  value={clientName}
+                  onChange={(e) => setClientName(toUpper(e.target.value))}
                   className={inputClass}
                 />
               </Field>
@@ -467,7 +532,7 @@ const ExplanatoryPackage = () => {
       {result && (
         <div
           id="explanatory-summary"
-          className="bg-surface rounded-2xl border border-hair shadow-soft mt-8 overflow-hidden animate-fade-in-up"
+          className="bg-surface rounded-2xl border border-hair shadow-soft mt-8 overflow-hidden animate-fade-in-up no-print"
         >
           <div className="flex items-center justify-between px-6 py-5 border-b border-hair bg-linear-to-r from-brand-50 to-surface">
             <div>
@@ -477,12 +542,29 @@ const ExplanatoryPackage = () => {
               <h2 className="text-2xl font-extrabold text-ink">
                 {result.packageName}
               </h2>
+              {result.clientName && (
+                <p className="text-sm font-medium text-ink mt-1">
+                  Client: {result.clientName}
+                </p>
+              )}
               <p className="text-sm text-muted mt-1">
                 {formatDate(result.packageCheckIn)} →{" "}
                 {formatDate(result.packageCheckOut)} ·{" "}
                 {result.totalDays || "—"}{" "}
                 {result.totalDays === 1 ? "Day" : "Days"}
               </p>
+            </div>
+            <div className="flex gap-3 no-print">
+              <Button
+                variant="secondary"
+                icon={Save}
+                onClick={() => setShowSaveModal(true)}
+              >
+                Save
+              </Button>
+              <Button variant="success" icon={Printer} onClick={handlePrint}>
+                Print
+              </Button>
             </div>
           </div>
 
@@ -496,6 +578,72 @@ const ExplanatoryPackage = () => {
           </div>
         </div>
       )}
+
+      {/* PRINT-ONLY REPORT — one clean Excel-style table, one row per stay
+          across both cities (no pricing — this package type is a
+          nights/dates planner only). */}
+      {result && (
+        <div id="explanatory-print-report">
+          <PrintReportShell
+            reportTitle={`Explanatory Package — ${result.packageName}`}
+            clientName={result.clientName || "N/A"}
+          >
+            <table className="print-report-table">
+              <thead>
+                <tr>
+                  <th>City</th>
+                  <th>Hotel</th>
+                  <th className="center">Persons</th>
+                  <th className="center">Stay #</th>
+                  <th>Check-in</th>
+                  <th>Check-out</th>
+                  <th className="center">Nights</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["Makkah", result.makkah],
+                  ["Madinah", result.madinah],
+                ].flatMap(([city, data]) =>
+                  data
+                    ? data.stays.map((s, idx) => (
+                        <tr key={`${city}-${idx}`}>
+                          <td>{city}</td>
+                          <td>
+                            {data.hotel.hotelName}
+                            {data.hotel.isCustom ? " (Custom)" : ""}
+                          </td>
+                          <td className="center">{data.persons}</td>
+                          <td className="center">{idx + 1}</td>
+                          <td>{formatDate(s.checkIn)}</td>
+                          <td>{formatDate(s.checkOut)}</td>
+                          <td className="center">{s.valid ? s.nights : "—"}</td>
+                        </tr>
+                      ))
+                    : []
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="grand-total">
+                  <td colSpan={6} className="num">
+                    Total Package Days
+                  </td>
+                  <td className="center">{result.totalDays || "—"}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </PrintReportShell>
+        </div>
+      )}
+
+      <SaveToHistoryModal
+        open={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onConfirm={handleSaveConfirm}
+        label="Client Name"
+        defaultValue={result?.clientName || ""}
+        saving={saving}
+      />
     </div>
   );
 };

@@ -6,9 +6,9 @@
 // interrupted — only genuine inactivity triggers the logout. Change this
 // ONE value to adjust the timeout everywhere it's used.
 //
-// Currently set to 5 minutes for testing. For production, e.g.:
+// Currently set to 1 hour. For a different duration, e.g.:
 //   export const SESSION_TIMEOUT_MS = 3 * 60 * 60 * 1000; // 3 hours
-export const SESSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+export const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
 
 // sessionStorage key used to persist the last-activity timestamp, so a page
 // refresh (itself treated as activity) doesn't lose track of the idle

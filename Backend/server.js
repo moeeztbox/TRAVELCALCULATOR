@@ -20,6 +20,8 @@ import transportRoutes from "./Routes/transport.js";
 import visaRoutes from "./Routes/visa.js";
 import ticketRoutes from "./Routes/ticket.js";
 import packageRoutes from "./Routes/package.js";
+import trainRoutes from "./Routes/train.js";
+import savedCalculationRoutes from "./Routes/savedCalculation.js";
 
 const app = express();
 
@@ -66,6 +68,8 @@ app.use("/api", transportRoutes);
 app.use("/api", visaRoutes);
 app.use("/api", ticketRoutes);
 app.use("/api", packageRoutes);
+app.use("/api", trainRoutes);
+app.use("/api", savedCalculationRoutes);
 
 // Serve the built React frontend (Frontend/dist) when it exists — this is
 // what lets the Electron desktop build load everything from one origin

@@ -1,9 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import React, { useState, useEffect } from "react";
-import { Calculator, Trash2, Printer, FileText } from "lucide-react";
+import { Calculator, Trash2, Printer, FileText, Save } from "lucide-react";
 import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
+import ValidationErrors from "../../UI/ValidationErrors";
+import SaveToHistoryModal from "../../UI/SaveToHistoryModal";
+import PrintReportShell from "../../UI/PrintReportShell";
 import { API_BASE_URL } from "../../../config/api";
+import { saveCalculation } from "../../../utils/savedCalculations";
+import { toUpper } from "../../../utils/text";
 
 // Module scope (not inside the component) so its identity is stable across
 // renders — otherwise React remounts this subtree (and loses input focus)
@@ -25,7 +30,10 @@ export default function VisaForm() {
 
   const [visaData, setVisaData] = useState([]);
   const [selections, setSelections] = useState(emptySelections());
+  const [clientName, setClientName] = useState("");
   const [result, setResult] = useState(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchVisas();
@@ -56,28 +64,62 @@ export default function VisaForm() {
     (cat) => selections[cat].visaId || selections[cat].count
   );
 
-  const calculateVisa = () => {
-    const incomplete = CATEGORIES.some(
-      (cat) =>
-        (selections[cat].visaId && !selections[cat].count) ||
-        (!selections[cat].visaId && selections[cat].count)
-    );
+  // Per-category validity: a category is either untouched (both empty, fine
+  // to leave optional), or fully complete with a valid whole-number count.
+  // Any category with only one side filled, or a count of 0/negative/NaN,
+  // blocks calculation until fixed.
+  const categoryStates = CATEGORIES.map((cat) => {
+    const { visaId, count } = selections[cat];
+    const hasVisa = !!visaId;
+    const hasCount = count !== "" && count !== null && count !== undefined;
+    const countNum = Number(count);
+    const countValid =
+      hasCount && Number.isFinite(countNum) && Number.isInteger(countNum) && countNum > 0;
+    return { cat, hasVisa, hasCount, countValid };
+  });
 
-    if (incomplete) {
-      alert(
-        "Please provide both a visa selection and a passenger count for each category you use."
+  const completeCategories = categoryStates.filter(
+    (c) => c.hasVisa && c.hasCount && c.countValid
+  );
+  const incompleteCategories = categoryStates.filter(
+    (c) => (c.hasVisa || c.hasCount) && !(c.hasVisa && c.hasCount && c.countValid)
+  );
+
+  const validationErrors = [];
+  categoryStates.forEach(({ cat, hasVisa, hasCount, countValid }) => {
+    if (hasVisa && !hasCount) {
+      validationErrors.push(`Enter a passenger count for ${cat}.`);
+    } else if (!hasVisa && hasCount) {
+      validationErrors.push(`Select a visa for ${cat}.`);
+    } else if (hasVisa && hasCount && !countValid) {
+      validationErrors.push(
+        `${cat} passenger count must be a whole number greater than 0.`
       );
-      return;
     }
-
-    const active = CATEGORIES.filter(
-      (cat) => selections[cat].visaId && selections[cat].count
+  });
+  if (validationErrors.length === 0 && completeCategories.length === 0) {
+    validationErrors.push(
+      "Select at least one visa category and enter a passenger count."
     );
+  }
 
-    if (active.length === 0) {
-      alert("Please select at least one visa category and enter passenger count!");
-      return;
-    }
+  const invalidPriceCategories = completeCategories.filter((c) => {
+    const visa = visaData.find((v) => v._id === selections[c.cat].visaId);
+    return !visa || !(Number.isFinite(visa.price) && visa.price > 0);
+  });
+  invalidPriceCategories.forEach((c) => {
+    validationErrors.push(`Selected ${c.cat} visa has no valid price.`);
+  });
+
+  const canCalculate =
+    incompleteCategories.length === 0 &&
+    completeCategories.length > 0 &&
+    invalidPriceCategories.length === 0;
+
+  const calculateVisa = () => {
+    if (!canCalculate) return;
+
+    const active = completeCategories.map((c) => c.cat);
 
     const breakdown = active.map((cat) => {
       const visa = visaData.find((v) => v._id === selections[cat].visaId);
@@ -108,19 +150,64 @@ export default function VisaForm() {
       0
     );
 
-    setResult({ breakdown, totalFinalCost });
+    setResult({ clientName, breakdown, totalFinalCost });
   };
 
   const handlePrint = () => window.print();
 
+  const handleSaveConfirm = async (name) => {
+    if (saving) return;
+    if (!name.trim()) {
+      alert("Please enter a client name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const data = await saveCalculation({
+        type: "visa",
+        clientName: name.trim(),
+        snapshot: result,
+        total: result.totalFinalCost,
+      });
+      if (data.success) {
+        alert(`Saved to history as ${data.data.referenceNumber}`);
+        setShowSaveModal(false);
+      } else {
+        alert(data.message || "Error saving to history");
+      }
+    } catch (err) {
+      console.error("Error saving to history:", err);
+      alert("Error saving to history");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const clearForm = () => {
     setSelections(emptySelections());
+    setClientName("");
     setResult(null);
   };
 
   return (
     <div className="calc">
-      <div className="max-w-6xl mx-auto">
+      {/* PRINT CSS — same convention as HotelForm.jsx: the on-screen working
+          view is hidden from print entirely, only the dedicated report
+          block prints. */}
+      <style>
+        {`
+          @media print {
+            #visa-print-report {
+              display: block !important;
+              max-width: 720px;
+              margin: 0 auto;
+            }
+          }
+          #visa-print-report { display: none; }
+        `}
+      </style>
+
+      <div className="max-w-6xl mx-auto no-print">
         {/* Header with Print Button */}
         <div className="mb-8">
           <PageHeader
@@ -130,9 +217,18 @@ export default function VisaForm() {
             onBack={() => navigate("/dashboard")}
             actions={
               result && (
-                <Button variant="secondary" icon={Printer} onClick={handlePrint}>
-                  Print Report
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    icon={Save}
+                    onClick={() => setShowSaveModal(true)}
+                  >
+                    Save
+                  </Button>
+                  <Button variant="secondary" icon={Printer} onClick={handlePrint}>
+                    Print Report
+                  </Button>
+                </>
               )
             }
           />
@@ -141,6 +237,19 @@ export default function VisaForm() {
         {/* Input Section */}
         <div className="space-y-2">
           <div className="calc-card p-6">
+            <FieldWrapper className="mb-4 md:max-w-xs">
+              <label className="text-sm font-medium text-gray-700">
+                Client Name
+              </label>
+              <input
+                type="text"
+                value={clientName}
+                onChange={(e) => setClientName(toUpper(e.target.value))}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Enter client name"
+              />
+            </FieldWrapper>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {CATEGORIES.map((cat) => (
                 <div key={cat} className="space-y-4">
@@ -188,6 +297,12 @@ export default function VisaForm() {
               ))}
             </div>
 
+            {hasAnySelection && (
+              <div className="mt-4">
+                <ValidationErrors messages={validationErrors} />
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex gap-3 mt-6">
               <Button
@@ -195,7 +310,7 @@ export default function VisaForm() {
                 size="lg"
                 icon={Calculator}
                 onClick={calculateVisa}
-                disabled={!hasAnySelection}
+                disabled={!canCalculate}
               >
                 Calculate Costs
               </Button>
@@ -214,10 +329,17 @@ export default function VisaForm() {
           {/* Results Section */}
           {result && (
             <div className="calc-card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <Calculator size={20} className="text-green-600" />
-                Calculation Results
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Calculator size={20} className="text-green-600" />
+                  Calculation Results
+                </h2>
+                {result.clientName && (
+                  <span className="text-sm text-gray-600">
+                    Client: <span className="font-medium text-gray-900">{result.clientName}</span>
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {result.breakdown.map((b) => (
@@ -313,6 +435,67 @@ export default function VisaForm() {
           )}
         </div>
       </div>
+
+      {/* PRINT-ONLY REPORT — one clean Excel-style table, one row per
+          visa category actually used. */}
+      {result && (
+        <div id="visa-print-report">
+          <PrintReportShell
+            reportTitle="Visa Cost Report"
+            clientName={result.clientName || "N/A"}
+          >
+            <table className="print-report-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Agent Name</th>
+                  <th className="center">Passengers</th>
+                  <th className="num">Price/Person</th>
+                  <th className="num">Visa Total</th>
+                  <th className="num">Hotel BRN</th>
+                  <th className="num">Food BRN</th>
+                  <th className="num">Category Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.breakdown.map((b) => (
+                  <tr key={b.category}>
+                    <td>{b.category}</td>
+                    <td>{b.agentName}</td>
+                    <td className="center">{b.count}</td>
+                    <td className="num">${b.pricePerPerson.toFixed(2)}</td>
+                    <td className="num">${b.visaTotal.toFixed(2)}</td>
+                    <td className="num">
+                      {b.hotelBRN ? `$${b.hotelBRNTotal.toFixed(2)}` : "—"}
+                    </td>
+                    <td className="num">
+                      {b.foodBRN ? `$${b.foodBRNTotal.toFixed(2)}` : "—"}
+                    </td>
+                    <td className="num">${b.categoryTotal.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="grand-total">
+                  <td colSpan={7} className="num">
+                    Total Final Cost
+                  </td>
+                  <td className="num">${result.totalFinalCost.toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </PrintReportShell>
+        </div>
+      )}
+
+      <SaveToHistoryModal
+        open={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onConfirm={handleSaveConfirm}
+        label="Client Name"
+        defaultValue={clientName}
+        saving={saving}
+      />
     </div>
   );
 }

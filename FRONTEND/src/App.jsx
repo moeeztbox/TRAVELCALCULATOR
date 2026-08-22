@@ -14,6 +14,7 @@ import Login from "./Pages/Login";
 import Dashboard from "./Pages/Dashboard";
 import CustomizePackage from "./Pages/CustomizePackage";
 import PackagesView from "./Pages/PackagesView";
+import History from "./Pages/History";
 import SplashScreen from "./Components/Main/SplashScreen";
 
 // Forms for each dashboard section
@@ -21,6 +22,7 @@ import HotelForm from "./Components/Dashboard/DashboardForms/HotelForm";
 import VisaForm from "./Components/Dashboard/DashboardForms/VisaForm";
 import TicketForm from "./Components/Dashboard/DashboardForms/TicketForm";
 import TransportForm from "./Components/Dashboard/DashboardForms/TransportForm";
+import TrainForm from "./Components/Dashboard/DashboardForms/TrainForm";
 import ListingsForm from "./Components/Dashboard/DashboardForms/ListingsForm";
 
 // Listing Pages
@@ -28,6 +30,7 @@ import HotelList from "./Components/Dashboard/DashboardForms/ListingsFormCards/L
 import TransportList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/TransportList";
 import VisaList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/VisaList";
 import TicketList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/TicketList";
+import TrainList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/TrainList";
 import PackageList from "./Components/Dashboard/DashboardForms/ListingsFormCards/ListingsForm/PackageList";
 
 import PrivateRoute from "./Routes/PrivateRoute";
@@ -63,8 +66,10 @@ const AppRoutes = () => {
       <Route path="/dashboard/visa" element={<PrivateRoute><VisaForm /></PrivateRoute>} />
       <Route path="/dashboard/tickets" element={<PrivateRoute><TicketForm /></PrivateRoute>} />
       <Route path="/dashboard/transport" element={<PrivateRoute><TransportForm /></PrivateRoute>} />
+      <Route path="/dashboard/train" element={<PrivateRoute><TrainForm /></PrivateRoute>} />
       <Route path="/dashboard/listings" element={<PrivateRoute><ListingsForm /></PrivateRoute>} />
       <Route path="/dashboard/packages" element={<PrivateRoute><PackagesView /></PrivateRoute>} />
+      <Route path="/dashboard/history" element={<PrivateRoute><History /></PrivateRoute>} />
       <Route
         path="/dashboard/customize-package"
         element={<Navigate to="/dashboard/customize-package/normal" replace />}
@@ -76,6 +81,7 @@ const AppRoutes = () => {
       <Route path="/dashboard/listings/transport" element={<PrivateRoute><TransportList /></PrivateRoute>} />
       <Route path="/dashboard/listings/visa" element={<PrivateRoute><VisaList /></PrivateRoute>} />
       <Route path="/dashboard/listings/tickets" element={<PrivateRoute><TicketList /></PrivateRoute>} />
+      <Route path="/dashboard/listings/train" element={<PrivateRoute><TrainList /></PrivateRoute>} />
       <Route path="/dashboard/listings/packages" element={<PrivateRoute><PackageList /></PrivateRoute>} />
 
       {/* Catch-all */}

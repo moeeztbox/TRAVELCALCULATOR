@@ -1,14 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import {
-  Car,
+  Train as TrainIcon,
   Calculator,
   Printer,
   Trash2,
-  Users,
   Route as RouteIcon,
-  ArrowRightLeft,
-  DollarSign,
+  MapPin,
+  Navigation,
   User,
   Save,
 } from "lucide-react";
@@ -27,113 +26,100 @@ const FieldWrapper = ({ children, className = "" }) => (
   <div className={`space-y-1 ${className}`}>{children}</div>
 );
 
-export default function TransportCalculator() {
+export default function TrainCalculator() {
   const navigate = useNavigate();
 
-  const [carType, setCarType] = useState("");
-  const [tripType, setTripType] = useState("");
+  const [trainName, setTrainName] = useState("");
+  const [trainClass, setTrainClass] = useState("");
   const [route, setRoute] = useState("");
   const [clientName, setClientName] = useState("");
   const [result, setResult] = useState(null);
-  const [transports, setTransports] = useState([]);
-  const [availableCarTypes, setAvailableCarTypes] = useState([]);
+  const [trains, setTrains] = useState([]);
+  const [availableTrainNames, setAvailableTrainNames] = useState([]);
+  const [availableClasses, setAvailableClasses] = useState([]);
   const [availableRoutes, setAvailableRoutes] = useState([]);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const tripTypes = [
-    { value: "oneway", label: "One Way" },
-    { value: "roundtrip", label: "Round Trip" },
-  ];
-
   useEffect(() => {
-    fetchTransports();
+    fetchTrains();
   }, []);
 
-  const fetchTransports = async () => {
+  const fetchTrains = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/transports`, {
+      const response = await fetch(`${API_BASE_URL}/trains`, {
         credentials: "include",
       });
       const data = await response.json();
       if (data.success) {
-        setTransports(data.data);
-        const uniqueCarTypes = [...new Set(data.data.map((t) => t.carType))];
-        setAvailableCarTypes(uniqueCarTypes);
+        setTrains(data.data);
+        const uniqueNames = [...new Set(data.data.map((t) => t.trainName))];
+        setAvailableTrainNames(uniqueNames);
       }
     } catch (err) {
-      console.error("Error fetching transports:", err);
+      console.error("Error fetching trains:", err);
     }
   };
 
-  const handleCarTypeSelect = (selectedCarType) => {
-    setCarType(selectedCarType);
-    setRoute(""); // Reset route when car type changes
-    setResult(null); // Clear result when changing selections
+  const handleTrainNameSelect = (selectedName) => {
+    setTrainName(selectedName);
+    setTrainClass("");
+    setRoute("");
+    setResult(null);
 
-    // Filter available routes for this car type
-    const routesForCarType = transports
-      .filter((t) => t.carType === selectedCarType)
+    const classesForName = trains
+      .filter((t) => t.trainName === selectedName)
+      .map((t) => t.trainClass);
+    setAvailableClasses([...new Set(classesForName)]);
+    setAvailableRoutes([]);
+  };
+
+  const handleClassSelect = (selectedClass) => {
+    setTrainClass(selectedClass);
+    setRoute("");
+    setResult(null);
+
+    const routesForNameAndClass = trains
+      .filter((t) => t.trainName === trainName && t.trainClass === selectedClass)
       .map((t) => t.route);
-    setAvailableRoutes([...new Set(routesForCarType)]);
-  };
-
-  const handleTripTypeSelect = (selectedTripType) => {
-    setTripType(selectedTripType);
-    setRoute(""); // Reset route when trip type changes
-    setResult(null); // Clear result when changing selections
-
-    // Filter routes based on car type and trip type
-    if (carType) {
-      const routesForCarAndTrip = transports
-        .filter((t) => t.carType === carType && t.tripType === selectedTripType)
-        .map((t) => t.route);
-      setAvailableRoutes([...new Set(routesForCarAndTrip)]);
-    }
+    setAvailableRoutes([...new Set(routesForNameAndClass)]);
   };
 
   const handleRouteSelect = (selectedRoute) => {
     setRoute(selectedRoute);
-    setResult(null); // Clear result when changing route
+    setResult(null);
   };
 
   const calculate = () => {
-    if (!carType || !tripType || !route) {
+    if (!trainName || !trainClass || !route) {
       alert("Please select all fields!");
       return;
     }
 
-    // Find matching transport from DB
-    const selectedTransport = transports.find(
+    const selectedTrain = trains.find(
       (t) =>
-        t.carType === carType && t.tripType === tripType && t.route === route
+        t.trainName === trainName &&
+        t.trainClass === trainClass &&
+        t.route === route
     );
 
-    if (!selectedTransport) {
-      alert("No transport found for this combination!");
+    if (!selectedTrain) {
+      alert("No train found for this combination!");
       return;
     }
 
-    // Calculate results
-    const basePrice = parseFloat(selectedTransport.price);
-
-    // Calculate final price
-    let finalPrice = basePrice;
-    if (tripType === "roundtrip") {
-      finalPrice = basePrice * 2;
-    }
+    const price = parseFloat(selectedTrain.price);
 
     setResult({
       clientName,
-      carType: selectedTransport.carType,
-      capacity: selectedTransport.capacity,
-      tripType: selectedTransport.tripType,
-      route: selectedTransport.route,
-      agentName: selectedTransport.agentName,
-      luggage: selectedTransport.luggage,
-      price: basePrice,
-      finalPrice: finalPrice,
-      totalCost: finalPrice,
+      trainName: selectedTrain.trainName,
+      route: selectedTrain.route,
+      departure: selectedTrain.departure,
+      arrival: selectedTrain.arrival,
+      trainClass: selectedTrain.trainClass,
+      agentName: selectedTrain.agentName,
+      price,
+      totalCost: price,
     });
   };
 
@@ -150,7 +136,7 @@ export default function TransportCalculator() {
     setSaving(true);
     try {
       const data = await saveCalculation({
-        type: "transport",
+        type: "trainTicket",
         clientName: name.trim(),
         snapshot: result,
         total: result.totalCost,
@@ -170,11 +156,12 @@ export default function TransportCalculator() {
   };
 
   const clearForm = () => {
-    setCarType("");
-    setTripType("");
+    setTrainName("");
+    setTrainClass("");
     setRoute("");
     setClientName("");
     setResult(null);
+    setAvailableClasses([]);
     setAvailableRoutes([]);
   };
 
@@ -186,13 +173,13 @@ export default function TransportCalculator() {
       <style>
         {`
           @media print {
-            #transport-print-report {
+            #train-print-report {
               display: block !important;
               max-width: 720px;
               margin: 0 auto;
             }
           }
-          #transport-print-report { display: none; }
+          #train-print-report { display: none; }
         `}
       </style>
 
@@ -200,9 +187,9 @@ export default function TransportCalculator() {
         {/* Header with Print Button */}
         <div className="mb-8">
           <PageHeader
-            title="Transport Calculator"
-            subtitle="Calculate transport costs and commissions"
-            icon={Car}
+            title="Train Calculator"
+            subtitle="Calculate train fares by route and class"
+            icon={TrainIcon}
             onBack={() => navigate("/dashboard")}
             actions={
               result && (
@@ -227,59 +214,52 @@ export default function TransportCalculator() {
         <div className="space-y-2">
           <div className="calc-card p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Car Type Selection */}
+              {/* Train Name Selection */}
               <FieldWrapper>
                 <label className="text-sm font-medium text-gray-700">
-                  Car Type
+                  Train Name
                 </label>
                 <select
                   className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  value={carType}
-                  onChange={(e) => handleCarTypeSelect(e.target.value)}
+                  value={trainName}
+                  onChange={(e) => handleTrainNameSelect(e.target.value)}
                 >
-                  <option value="">Choose car type</option>
-                  {availableCarTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
+                  <option value="">Choose train</option>
+                  {availableTrainNames.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
                     </option>
                   ))}
                 </select>
               </FieldWrapper>
 
-              {/* Trip Type Selection */}
+              {/* Class Selection */}
               <FieldWrapper>
                 <label className="text-sm font-medium text-gray-700">
-                  Trip Type
+                  Class
                 </label>
                 <select
                   className={`w-full p-3 border rounded-lg focus:ring-1 focus:ring-blue-500 ${
-                    carType
+                    trainName
                       ? "border-gray-300 bg-white focus:border-blue-500"
                       : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
                   }`}
-                  value={tripType}
-                  onChange={(e) => handleTripTypeSelect(e.target.value)}
-                  disabled={!carType}
+                  value={trainClass}
+                  onChange={(e) => handleClassSelect(e.target.value)}
+                  disabled={!trainName}
                 >
                   <option value="">
-                    {carType ? "Select trip type" : "Select car type first"}
+                    {trainName ? "Select class" : "Select train first"}
                   </option>
-                  {tripTypes
-                    .filter((type) =>
-                      transports.some(
-                        (t) =>
-                          t.carType === carType && t.tripType === type.value
-                      )
-                    )
-                    .map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
+                  {availableClasses.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
-                {!carType && (
+                {!trainName && (
                   <p className="text-xs text-gray-400 mt-1">
-                    Select a car type first
+                    Select a train first
                   </p>
                 )}
               </FieldWrapper>
@@ -291,18 +271,18 @@ export default function TransportCalculator() {
                 </label>
                 <select
                   className={`w-full p-3 border rounded-lg focus:ring-1 focus:ring-blue-500 ${
-                    carType && tripType
+                    trainName && trainClass
                       ? "border-gray-300 bg-white focus:border-blue-500"
                       : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
                   }`}
                   value={route}
                   onChange={(e) => handleRouteSelect(e.target.value)}
-                  disabled={!carType || !tripType}
+                  disabled={!trainName || !trainClass}
                 >
                   <option value="">
-                    {carType && tripType
+                    {trainName && trainClass
                       ? "Select route"
-                      : "Select car type and trip type first"}
+                      : "Select train and class first"}
                   </option>
                   {availableRoutes.map((routeItem) => (
                     <option key={routeItem} value={routeItem}>
@@ -310,9 +290,9 @@ export default function TransportCalculator() {
                     </option>
                   ))}
                 </select>
-                {(!carType || !tripType) && (
+                {(!trainName || !trainClass) && (
                   <p className="text-xs text-gray-400 mt-1">
-                    Select car type and trip type first
+                    Select train and class first
                   </p>
                 )}
               </FieldWrapper>
@@ -339,7 +319,7 @@ export default function TransportCalculator() {
                 size="lg"
                 icon={Calculator}
                 onClick={calculate}
-                disabled={!carType || !tripType || !route}
+                disabled={!trainName || !trainClass || !route}
               >
                 Calculate Costs
               </Button>
@@ -371,39 +351,18 @@ export default function TransportCalculator() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Left Column - Transport Details */}
+                {/* Left Column - Train Details */}
                 <div className="space-y-6">
-                  {/* Transport Details */}
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
-                      <Car size={16} className="text-blue-600" />
-                      Transport Details
+                      <TrainIcon size={16} className="text-blue-600" />
+                      Train Details
                     </h3>
                     <div className="space-y-3">
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Car Type</span>
+                        <span className="text-gray-600">Train Name</span>
                         <span className="font-medium text-right">
-                          {result.carType}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 flex items-center gap-1">
-                          <Users size={14} />
-                          Capacity
-                        </span>
-                        <span className="font-medium">
-                          {result.capacity} passengers
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600 flex items-center gap-1">
-                          <ArrowRightLeft size={14} />
-                          Trip Type
-                        </span>
-                        <span className="font-medium">
-                          {result.tripType === "oneway"
-                            ? "One Way"
-                            : "Round Trip"}
+                          {result.trainName}
                         </span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -415,11 +374,19 @@ export default function TransportCalculator() {
                           {result.route}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600">Luggage</span>
-                        <span className="font-medium">
-                          {result.luggage} Bags
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-gray-600 flex items-center gap-1">
+                          <MapPin size={14} />
+                          Departure
                         </span>
+                        <span className="font-medium">{result.departure}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-gray-600 flex items-center gap-1">
+                          <Navigation size={14} />
+                          Arrival
+                        </span>
+                        <span className="font-medium">{result.arrival}</span>
                       </div>
                     </div>
                   </div>
@@ -441,32 +408,14 @@ export default function TransportCalculator() {
 
                 {/* Right Column - Cost Breakdown */}
                 <div className="space-y-6">
-                  {/* Pricing Details */}
                   <div>
-                    <h3 className="text-sm font-medium text-gray-700 mb-4 flex items-center gap-2">
-                      <DollarSign size={16} className="text-purple-600" />
+                    <h3 className="text-sm font-medium text-gray-700 mb-4">
                       Pricing Details
                     </h3>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                        <span className="text-gray-600">Base Price</span>
-                        <span className="font-medium">
-                          ${result.price.toFixed(2)}
-                        </span>
-                      </div>
-                      {result.tripType === "roundtrip" && (
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span className="text-gray-600">
-                            Round Trip Factor
-                          </span>
-                          <span className="font-medium">× 2</span>
-                        </div>
-                      )}
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-gray-600">Transport Price</span>
-                        <span className="font-medium text-blue-600">
-                          ${result.finalPrice.toFixed(2)}
-                        </span>
+                        <span className="text-gray-600">Class</span>
+                        <span className="font-medium">{result.trainClass}</span>
                       </div>
                     </div>
                   </div>
@@ -495,16 +444,16 @@ export default function TransportCalculator() {
           {/* Empty State - Shows when no fields selected OR after clear */}
           {!result && (
             <div className="calc-card p-8 text-center">
-              <Car size={48} className="mx-auto text-brand-200 mb-4" />
+              <TrainIcon size={48} className="mx-auto text-brand-200 mb-4" />
               <h3 className="text-lg font-medium text-gray-500 mb-2">
-                {carType && tripType && route
+                {trainName && trainClass && route
                   ? "Ready to Calculate"
                   : "No Calculation Yet"}
               </h3>
               <p className="text-sm text-gray-400">
-                {carType && tripType && route
+                {trainName && trainClass && route
                   ? "Click 'Calculate Costs' to see the results"
-                  : "Select car type, trip type, and route, then click 'Calculate Costs' to see results"}
+                  : "Select train, class, and route, then click 'Calculate Costs' to see results"}
               </p>
             </div>
           )}
@@ -513,40 +462,38 @@ export default function TransportCalculator() {
 
       {/* PRINT-ONLY REPORT — one clean Excel-style, one-row table. */}
       {result && (
-        <div id="transport-print-report">
+        <div id="train-print-report">
           <PrintReportShell
-            reportTitle="Transport Cost Report"
+            reportTitle="Train Ticket Cost Report"
             clientName={result.clientName || "N/A"}
           >
             <table className="print-report-table">
               <thead>
                 <tr>
-                  <th>Car Type</th>
-                  <th className="center">Capacity</th>
-                  <th>Trip Type</th>
+                  <th>Train Name</th>
                   <th>Route</th>
+                  <th>Departure</th>
+                  <th>Arrival</th>
+                  <th>Class</th>
                   <th>Agent Name</th>
-                  <th className="center">Luggage</th>
-                  <th className="num">Base Price</th>
-                  <th className="num">Total Final Cost</th>
+                  <th className="num">Total Cost</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td>{result.carType}</td>
-                  <td className="center">{result.capacity}</td>
-                  <td>{result.tripType === "oneway" ? "One Way" : "Round Trip"}</td>
+                  <td>{result.trainName}</td>
                   <td>{result.route}</td>
+                  <td>{result.departure}</td>
+                  <td>{result.arrival}</td>
+                  <td>{result.trainClass}</td>
                   <td>{result.agentName}</td>
-                  <td className="center">{result.luggage}</td>
-                  <td className="num">${result.price.toFixed(2)}</td>
                   <td className="num">${result.totalCost.toFixed(2)}</td>
                 </tr>
               </tbody>
               <tfoot>
                 <tr className="grand-total">
-                  <td colSpan={7} className="num">
-                    Total Final Cost
+                  <td colSpan={6} className="num">
+                    Total Cost
                   </td>
                   <td className="num">${result.totalCost.toFixed(2)}</td>
                 </tr>

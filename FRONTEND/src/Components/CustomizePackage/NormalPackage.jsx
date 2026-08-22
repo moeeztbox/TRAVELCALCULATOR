@@ -13,15 +13,24 @@ import {
   Trash2,
   PackageCheck,
   AlertTriangle,
+  Save,
 } from "lucide-react";
 import { Field, inputClass } from "../Main/FormControls";
 import Button from "../UI/Button";
 import SearchableCombobox from "../UI/SearchableCombobox";
+import ValidationErrors from "../UI/ValidationErrors";
+import SaveToHistoryModal from "../UI/SaveToHistoryModal";
 import useDualCurrencyPrice, { toPKR, toSAR } from "./useDualCurrencyPrice";
 import { toUpper } from "../../utils/text";
 import { API_BASE_URL as API } from "../../config/api";
+import { saveCalculation } from "../../utils/savedCalculations";
 
 const MAX_MISC_ITEMS = 5;
+// Safety cap on the dynamic Routes list — a generous ceiling that still
+// protects against a mistyped huge number (e.g. "999999") rendering
+// thousands of select rows. Same convention as ExplanatoryPackage's
+// MAX_STAYS.
+const MAX_ROUTES = 20;
 
 const money = (n) => `SAR ${Number(n || 0).toLocaleString()}`;
 const moneyPKR = (n) => `PKR ${Number(n || 0).toLocaleString()}`;
@@ -207,10 +216,12 @@ const NormalPackage = () => {
   const [visas, setVisas] = useState([]);
   const [flights, setFlights] = useState([]);
   const [transports, setTransports] = useState([]);
+  const [trains, setTrains] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // User selections
   const [packageName, setPackageName] = useState("");
+  const [clientName, setClientName] = useState("");
   const [totalDays, setTotalDays] = useState("");
 
   // Single manually entered rate. Conversion Rate governs every Original
@@ -283,11 +294,21 @@ const NormalPackage = () => {
   const transportSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
   const [transportPassengers, setTransportPassengers] = useState("");
 
-  // Train Ticket — no database source exists for this yet (the "tickets"
-  // collection is airline tickets, already used by Flight above), so this
-  // is a free-text, always-custom entry. Original/Selling Price still use
-  // the same SAR/PKR conversion hook as every other item.
+  // Routes — a count-driven list of compact route rows, independent of the
+  // single Transport service above. Each row gets its OWN route, vehicle,
+  // Original SAR, Selling SAR, and Passengers (different routes can use
+  // different vehicles). Not wired into any calculation yet (per explicit
+  // instruction) — this only manages the input state (add/remove rows)
+  // safely.
+  const [numberOfRoutes, setNumberOfRoutes] = useState("");
+  const [routeRows, setRouteRows] = useState([]);
+
+  // Train Ticket — now backed by the Train listing (same
+  // searchable-or-custom pattern as Visa/Flight/Transport above); a typed
+  // value that doesn't match a saved train is still accepted as a
+  // temporary custom entry.
   const [trainTicketText, setTrainTicketText] = useState("");
+  const [trainSelected, setTrainSelected] = useState(null);
   const trainTicketPrice = useDualCurrencyPrice(conversionRateNum);
   const trainTicketSellingPrice = useDualCurrencyPrice(sellingConversionRateNum);
 
@@ -419,28 +440,33 @@ const NormalPackage = () => {
     setIncludeTrainTicket(checked);
     if (!checked) {
       setTrainTicketText("");
+      setTrainSelected(null);
       trainTicketPrice.reset();
       trainTicketSellingPrice.reset();
     }
   };
 
   const [result, setResult] = useState(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
         const opts = { credentials: "include" };
-        const [h, v, f, t] = await Promise.all([
+        const [h, v, f, t, tr] = await Promise.all([
           fetch(`${API}/hotels`, opts).then((r) => r.json()),
           fetch(`${API}/visas`, opts).then((r) => r.json()),
           fetch(`${API}/tickets`, opts).then((r) => r.json()),
           fetch(`${API}/transports`, opts).then((r) => r.json()),
+          fetch(`${API}/trains`, opts).then((r) => r.json()),
         ]);
         if (h.success) setHotels(h.data || []);
         if (v.success) setVisas(v.data || []);
         if (f.success) setFlights(f.data || []);
         if (t.success) setTransports(t.data || []);
+        if (tr.success) setTrains(tr.data || []);
       } catch (err) {
         console.error("Error loading listings:", err);
       } finally {
@@ -452,6 +478,79 @@ const NormalPackage = () => {
 
   const makkahHotels = hotels.filter((h) => h.city === "Makkah");
   const madinahHotels = hotels.filter((h) => h.city === "Madinah");
+
+  // Distinct route labels from the existing Transport listing — reused as
+  // the selectable options for each dynamic Route row below.
+  const uniqueRoutes = [
+    ...new Set(transports.map((t) => routeLabel(t)).filter(Boolean)),
+  ];
+
+  // Vehicles available for one row are whichever Transport records
+  // actually service THAT row's selected route — same cascading idea as
+  // Car Type → Trip Type → Route elsewhere in this app, just scoped per
+  // row instead of per page (different routes can use different vehicles).
+  const vehiclesForRoute = (route) =>
+    !route ? [] : transports.filter((t) => routeLabel(t) === route);
+
+  const emptyRouteRow = () => ({
+    route: "",
+    carType: "",
+    originalSAR: "",
+    sellingSAR: "",
+    passengers: "",
+  });
+
+  const growRoutes = (rows, count) =>
+    count <= rows.length
+      ? rows
+      : [...rows, ...Array.from({ length: count - rows.length }, emptyRouteRow)];
+  const shrinkRoutes = (rows, count) => rows.slice(0, Math.max(count, 0));
+
+  // Grows immediately (safe/non-destructive) as the user types a bigger
+  // number. Shrinking is deferred to onBlur so re-typing a multi-digit
+  // count (e.g. selecting "3" and typing "10") never destructively drops
+  // a row's already-entered data on the transient "1" keystroke. Same
+  // convention as ExplanatoryPackage's stay-count handling.
+  const handleNumberOfRoutesChange = (value) => {
+    setNumberOfRoutes(value);
+    const n = toPositiveNumber(value);
+    if (n > 0) setRouteRows((prev) => growRoutes(prev, Math.min(n, MAX_ROUTES)));
+  };
+
+  const handleNumberOfRoutesBlur = () => {
+    let n = toPositiveNumber(numberOfRoutes);
+    if (n > MAX_ROUTES) n = MAX_ROUTES;
+    setNumberOfRoutes(n > 0 ? String(n) : "");
+    setRouteRows((prev) =>
+      n > prev.length ? growRoutes(prev, n) : shrinkRoutes(prev, n)
+    );
+  };
+
+  // Route changes reset that row's vehicle/price (a vehicle servicing
+  // "JEDDAH > MAKKAH" may not even exist for "MAKKAH > MADINAH"). Vehicle
+  // selection auto-fills Original SAR from the matched DB record — Selling
+  // SAR and Passengers are always independently, manually entered per row.
+  const updateRouteRow = (index, field, value) => {
+    setRouteRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        if (field === "route") {
+          return { ...row, route: value, carType: "", originalSAR: "" };
+        }
+        if (field === "carType") {
+          const match = vehiclesForRoute(row.route).find(
+            (t) => t.carType === value
+          );
+          return {
+            ...row,
+            carType: value,
+            originalSAR: match ? String(safePrice(match.price)) : "",
+          };
+        }
+        return { ...row, [field]: value };
+      })
+    );
+  };
 
   // Safely coerce a price to a non-negative number.
   const safePrice = (v) => {
@@ -528,6 +627,132 @@ const NormalPackage = () => {
     ? "Total Passengers must be a whole number."
     : "";
 
+  // Required-field validation — the Calculate button stays disabled and a
+  // banner lists what's missing until every field for every section the
+  // user has actually turned on/started is present and valid. A section
+  // that's never touched (hotel text left blank, service checkbox off)
+  // never blocks Calculate; the moment it's "in use" its required fields
+  // (price, persons/nights/passengers) are enforced.
+  const buildServiceValidation = (
+    inUse,
+    label,
+    textFilled,
+    origValue,
+    sellValue,
+    extra = []
+  ) => {
+    if (!inUse) return [];
+    if (textFilled === false) return [`Select or enter ${label}.`];
+    const errors = [];
+    const origNum = Number(origValue);
+    const sellNum = Number(sellValue);
+    if (!(Number.isFinite(origNum) && origNum > 0)) {
+      errors.push(`Enter a valid original price for ${label}.`);
+    }
+    if (!(Number.isFinite(sellNum) && sellNum > 0)) {
+      errors.push(`Enter a valid selling price for ${label}.`);
+    }
+    return [...errors, ...extra];
+  };
+
+  const packageNameError = packageName.trim() ? "" : "Enter a Package Name.";
+  const noServiceError = pricingInUse
+    ? ""
+    : "Add at least one service (hotel, visa, flight, transport, train ticket, or miscellaneous item) to build your package.";
+
+  const makkahInUse = !!makkahHotelText.trim();
+  const madinahInUse = !!madinahHotelText.trim();
+  const makkahPersonsNumTop = toPositiveNumber(makkahPersons);
+  const madinahPersonsNumTop = toPositiveNumber(madinahPersons);
+  const transportPassengersNumTop = toPositiveNumber(transportPassengers);
+
+  const makkahErrors = buildServiceValidation(
+    makkahInUse,
+    "the Makkah Hotel",
+    undefined,
+    makkahHotelPrice.sar,
+    makkahSellingPrice.sar,
+    [
+      ...(makkahPersonsNumTop > 0 ? [] : ["Enter the number of Persons for Makkah."]),
+      ...(makkahNightsNum > 0 ? [] : ["Enter the number of Nights for Makkah."]),
+    ]
+  );
+  const madinahErrors = buildServiceValidation(
+    madinahInUse,
+    "the Madinah Hotel",
+    undefined,
+    madinahHotelPrice.sar,
+    madinahSellingPrice.sar,
+    [
+      ...(madinahPersonsNumTop > 0 ? [] : ["Enter the number of Persons for Madinah."]),
+      ...(madinahNightsNum > 0 ? [] : ["Enter the number of Nights for Madinah."]),
+    ]
+  );
+  const visaErrors = buildServiceValidation(
+    includeVisa,
+    "a Visa Type",
+    !!visaTypeText.trim(),
+    visaPrice.sar,
+    visaSellingPrice.sar
+  );
+  const flightErrors = buildServiceValidation(
+    includeFlight,
+    "a Flight",
+    !!flightText.trim(),
+    flightPrice.pkr,
+    flightSellingPrice.pkr
+  );
+  const transportErrors = buildServiceValidation(
+    includeTransport,
+    "a Transport option",
+    !!transportText.trim(),
+    transportPrice.sar,
+    transportSellingPrice.sar,
+    transportPassengersNumTop > 0 ? [] : ["Enter Transport Passengers."]
+  );
+  const trainErrors = buildServiceValidation(
+    includeTrainTicket,
+    "a Train Ticket",
+    !!trainTicketText.trim(),
+    trainTicketPrice.sar,
+    trainTicketSellingPrice.sar
+  );
+  const miscErrors = includeMisc
+    ? miscItems.flatMap((item, idx) => {
+        if (!(item.name || "").trim()) return [];
+        const origNum = Number(item.originalSAR);
+        const sellNum = Number(item.sellingSAR);
+        const errs = [];
+        if (!(Number.isFinite(origNum) && origNum > 0)) {
+          errs.push(`Enter a valid original price for Misc ${idx + 1}.`);
+        }
+        if (!(Number.isFinite(sellNum) && sellNum > 0)) {
+          errs.push(`Enter a valid selling price for Misc ${idx + 1}.`);
+        }
+        return errs;
+      })
+    : [];
+
+  const sectionValidationErrors = [
+    ...(packageNameError ? [packageNameError] : []),
+    ...(noServiceError ? [noServiceError] : []),
+    ...makkahErrors,
+    ...madinahErrors,
+    ...visaErrors,
+    ...flightErrors,
+    ...transportErrors,
+    ...trainErrors,
+    ...miscErrors,
+  ];
+
+  const hasStartedInput = !!(
+    packageName.trim() ||
+    totalDays ||
+    conversionRate ||
+    totalPassengers ||
+    pricingInUse
+  );
+
   const calculate = () => {
     if (!packageName) {
       alert("Please enter a package name.");
@@ -574,7 +799,7 @@ const NormalPackage = () => {
       ? resolveItem(transportText, transportSelected, transportPrice.sar, "carType")
       : null;
     const trainTicket = includeTrainTicket
-      ? resolveItem(trainTicketText, null, trainTicketPrice.sar, "name")
+      ? resolveItem(trainTicketText, trainSelected, trainTicketPrice.sar, "trainName")
       : null;
 
     const miscResolved = includeMisc
@@ -752,11 +977,12 @@ const NormalPackage = () => {
         )
       : null;
 
-    // --- Train Ticket: SAR-native, flat, always custom ---
+    // --- Train Ticket: SAR-native, flat. Same DB-or-custom shape as
+    // Visa/Flight/Transport now that a Train listing exists. ---
     const trainTicketService = trainTicket
       ? buildServiceRecord(
-          trainTicket.name,
-          true,
+          trainTicket.trainName,
+          trainTicket.isCustom,
           "SAR",
           safePrice(trainTicket.price),
           safePrice(trainTicket.price) * conversionRateNum,
@@ -839,6 +1065,7 @@ const NormalPackage = () => {
     // remain completely separate and are already baked into the per-person
     // totals above).
     setResult({
+      clientName,
       packageName,
       totalDays,
       conversionRate: conversionRateNum,
@@ -879,6 +1106,7 @@ const NormalPackage = () => {
 
   const clearAll = () => {
     setPackageName("");
+    setClientName("");
     setTotalDays("");
     setConversionRate("");
     setTotalPassengers("");
@@ -916,8 +1144,12 @@ const NormalPackage = () => {
     transportSellingPrice.reset();
     setTransportPassengers("");
 
+    setNumberOfRoutes("");
+    setRouteRows([]);
+
     setIncludeTrainTicket(false);
     setTrainTicketText("");
+    setTrainSelected(null);
     trainTicketPrice.reset();
     trainTicketSellingPrice.reset();
 
@@ -938,9 +1170,40 @@ const NormalPackage = () => {
     }, 100);
   };
 
+  const handleSaveConfirm = async (name) => {
+    if (saving) return;
+    if (!name.trim()) {
+      alert("Please enter a client name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const data = await saveCalculation({
+        type: "package",
+        clientName: name.trim(),
+        snapshot: { ...result, packageKind: "normal" },
+        total: result.totals.sellingPKRAllPassengers,
+      });
+      if (data.success) {
+        alert(`Saved to history as ${data.data.referenceNumber}`);
+        setShowSaveModal(false);
+      } else {
+        alert(data.message || "Error saving to history");
+      }
+    } catch (err) {
+      console.error("Error saving to history:", err);
+      alert("Error saving to history");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const printRows = result ? buildPrintRows(result) : [];
   const canCalculate =
-    !nightsValidationError && !conversionRateError && !totalPassengersError;
+    !nightsValidationError &&
+    !conversionRateError &&
+    !totalPassengersError &&
+    sectionValidationErrors.length === 0;
 
   return (
     <>
@@ -958,39 +1221,9 @@ const NormalPackage = () => {
             .screen-only-summary { display: none !important; }
             .print-only-summary { display: block !important; }
 
-            .print-summary-table {
-              width: 100%;
-              border-collapse: collapse;
-              table-layout: fixed;
-              font-size: 10px;
-            }
-            .print-summary-table th,
-            .print-summary-table td {
-              border: 1px solid #000;
-              padding: 5px 6px;
-              word-wrap: break-word;
-              overflow-wrap: break-word;
-              vertical-align: top;
-              text-align: left;
-            }
-            .print-summary-table thead th {
-              background: #eee !important;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-              font-weight: 700;
-            }
-            .print-summary-table .num { text-align: right; }
-            .print-summary-table .center { text-align: center; }
-            .print-summary-table tfoot td {
-              font-weight: 700;
-            }
-            .print-summary-table tfoot .grand-total td {
-              background: #eee !important;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-              font-size: 12px;
-            }
-            .print-summary-table tbody tr { page-break-inside: avoid; }
+            /* The bordered/header-shaded table look itself now lives in
+               the shared .print-report-table rule in index.css, used by
+               every calculator's print report. */
           }
         `}
       </style>
@@ -1046,6 +1279,22 @@ const NormalPackage = () => {
                   placeholder="e.g. 5"
                   value={totalPassengers}
                   onChange={(e) => setTotalPassengers(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+
+            {/* Client Name — who this quote is for, distinct from the
+                package's own title above. Kept out of the primary 4-field
+                row per the compact layout spec, same treatment Selling Rate
+                got before it was removed. */}
+            <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <Field label="Client Name">
+                <input
+                  type="text"
+                  placeholder="Enter client name"
+                  value={clientName}
+                  onChange={(e) => setClientName(toUpper(e.target.value))}
                   className={inputClass}
                 />
               </Field>
@@ -1310,50 +1559,112 @@ const NormalPackage = () => {
               )}
 
               {includeTransport && (
-                <div className="grid grid-cols-2 lg:grid-cols-[auto_2fr_1fr_1fr_1fr] gap-3 items-end pt-3 first:pt-0">
-                  <ServiceRowLabel icon={Car} label="Transport" />
-                  <Field label="Transport" className="col-span-2 lg:col-span-1">
-                    <SearchableCombobox
-                      value={transportText}
-                      onTextChange={(text) => {
-                        setTransportText(toUpper(text));
-                        setTransportSelected(null);
-                      }}
-                      onSelect={(t) => {
-                        setTransportSelected(t);
-                        setTransportText(t.carType);
-                        transportPrice.setFromDatabase(t.price);
-                      }}
-                      options={transports}
-                      getLabel={(t) => t.carType}
-                      getSubLabel={(t) => `${routeLabel(t)} · ${money(t.price)}`}
-                      placeholder="Search or type a transport option"
-                      isSelected={!!transportSelected}
-                    />
-                  </Field>
-                  {/* Transport is SAR-native — only the SAR fields are shown. */}
-                  <CompactPriceField
-                    label="Orig SAR"
-                    value={transportPrice.sar}
-                    onChange={transportPrice.setSar}
-                    readOnly={!!transportSelected}
-                  />
-                  <CompactPriceField
-                    label="Sell SAR"
-                    value={transportSellingPrice.sar}
-                    onChange={transportSellingPrice.setSar}
-                    readOnly={false}
-                  />
-                  <Field label="Passengers">
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="e.g. 4"
-                      value={transportPassengers}
-                      onChange={(e) => setTransportPassengers(e.target.value)}
-                      className={inputClass}
-                    />
-                  </Field>
+                <div className="pt-3 first:pt-0 space-y-3">
+                  {/* Routes — count-driven list of compact route rows, at
+                      the top of the Transport section. Each row gets its
+                      own Route, Vehicle, Original SAR, Selling SAR, and
+                      Passengers, since different routes can use different
+                      vehicles. Not wired into the calculation yet — inputs
+                      only, per explicit instruction. */}
+                  <div>
+                    <div className="flex items-end gap-3">
+                      <ServiceRowLabel icon={Car} label="Transport" />
+                      <Field label="Number of Routes" className="max-w-40">
+                        <input
+                          type="number"
+                          min="0"
+                          max={MAX_ROUTES}
+                          placeholder="e.g. 3"
+                          value={numberOfRoutes}
+                          onChange={(e) => handleNumberOfRoutesChange(e.target.value)}
+                          onBlur={handleNumberOfRoutesBlur}
+                          className={inputClass}
+                        />
+                      </Field>
+                    </div>
+
+                    {routeRows.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {routeRows.map((row, idx) => {
+                          const vehicleOptions = [
+                            ...new Map(
+                              vehiclesForRoute(row.route).map((t) => [t.carType, t])
+                            ).values(),
+                          ];
+                          return (
+                            <div
+                              key={idx}
+                              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.3fr_1.3fr_1fr_1fr_0.8fr] gap-3 items-end"
+                            >
+                              <Field label={`Route ${idx + 1}`}>
+                                <select
+                                  className="w-full p-2 border border-gray-300 rounded-lg bg-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                  value={row.route}
+                                  onChange={(e) =>
+                                    updateRouteRow(idx, "route", e.target.value)
+                                  }
+                                >
+                                  <option value="">Select Route</option>
+                                  {uniqueRoutes.map((r) => (
+                                    <option key={r} value={r}>
+                                      {r}
+                                    </option>
+                                  ))}
+                                </select>
+                              </Field>
+                              <Field label="Transport/Vehicle">
+                                <select
+                                  className={`w-full p-2 border rounded-lg text-sm focus:ring-1 focus:ring-blue-500 ${
+                                    row.route
+                                      ? "border-gray-300 bg-white focus:border-blue-500"
+                                      : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                  }`}
+                                  value={row.carType}
+                                  onChange={(e) =>
+                                    updateRouteRow(idx, "carType", e.target.value)
+                                  }
+                                  disabled={!row.route}
+                                >
+                                  <option value="">
+                                    {row.route ? "Select vehicle" : "Select route first"}
+                                  </option>
+                                  {vehicleOptions.map((t) => (
+                                    <option key={t.carType} value={t.carType}>
+                                      {t.carType}
+                                    </option>
+                                  ))}
+                                </select>
+                              </Field>
+                              <CompactPriceField
+                                label="Orig SAR"
+                                value={row.originalSAR}
+                                onChange={(v) => updateRouteRow(idx, "originalSAR", v)}
+                                readOnly={!!row.carType}
+                              />
+                              <CompactPriceField
+                                label="Sell SAR"
+                                value={row.sellingSAR}
+                                onChange={(v) => updateRouteRow(idx, "sellingSAR", v)}
+                                readOnly={false}
+                              />
+                              <Field label="Passengers">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  placeholder="e.g. 5"
+                                  value={row.passengers}
+                                  onChange={(e) =>
+                                    updateRouteRow(idx, "passengers", e.target.value)
+                                  }
+                                  className={inputClass}
+                                />
+                              </Field>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1361,14 +1672,24 @@ const NormalPackage = () => {
                 <div className="grid grid-cols-2 lg:grid-cols-[auto_2fr_1fr_1fr] gap-3 items-end pt-3 first:pt-0">
                   <ServiceRowLabel icon={Train} label="Train Ticket" />
                   <Field label="Train Ticket" className="col-span-2 lg:col-span-1">
-                    <input
-                      type="text"
-                      placeholder="e.g. Lahore → Karachi Express"
+                    <SearchableCombobox
                       value={trainTicketText}
-                      onChange={(e) =>
-                        setTrainTicketText(toUpper(e.target.value))
+                      onTextChange={(text) => {
+                        setTrainTicketText(toUpper(text));
+                        setTrainSelected(null);
+                      }}
+                      onSelect={(t) => {
+                        setTrainSelected(t);
+                        setTrainTicketText(t.trainName);
+                        trainTicketPrice.setFromDatabase(t.price);
+                      }}
+                      options={trains}
+                      getLabel={(t) => t.trainName}
+                      getSubLabel={(t) =>
+                        `${t.route} · ${t.trainClass} · ${money(t.price)}`
                       }
-                      className={inputClass}
+                      placeholder="Search or type a train"
+                      isSelected={!!trainSelected}
                     />
                   </Field>
                   {/* Train Ticket is SAR-native — only the SAR fields are shown. */}
@@ -1376,7 +1697,7 @@ const NormalPackage = () => {
                     label="Orig SAR"
                     value={trainTicketPrice.sar}
                     onChange={trainTicketPrice.setSar}
-                    readOnly={false}
+                    readOnly={!!trainSelected}
                   />
                   <CompactPriceField
                     label="Sell SAR"
@@ -1465,6 +1786,11 @@ const NormalPackage = () => {
 
           {/* ACTIONS */}
           <div className="calc-card p-4">
+            {hasStartedInput && sectionValidationErrors.length > 0 && (
+              <div className="mb-3">
+                <ValidationErrors messages={sectionValidationErrors} />
+              </div>
+            )}
             <div className="flex gap-3">
               <Button
                 fullWidth
@@ -1504,19 +1830,28 @@ const NormalPackage = () => {
               <h2 className="text-2xl font-extrabold text-ink">
                 {result.packageName}
               </h2>
+              {result.clientName && (
+                <p className="text-sm font-medium text-ink mt-1">
+                  Client: {result.clientName}
+                </p>
+              )}
               <p className="text-sm text-muted mt-1">
                 {result.totalDays || "—"} Days · Rate: 1 SAR ={" "}
                 {result.sellingConversionRate} PKR · Price shown is per person
               </p>
             </div>
-            <Button
-              variant="success"
-              icon={Printer}
-              onClick={handlePrint}
-              className="no-print"
-            >
-              Print
-            </Button>
+            <div className="flex gap-3 no-print">
+              <Button
+                variant="secondary"
+                icon={Save}
+                onClick={() => setShowSaveModal(true)}
+              >
+                Save
+              </Button>
+              <Button variant="success" icon={Printer} onClick={handlePrint}>
+                Print
+              </Button>
+            </div>
           </div>
 
           {/* SCREEN-ONLY: full internal/admin breakdown — Original, Selling
@@ -1858,7 +2193,7 @@ const NormalPackage = () => {
           {/* PRINT-ONLY: customer-facing Excel-style table — selling side only,
               never original price, never the cost conversion rate, never profit. */}
           <div className="print-only-summary px-6 pb-6">
-            <table className="print-summary-table">
+            <table className="print-report-table">
               <colgroup>
                 <col style={{ width: "12%" }} />
                 <col style={{ width: "22%" }} />
@@ -1924,6 +2259,15 @@ const NormalPackage = () => {
           </div>
         </div>
       )}
+
+      <SaveToHistoryModal
+        open={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onConfirm={handleSaveConfirm}
+        label="Client Name"
+        defaultValue={result?.clientName || ""}
+        saving={saving}
+      />
     </>
   );
 };

@@ -312,6 +312,58 @@
 }
 
 /* =====================================================================
+   Shared "Excel-style" print table
+   One bordered, header-shaded table style used by every calculator's
+   print report and by Saved History's print-all-records report, so every
+   printed table in the app looks the same no matter which page produced
+   it. Each page still owns its own `#<id>-print-report { display: none }`
+   / `@media print { #<id>-print-report { display: block } }` toggle
+   locally (the id differs per page) — only the table's own look lives
+   here, once.
+   ===================================================================== */
+@media print {
+  .print-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 10px;
+  }
+  .print-report-table th,
+  .print-report-table td {
+    border: 1px solid #000;
+    padding: 5px 6px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    vertical-align: top;
+    text-align: left;
+  }
+  .print-report-table thead th {
+    background: #eee !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-weight: 700;
+  }
+  .print-report-table .num {
+    text-align: right;
+  }
+  .print-report-table .center {
+    text-align: center;
+  }
+  .print-report-table tfoot td {
+    font-weight: 700;
+  }
+  .print-report-table tfoot .grand-total td {
+    background: #eee !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 12px;
+  }
+  .print-report-table tbody tr {
+    page-break-inside: avoid;
+  }
+}
+
+/* =====================================================================
    Splash / startup screen
    ===================================================================== */
 

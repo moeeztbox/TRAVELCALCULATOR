@@ -38,6 +38,7 @@ export const ModalActions = ({
   onSubmit,
   submitLabel = "Save",
   submitColor = "primary",
+  submitDisabled = false,
 }) => {
   // Backwards-compatible: old callers pass "green"/"blue".
   const variant =
@@ -52,7 +53,7 @@ export const ModalActions = ({
       <Button variant="secondary" onClick={onCancel}>
         Cancel
       </Button>
-      <Button variant={variant} onClick={onSubmit}>
+      <Button variant={variant} onClick={onSubmit} disabled={submitDisabled}>
         {submitLabel}
       </Button>
     </div>

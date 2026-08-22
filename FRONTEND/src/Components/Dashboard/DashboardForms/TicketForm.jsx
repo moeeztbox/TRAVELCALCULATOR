@@ -1,9 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import React, { useState, useEffect } from "react";
-import { Plane, Calculator, Printer, Trash2, Package } from "lucide-react";
+import { Plane, Calculator, Printer, Trash2, Package, Save } from "lucide-react";
 import PageHeader from "../../UI/PageHeader";
 import Button from "../../UI/Button";
+import SaveToHistoryModal from "../../UI/SaveToHistoryModal";
+import PrintReportShell from "../../UI/PrintReportShell";
 import { API_BASE_URL } from "../../../config/api";
+import { saveCalculation } from "../../../utils/savedCalculations";
+import { toUpper } from "../../../utils/text";
 
 // Module scope (not inside the component) so its identity is stable across
 // renders — otherwise React remounts this subtree (and loses input focus)
@@ -29,7 +33,10 @@ export default function TicketForm() {
   const [arrivalBags, setArrivalBags] = useState("");
   const [validFrom, setValidFrom] = useState("");
   const [validTo, setValidTo] = useState("");
+  const [clientName, setClientName] = useState("");
   const [result, setResult] = useState(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   // Check if a ticket is selected from dropdown
   const isTicketSelected = selectedTicketId !== "";
@@ -83,6 +90,7 @@ export default function TicketForm() {
 
     setResult({
       // Basic information
+      clientName,
       airlineName,
       category,
       passenger,
@@ -118,6 +126,34 @@ export default function TicketForm() {
     window.print();
   };
 
+  const handleSaveConfirm = async (name) => {
+    if (saving) return;
+    if (!name.trim()) {
+      alert("Please enter a client name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const data = await saveCalculation({
+        type: "flight",
+        clientName: name.trim(),
+        snapshot: result,
+        total: result.totalCost,
+      });
+      if (data.success) {
+        alert(`Saved to history as ${data.data.referenceNumber}`);
+        setShowSaveModal(false);
+      } else {
+        alert(data.message || "Error saving to history");
+      }
+    } catch (err) {
+      console.error("Error saving to history:", err);
+      alert("Error saving to history");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const clearForm = () => {
     setSelectedTicketId("");
     setAirlineName("");
@@ -131,12 +167,29 @@ export default function TicketForm() {
     setArrivalBags("");
     setValidFrom("");
     setValidTo("");
+    setClientName("");
     setResult(null);
   };
 
   return (
     <div className="calc">
-      <div className="max-w-6xl mx-auto">
+      {/* PRINT CSS — same convention as HotelForm.jsx: the on-screen working
+          view is hidden from print entirely, only the dedicated report
+          block prints. */}
+      <style>
+        {`
+          @media print {
+            #ticket-print-report {
+              display: block !important;
+              max-width: 720px;
+              margin: 0 auto;
+            }
+          }
+          #ticket-print-report { display: none; }
+        `}
+      </style>
+
+      <div className="max-w-6xl mx-auto no-print">
         {/* Header with Print Button */}
         <div className="mb-8">
           <PageHeader
@@ -146,9 +199,18 @@ export default function TicketForm() {
             onBack={() => navigate("/dashboard")}
             actions={
               result && (
-                <Button variant="secondary" icon={Printer} onClick={handlePrint}>
-                  Print Report
-                </Button>
+                <>
+                  <Button
+                    variant="secondary"
+                    icon={Save}
+                    onClick={() => setShowSaveModal(true)}
+                  >
+                    Save
+                  </Button>
+                  <Button variant="secondary" icon={Printer} onClick={handlePrint}>
+                    Print Report
+                  </Button>
+                </>
               )
             }
           />
@@ -196,6 +258,20 @@ export default function TicketForm() {
                     Ticket selected - All fields are read-only
                   </p>
                 )}
+              </FieldWrapper>
+
+              {/* Client Name - freely editable, not part of the ticket record */}
+              <FieldWrapper>
+                <label className="text-sm font-medium text-gray-700">
+                  Client Name
+                </label>
+                <input
+                  type="text"
+                  value={clientName}
+                  onChange={(e) => setClientName(toUpper(e.target.value))}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  placeholder="Enter client name"
+                />
               </FieldWrapper>
 
               {/* Airline Name - ALWAYS DISABLED (only populated by dropdown) */}
@@ -383,10 +459,17 @@ export default function TicketForm() {
           {/* Results Section */}
           {result && (
             <div className="calc-card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <Calculator size={20} className="text-green-600" />
-                Calculation Results
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Calculator size={20} className="text-green-600" />
+                  Calculation Results
+                </h2>
+                {result.clientName && (
+                  <span className="text-sm text-gray-600">
+                    Client: <span className="font-medium text-gray-900">{result.clientName}</span>
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Left Column - Ticket Details & Validity Information */}
@@ -527,6 +610,66 @@ export default function TicketForm() {
           )}
         </div>
       </div>
+
+      {/* PRINT-ONLY REPORT — one clean Excel-style, one-row table. */}
+      {result && (
+        <div id="ticket-print-report">
+          <PrintReportShell
+            reportTitle="Flight Ticket Cost Report"
+            clientName={result.clientName || "N/A"}
+          >
+            <table className="print-report-table">
+              <thead>
+                <tr>
+                  <th>Airline</th>
+                  <th>Category</th>
+                  <th>Passenger</th>
+                  <th>Agent Name</th>
+                  <th className="center">Departure Luggage</th>
+                  <th className="center">Departure Bags</th>
+                  <th className="center">Arrival Luggage</th>
+                  <th className="center">Arrival Bags</th>
+                  <th>Valid From</th>
+                  <th>Valid To</th>
+                  <th className="num">Total Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{result.airlineName}</td>
+                  <td>{result.category}</td>
+                  <td>{result.passenger}</td>
+                  <td>{result.agentName}</td>
+                  <td className="center">{result.departureLuggage}</td>
+                  <td className="center">{result.departureBags}</td>
+                  <td className="center">{result.arrivalLuggage}</td>
+                  <td className="center">{result.arrivalBags}</td>
+                  <td>{result.validFrom}</td>
+                  <td>{result.validTo}</td>
+                  <td className="num">${result.totalCost.toFixed(2)}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr className="grand-total">
+                  <td colSpan={10} className="num">
+                    Total Cost
+                  </td>
+                  <td className="num">${result.totalCost.toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </PrintReportShell>
+        </div>
+      )}
+
+      <SaveToHistoryModal
+        open={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onConfirm={handleSaveConfirm}
+        label="Client Name"
+        defaultValue={clientName}
+        saving={saving}
+      />
     </div>
   );
 }
