@@ -49,21 +49,6 @@ const formatDateOnly = (val) => {
     day: "numeric",
   });
 };
-// "datetime-local" input (the Flight/Travel Schedule fields) — date + time,
-// e.g. "Aug 22, 2026, 4:00 PM".
-const formatDateTime = (val) => {
-  if (!val) return "—";
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-};
 // Two already-computed SAR/PKR figures shown side by side. This never
 // performs a conversion itself — Original and Selling sides use different
 // rates, so every SAR/PKR pair must arrive pre-converted from the single
@@ -277,14 +262,6 @@ const NormalPackage = () => {
   // manually typed (see tripDaysRaw/totalDaysNum/totalNightsNum below).
   const [checkInDate, setCheckInDate] = useState("");
   const [checkOutDate, setCheckOutDate] = useState("");
-
-  // Flight/Travel Schedule — plain datetime-local fields (date + time),
-  // display-only context carried into the result/print; not used in any
-  // calculation.
-  const [departureLahore, setDepartureLahore] = useState("");
-  const [arrivalJed, setArrivalJed] = useState("");
-  const [departureJed, setDepartureJed] = useState("");
-  const [arrivalLahore, setArrivalLahore] = useState("");
 
   // Single manually entered rate. Conversion Rate governs every Original
   // (cost) price AND every Selling price — there is no separate Selling
@@ -1201,10 +1178,6 @@ const NormalPackage = () => {
       checkOutDate,
       totalDays: totalDaysNum,
       totalNights: totalNightsNum,
-      departureLahore,
-      arrivalJed,
-      departureJed,
-      arrivalLahore,
       conversionRate: conversionRateNum,
       sellingConversionRate: sellingConversionRateNum,
       makkahService,
@@ -1245,10 +1218,6 @@ const NormalPackage = () => {
     setClientName("");
     setCheckInDate("");
     setCheckOutDate("");
-    setDepartureLahore("");
-    setArrivalJed("");
-    setDepartureJed("");
-    setArrivalLahore("");
     setConversionRate("");
     setTotalPassengers("");
 
@@ -1433,43 +1402,6 @@ const NormalPackage = () => {
                   readOnly
                   value={tripDatesValid ? String(totalNightsNum) : "—"}
                   className={`${inputClass} bg-gray-100 text-gray-600 cursor-not-allowed`}
-                />
-              </Field>
-            </div>
-
-            {/* Flight/Travel Schedule — plain date+time fields, display-only
-                context (not used in any calculation). */}
-            <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Field label="Departure from Lahore">
-                <input
-                  type="datetime-local"
-                  value={departureLahore}
-                  onChange={(e) => setDepartureLahore(e.target.value)}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Arrival at JED">
-                <input
-                  type="datetime-local"
-                  value={arrivalJed}
-                  onChange={(e) => setArrivalJed(e.target.value)}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Departure from JED">
-                <input
-                  type="datetime-local"
-                  value={departureJed}
-                  onChange={(e) => setDepartureJed(e.target.value)}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Arrival at Lahore">
-                <input
-                  type="datetime-local"
-                  value={arrivalLahore}
-                  onChange={(e) => setArrivalLahore(e.target.value)}
-                  className={inputClass}
                 />
               </Field>
             </div>
@@ -2378,14 +2310,14 @@ const NormalPackage = () => {
             reportTitle="Custom Package Cost Report"
             clientName={result.clientName || "N/A"}
           >
-            {/* PACKAGE / TRAVEL INFORMATION — client + dates, then the
-                flight schedule. Printed before the 3 cost tables below;
-                the shell's own footer still renders last, after
-                everything here and after Tables 1–3. */}
+            {/* PACKAGE / TRAVEL INFORMATION — client + dates. Printed
+                before the 3 cost tables below; the shell's own footer
+                still renders last, after everything here and after
+                Tables 1–3. */}
             <p style={{ fontWeight: "bold", fontSize: "13px", marginBottom: "6px" }}>
               Package / Travel Information
             </p>
-            <table className="print-report-table" style={{ marginBottom: "16px" }}>
+            <table className="print-report-table" style={{ marginBottom: "20px" }}>
               <thead>
                 <tr>
                   <th>Client Name</th>
@@ -2402,28 +2334,6 @@ const NormalPackage = () => {
                   <td>{formatDateOnly(result.checkOutDate)}</td>
                   <td className="center">{result.totalDays || "—"}</td>
                   <td className="center">{result.totalNights ?? "—"}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <p style={{ fontWeight: "bold", fontSize: "13px", marginBottom: "6px" }}>
-              Flight / Travel Schedule
-            </p>
-            <table className="print-report-table" style={{ marginBottom: "20px" }}>
-              <thead>
-                <tr>
-                  <th>Departure Lahore</th>
-                  <th>Arrival JED</th>
-                  <th>Departure JED</th>
-                  <th>Arrival Lahore</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>{formatDateTime(result.departureLahore)}</td>
-                  <td>{formatDateTime(result.arrivalJed)}</td>
-                  <td>{formatDateTime(result.departureJed)}</td>
-                  <td>{formatDateTime(result.arrivalLahore)}</td>
                 </tr>
               </tbody>
             </table>
