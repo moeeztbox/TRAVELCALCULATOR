@@ -418,7 +418,7 @@ export default function TransportCalculator() {
                       <div className="flex justify-between items-center py-2">
                         <span className="text-gray-600">Luggage</span>
                         <span className="font-medium">
-                          {result.luggage} Bags
+                          {result.luggage} KG
                         </span>
                       </div>
                     </div>
@@ -538,7 +538,7 @@ export default function TransportCalculator() {
                   <td>{result.tripType === "oneway" ? "One Way" : "Round Trip"}</td>
                   <td>{result.route}</td>
                   <td>{result.agentName}</td>
-                  <td className="center">{result.luggage}</td>
+                  <td className="center">{result.luggage} KG</td>
                   <td className="num">${result.price.toFixed(2)}</td>
                   <td className="num">${result.totalCost.toFixed(2)}</td>
                 </tr>

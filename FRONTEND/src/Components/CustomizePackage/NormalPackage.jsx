@@ -539,6 +539,13 @@ const NormalPackage = () => {
     sellingSAR: "",
     passengers: "",
     showRateOptions: false,
+    // Companies typed in manually for a custom (not-in-database) route —
+    // never sent to the backend, only held in this row's own state. Shaped
+    // exactly like a Transport record ({_id, agentName, price}) so
+    // selectRouteRowRate works on them unchanged.
+    customRates: [],
+    newCompanyName: "",
+    newCompanyRate: "",
   });
 
   const growRoutes = (rows, count) =>
@@ -546,32 +553,32 @@ const NormalPackage = () => {
       ? rows
       : [...rows, ...Array.from({ length: count - rows.length }, emptyRouteRow)];
   const shrinkRoutes = (rows, count) => rows.slice(0, Math.max(count, 0));
+  const syncRouteRows = (rows, count) =>
+    count > rows.length ? growRoutes(rows, count) : shrinkRoutes(rows, count);
 
-  // Grows immediately (safe/non-destructive) as the user types a bigger
-  // number. Shrinking is deferred to onBlur so re-typing a multi-digit
-  // count (e.g. selecting "3" and typing "10") never destructively drops
-  // a row's already-entered data on the transient "1" keystroke. Same
-  // convention as ExplanatoryPackage's stay-count handling.
+  // The visible route rows always match Number of Routes exactly, updated
+  // on every keystroke — no waiting for blur/Enter/Calculate. Typing a
+  // smaller number removes the extra rows immediately, so re-typing a
+  // multi-digit count (e.g. "3" -> "10") can transiently drop rows on the
+  // "1" keystroke before the "0" lands; that's the accepted trade-off for
+  // always-live syncing.
   const handleNumberOfRoutesChange = (value) => {
     setNumberOfRoutes(value);
-    const n = toPositiveNumber(value);
-    if (n > 0) setRouteRows((prev) => growRoutes(prev, Math.min(n, MAX_ROUTES)));
+    const n = Math.min(toPositiveNumber(value), MAX_ROUTES);
+    setRouteRows((prev) => syncRouteRows(prev, n));
   };
 
   const handleNumberOfRoutesBlur = () => {
     let n = toPositiveNumber(numberOfRoutes);
     if (n > MAX_ROUTES) n = MAX_ROUTES;
     setNumberOfRoutes(n > 0 ? String(n) : "");
-    setRouteRows((prev) =>
-      n > prev.length ? growRoutes(prev, n) : shrinkRoutes(prev, n)
-    );
+    setRouteRows((prev) => syncRouteRows(prev, n));
   };
 
   // Route and Car Type are independent selections — changing either one
   // never touches the other, it only clears whichever company/rate was
-  // chosen (that choice was scoped to the OLD route+carType pair, so it's
-  // no longer valid). Original SAR is only ever set by actually picking a
-  // company's rate below — never auto-filled just from picking a vehicle.
+  // chosen and the typed Original SAR (that price was scoped to the OLD
+  // route+carType pair, so it's no longer valid).
   const updateRouteRow = (index, field, value) => {
     setRouteRows((prev) =>
       prev.map((row, i) => {
@@ -584,6 +591,9 @@ const NormalPackage = () => {
             agentName: "",
             originalSAR: "",
             showRateOptions: false,
+            customRates: [],
+            newCompanyName: "",
+            newCompanyRate: "",
           };
         }
         return { ...row, [field]: value };
@@ -591,29 +601,67 @@ const NormalPackage = () => {
     );
   };
 
+  // Opening one row's popup always closes every other row's — only one
+  // Company/Rate card is ever open at a time.
   const toggleRouteRowRates = (index) => {
     setRouteRows((prev) =>
       prev.map((row, i) =>
-        i === index ? { ...row, showRateOptions: !row.showRateOptions } : row
+        i === index
+          ? { ...row, showRateOptions: !row.showRateOptions }
+          : { ...row, showRateOptions: false }
       )
     );
   };
 
-  // The only place Original SAR (and which company/record was chosen) is
-  // ever set — always an explicit click on one real backend Transport
-  // record, never automatic, even when only one company matches.
+  const closeAllRouteRowRates = () => {
+    setRouteRows((prev) =>
+      prev.some((row) => row.showRateOptions)
+        ? prev.map((row) => ({ ...row, showRateOptions: false }))
+        : prev
+    );
+  };
+
+  // Click-outside-to-close for the Company/Rate popup — anything inside a
+  // popup (or its trigger button) carries data-rate-popover, so a click
+  // there is never treated as "outside".
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest("[data-rate-popover]")) closeAllRouteRowRates();
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Company/Rate selection is optional and toggleable: picking a company
+  // fills Original SAR from its rate (which stays editable afterward, so
+  // it can be manually adjusted). Clicking the same company again
+  // deselects it — the typed Original SAR value is left as-is, so the
+  // user can keep it, edit it, or ignore company rates entirely.
   const selectRouteRowRate = (index, record) => {
     setRouteRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        if (row.selectedTransportId === record._id) {
+          return { ...row, selectedTransportId: "", agentName: "" };
+        }
+        return {
+          ...row,
+          selectedTransportId: record._id,
+          agentName: record.agentName,
+          originalSAR: String(safePrice(record.price)),
+          showRateOptions: false,
+        };
+      })
+    );
+  };
+
+  // Explicit "Clear" affordance in the popup header — same deselect as
+  // re-clicking the checkbox, but reachable without knowing which row is
+  // currently checked. Leaves Original SAR untouched.
+  const clearRouteRowRate = (index) => {
+    setRouteRows((prev) =>
       prev.map((row, i) =>
-        i === index
-          ? {
-              ...row,
-              selectedTransportId: record._id,
-              agentName: record.agentName,
-              originalSAR: String(safePrice(record.price)),
-              showRateOptions: false,
-            }
-          : row
+        i === index ? { ...row, selectedTransportId: "", agentName: "" } : row
       )
     );
   };
@@ -622,6 +670,30 @@ const NormalPackage = () => {
   const safePrice = (v) => {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+
+  // Adds a manually-typed company + rate to a row's own local list — used
+  // for a custom route that doesn't exist in the Transport database. Never
+  // saved to the backend, and never auto-selected; the user still has to
+  // check it below, exactly like picking a real backend rate.
+  const addCustomRateForRouteRow = (index) => {
+    setRouteRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        const name = row.newCompanyName.trim();
+        const rate = safePrice(row.newCompanyRate);
+        if (!name || rate <= 0) return row;
+        return {
+          ...row,
+          customRates: [
+            ...row.customRates,
+            { _id: `custom-${Date.now()}-${row.customRates.length}`, agentName: name, price: rate },
+          ],
+          newCompanyName: "",
+          newCompanyRate: "",
+        };
+      })
+    );
   };
 
   // Resolve a combobox field to either the selected database record
@@ -826,7 +898,7 @@ const NormalPackage = () => {
         } else {
           const origNum = Number(r.originalSAR);
           if (!(Number.isFinite(origNum) && origNum > 0)) {
-            errs.push(`Select a company rate for Route ${idx + 1}.`);
+            errs.push(`Enter a valid original price for Route ${idx + 1}.`);
           }
         }
         const sellNum = Number(r.sellingSAR);
@@ -1740,7 +1812,16 @@ const NormalPackage = () => {
                     {routeRows.length > 0 && (
                       <div className="mt-2 space-y-2">
                         {routeRows.map((row, idx) => {
-                          const matchingRates = ratesFor(row.route, row.carType);
+                          const matchingRates = [
+                            ...ratesFor(row.route, row.carType),
+                            ...row.customRates,
+                          ];
+                          // A route the user typed by hand that doesn't
+                          // match any existing Transport record — lets a
+                          // company/rate still be entered for it below,
+                          // without ever adding it to the master database.
+                          const isCustomRoute =
+                            !!row.route && !uniqueRoutes.includes(row.route);
                           return (
                             <div
                               key={idx}
@@ -1750,20 +1831,20 @@ const NormalPackage = () => {
                                 {/* Route and Car Type are independent — picking
                                     one never filters or resets the other. */}
                                 <Field label={`Route ${idx + 1}`}>
-                                  <select
-                                    className="w-full p-2 border border-gray-300 rounded-lg bg-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                  <SearchableCombobox
                                     value={row.route}
-                                    onChange={(e) =>
-                                      updateRouteRow(idx, "route", e.target.value)
+                                    onTextChange={(text) =>
+                                      updateRouteRow(idx, "route", toUpper(text))
                                     }
-                                  >
-                                    <option value="">Select Route</option>
-                                    {uniqueRoutes.map((r) => (
-                                      <option key={r} value={r}>
-                                        {r}
-                                      </option>
-                                    ))}
-                                  </select>
+                                    onSelect={(r) => updateRouteRow(idx, "route", r)}
+                                    options={uniqueRoutes}
+                                    getLabel={(r) => r}
+                                    placeholder="Select or type a route"
+                                    isSelected={uniqueRoutes.includes(row.route)}
+                                    // Every backend route is shown directly,
+                                    // never collapsed behind a "+N more" hint.
+                                    maxSuggestions={uniqueRoutes.length}
+                                  />
                                 </Field>
                                 <Field label="Transport/Vehicle">
                                   <select
@@ -1782,32 +1863,141 @@ const NormalPackage = () => {
                                   </select>
                                 </Field>
 
-                                {/* Company/Rate — only enabled once both Route
-                                    and Car Type are chosen; opens the list of
-                                    every real Transport record matching that
-                                    exact pair, so Original SAR always comes
-                                    from an actual backend rate, never typed. */}
-                                <Field label="Company / Rate">
-                                  <button
-                                    type="button"
-                                    disabled={!row.route || !row.carType}
-                                    onClick={() => toggleRouteRowRates(idx)}
-                                    className={`w-full p-2 border rounded-lg text-sm text-left truncate cursor-pointer transition-colors ${
-                                      !row.route || !row.carType
-                                        ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-                                        : row.agentName
-                                        ? "border-brand-300 bg-brand-50 text-brand-700 font-medium"
-                                        : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"
-                                    }`}
-                                  >
-                                    {row.agentName || "View Rates"}
-                                  </button>
-                                </Field>
+                                {/* Company/Rate — optional; only enabled once
+                                    both Route and Car Type are chosen. Picking
+                                    a company fills Original SAR from its rate
+                                    as a convenient starting point, but the
+                                    field stays editable and the company can
+                                    be deselected (Clear, or re-click it). */}
+                                <div className="relative" data-rate-popover>
+                                  <Field label="Company / Rate">
+                                    <button
+                                      type="button"
+                                      disabled={!row.route || !row.carType}
+                                      onClick={() => toggleRouteRowRates(idx)}
+                                      className={`w-full p-2 border rounded-lg text-sm text-left truncate cursor-pointer transition-colors ${
+                                        !row.route || !row.carType
+                                          ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                          : row.agentName
+                                          ? "border-brand-300 bg-brand-50 text-brand-700 font-medium"
+                                          : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"
+                                      }`}
+                                    >
+                                      {row.agentName || "View Rates"}
+                                    </button>
+                                  </Field>
+
+                                  {row.showRateOptions && (
+                                    <div className="absolute z-20 top-full left-0 mt-1 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-2">
+                                      <div className="flex items-center justify-between px-1.5 pb-1.5">
+                                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                                          Select a company (optional)
+                                        </p>
+                                        {row.agentName && (
+                                          <button
+                                            type="button"
+                                            onClick={() => clearRouteRowRate(idx)}
+                                            className="text-[11px] font-semibold text-brand-600 hover:text-brand-700 cursor-pointer"
+                                          >
+                                            Clear
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="space-y-0.5 max-h-52 overflow-y-auto">
+                                        {matchingRates.length === 0 ? (
+                                          <p className="text-xs text-gray-400 px-1.5 py-1">
+                                            No company has quoted this exact
+                                            route + vehicle yet.
+                                          </p>
+                                        ) : (
+                                          matchingRates.map((t) => (
+                                            <label
+                                              key={t._id}
+                                              className="flex items-center justify-between gap-3 text-sm px-1.5 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50"
+                                            >
+                                              <span className="flex items-center gap-2 min-w-0">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={row.selectedTransportId === t._id}
+                                                  onChange={() => selectRouteRowRate(idx, t)}
+                                                  className="w-4 h-4 shrink-0 accent-brand-600 cursor-pointer"
+                                                />
+                                                <span
+                                                  className={`truncate ${
+                                                    row.selectedTransportId === t._id
+                                                      ? "font-semibold text-brand-700"
+                                                      : "text-gray-700"
+                                                  }`}
+                                                >
+                                                  {t.agentName}
+                                                </span>
+                                              </span>
+                                              <span className="shrink-0 font-medium text-gray-600">
+                                                {safePrice(t.price)} SAR
+                                              </span>
+                                            </label>
+                                          ))
+                                        )}
+                                      </div>
+
+                                      {isCustomRoute && (
+                                        <div className="mt-2 pt-2 border-t border-gray-100">
+                                          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide px-1.5 pb-1.5">
+                                            Add a company for this custom route
+                                          </p>
+                                          <div className="space-y-1.5 px-1.5">
+                                            <input
+                                              type="text"
+                                              placeholder="Company name"
+                                              value={row.newCompanyName}
+                                              onChange={(e) =>
+                                                setRouteRows((prev) =>
+                                                  prev.map((r, i) =>
+                                                    i === idx
+                                                      ? { ...r, newCompanyName: toUpper(e.target.value) }
+                                                      : r
+                                                  )
+                                                )
+                                              }
+                                              className="w-full p-1.5 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                            />
+                                            <div className="flex gap-1.5">
+                                              <input
+                                                type="number"
+                                                placeholder="Rate (SAR)"
+                                                value={row.newCompanyRate}
+                                                onChange={(e) =>
+                                                  setRouteRows((prev) =>
+                                                    prev.map((r, i) =>
+                                                      i === idx
+                                                        ? { ...r, newCompanyRate: e.target.value }
+                                                        : r
+                                                    )
+                                                  )
+                                                }
+                                                className="w-full p-1.5 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => addCustomRateForRouteRow(idx)}
+                                                disabled={!row.newCompanyName.trim() || safePrice(row.newCompanyRate) <= 0}
+                                                className="shrink-0 px-3 rounded-lg text-sm font-semibold bg-brand-600 text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer hover:bg-brand-700"
+                                              >
+                                                Add
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
 
                                 <CompactPriceField
                                   label="Orig SAR"
                                   value={row.originalSAR}
-                                  readOnly
+                                  onChange={(v) => updateRouteRow(idx, "originalSAR", v)}
+                                  readOnly={false}
                                 />
                                 <CompactPriceField
                                   label="Sell SAR"
@@ -1828,33 +2018,6 @@ const NormalPackage = () => {
                                   />
                                 </Field>
                               </div>
-
-                              {row.showRateOptions && (
-                                <div className="mt-2 rounded-lg border border-gray-200 bg-white p-1.5 space-y-1">
-                                  {matchingRates.length === 0 ? (
-                                    <p className="text-xs text-gray-400 px-2 py-1">
-                                      No company has quoted this exact route +
-                                      vehicle yet.
-                                    </p>
-                                  ) : (
-                                    matchingRates.map((t) => (
-                                      <button
-                                        key={t._id}
-                                        type="button"
-                                        onClick={() => selectRouteRowRate(idx, t)}
-                                        className={`w-full flex justify-between items-center gap-3 text-sm px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${
-                                          row.selectedTransportId === t._id
-                                            ? "bg-brand-50 text-brand-700 font-semibold"
-                                            : "text-gray-700 hover:bg-gray-50"
-                                        }`}
-                                      >
-                                        <span>{t.agentName}</span>
-                                        <span>{safePrice(t.price)} SAR</span>
-                                      </button>
-                                    ))
-                                  )}
-                                </div>
-                              )}
                             </div>
                           );
                         })}

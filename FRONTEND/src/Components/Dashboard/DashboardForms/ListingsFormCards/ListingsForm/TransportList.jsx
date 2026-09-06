@@ -80,8 +80,7 @@ const TransportList = () => {
   });
 
   // Vehicle master data (BASMA EMAAR PAKISTAN rate sheet) — selecting a car
-  // type below auto-fills its known capacity/bags. "SUV" is kept for
-  // editing pre-existing records that still use it.
+  // type below auto-fills its known capacity/bags.
   const VEHICLE_META = {
     SEDAN: { capacity: "2", luggage: "2" },
     "GMC YUKON XL 25 MODEL": { capacity: "6", luggage: "4" },
@@ -91,7 +90,7 @@ const TransportList = () => {
     "BUS 20 MODEL": { capacity: "47", luggage: "20" },
     "BUS 25/26 MODEL": { capacity: "49", luggage: "25" },
   };
-  const carTypes = ["SUV", ...Object.keys(VEHICLE_META)];
+  const carTypes = Object.keys(VEHICLE_META);
 
   const capacities = [
     "4 Seater",
@@ -102,14 +101,11 @@ const TransportList = () => {
     ...new Set(Object.values(VEHICLE_META).map((v) => v.capacity)),
   ];
 
-  // Route options
+  // Route options — only the proper CAPITAL-LETTER standard routes. The
+  // old lowercase/arrow-style entries (e.g. "Makkah → Medinah") have been
+  // removed from these selectable options; existing Transport records
+  // using those strings are untouched.
   const oneWayRoutes = [
-    "Makkah → Medinah",
-    "Makkah → Jeddah",
-    "Medinah → Makkah",
-    "Medinah → Jeddah",
-    "Jeddah → Medinah",
-    "Jeddah → Makkah",
     "JEDDAH AIRPORT > MAKKAH HOTEL",
     "MAKKAH > MADINAH",
     "JEDDAH AIRPORT > MADINAH",
@@ -123,11 +119,6 @@ const TransportList = () => {
   ];
 
   const roundTripRoutes = [
-    "Jeddah → Makkah → Medinah → Medinah Airport",
-    "Medinah Airport → Medinah Hotel → Makkah Hotel → Jeddah Airport",
-    "Jeddah → Makkah → Medinah → Jeddah",
-    "Jeddah → Medinah → Makkah → Jeddah",
-    "Jeddah → Makkah → Medinah → Makkah → Jeddah",
     "MAKKAH & MADINAH ZIYARAT",
     "MADINAH AIRPORT <> MADINAH HOTEL",
     "JEDDAH AIRPORT <> JEDDAH CITY",
@@ -375,9 +366,8 @@ const TransportList = () => {
   // Car Type filter options are DYNAMIC — always exactly whatever carType
   // values actually exist in the live Transport data right now, so a
   // brand-new vehicle (e.g. "ABC") shows up here automatically with no
-  // code change. "SUV" is deliberately excluded from this filter (it's
-  // only kept elsewhere for editing old records, not as a forward-looking
-  // filter option).
+  // code change. "SUV" is explicitly filtered out as a safety net — it's
+  // retired and should never resurface here even if a stray record exists.
   const carTypeFilterOptions = useMemo(
     () =>
       [...new Set(transports.map((t) => t.carType).filter(Boolean))]
@@ -765,51 +755,56 @@ const TransportList = () => {
                 </div>
               </Field>
 
-              <Field label="Trip Type" className="sm:col-span-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { value: "oneway", label: "One Way" },
-                    { value: "roundtrip", label: "Round Trip" },
-                  ].map((tt) => (
-                    <button
-                      key={tt.value}
-                      type="button"
-                      onClick={() => toggleFilterArray("tripTypes", tt.value)}
-                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                        filters.tripTypes.includes(tt.value)
-                          ? "bg-brand-600 text-white border-brand-600"
-                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                      }`}
-                    >
-                      {tt.label}
-                    </button>
-                  ))}
-                </div>
-              </Field>
+              {/* Trip Type, Capacity, and Min Bags kept in one tight
+                  sub-grid so they read as a related group instead of being
+                  stretched across the wide outer grid's gap-5 columns. */}
+              <div className="sm:col-span-2 lg:col-span-4 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
+                <Field label="Trip Type">
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { value: "oneway", label: "One Way" },
+                      { value: "roundtrip", label: "Round Trip" },
+                    ].map((tt) => (
+                      <button
+                        key={tt.value}
+                        type="button"
+                        onClick={() => toggleFilterArray("tripTypes", tt.value)}
+                        className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                          filters.tripTypes.includes(tt.value)
+                            ? "bg-brand-600 text-white border-brand-600"
+                            : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                        }`}
+                      >
+                        {tt.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
 
-              <Field label="Capacity">
-                <input
-                  type="text"
-                  placeholder="Search capacity..."
-                  value={filters.capacity}
-                  onChange={(e) =>
-                    setFilters({ ...filters, capacity: e.target.value })
-                  }
-                  className={inputClass}
-                />
-              </Field>
+                <Field label="Capacity">
+                  <input
+                    type="text"
+                    placeholder="Search capacity..."
+                    value={filters.capacity}
+                    onChange={(e) =>
+                      setFilters({ ...filters, capacity: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </Field>
 
-              <Field label="Min Bags">
-                <input
-                  type="number"
-                  placeholder="e.g. 4"
-                  value={filters.minLuggage}
-                  onChange={(e) =>
-                    setFilters({ ...filters, minLuggage: e.target.value })
-                  }
-                  className={inputClass}
-                />
-              </Field>
+                <Field label="Min Bags">
+                  <input
+                    type="number"
+                    placeholder="e.g. 4"
+                    value={filters.minLuggage}
+                    onChange={(e) =>
+                      setFilters({ ...filters, minLuggage: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
 
               <Field label="Price Range" className="sm:col-span-2">
                 <div className="grid grid-cols-2 gap-2">
@@ -913,7 +908,7 @@ const TransportList = () => {
                     </td>
                     <td className="py-3 px-4">{item.agentName}</td>
                     <td className="py-3 px-4">{item.price}</td>
-                    <td className="py-3 px-4">{item.luggage}</td>
+                    <td className="py-3 px-4">{item.luggage} KG</td>
 
                     {isAdmin && (
                       <td className="py-3 px-4 flex gap-4 no-print">

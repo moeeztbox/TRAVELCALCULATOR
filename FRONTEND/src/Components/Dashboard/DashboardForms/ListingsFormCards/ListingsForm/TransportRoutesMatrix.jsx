@@ -9,7 +9,6 @@ import EmptyState from "../../../../UI/EmptyState";
 // no image, exactly like "if available/possible".
 const VEHICLE_IMAGES = {
   SEDAN: "/images/transport/sedan.svg",
-  SUV: "/images/transport/suv.svg",
   "GMC YUKON XL 25 MODEL": "/images/transport/gmc-yukon-xl.svg",
   STARIA: "/images/transport/staria.svg",
   HIACE: "/images/transport/hiace.svg",
@@ -118,7 +117,7 @@ const TransportRoutesMatrix = ({ transports, isAdmin, onAddRate, onEditRate }) =
                       )}
                       <span>{v.name}</span>
                       <span className="text-[11px] font-normal text-muted normal-case">
-                        {v.luggage ?? "—"} bag{Number(v.luggage) === 1 ? "" : "s"}
+                        {v.luggage ?? "—"} KG
                       </span>
                     </div>
                   </th>
