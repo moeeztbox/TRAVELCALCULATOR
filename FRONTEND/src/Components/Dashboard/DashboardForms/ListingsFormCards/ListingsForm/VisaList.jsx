@@ -8,6 +8,9 @@ import {
   SlidersHorizontal,
   X,
   ArrowUpDown,
+  Search,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../../../Main/Modal";
@@ -36,14 +39,14 @@ const emptyVisa = {
   foodBRNPrice: "",
 };
 
+// `agentName` was folded into the always-visible top Search box (below) —
+// everything else stays a discrete "Filters" panel control.
 const emptyFilters = {
   categories: [],
-  agentName: "",
   hotelBRN: "",
   foodBRN: "",
   minPrice: "",
   maxPrice: "",
-  sortByPrice: "",
 };
 
 const VisaList = () => {
@@ -52,6 +55,10 @@ const VisaList = () => {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState(emptyFilters);
+  // Always-visible top-level controls, deliberately separate from the
+  // collapsible Filters panel.
+  const [search, setSearch] = useState("");
+  const [sortByPrice, setSortByPrice] = useState("");
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -231,7 +238,6 @@ const VisaList = () => {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.agentName) count++;
     if (filters.hotelBRN) count++;
     if (filters.foodBRN) count++;
     if (filters.minPrice) count++;
@@ -241,13 +247,14 @@ const VisaList = () => {
   }, [filters]);
 
   const filteredVisas = useMemo(() => {
+    const q = search.trim().toLowerCase();
     const list = visas.filter((v) => {
-      if (filters.categories.length && !filters.categories.includes(v.category))
-        return false;
       if (
-        filters.agentName &&
-        !v.agentName?.toLowerCase().includes(filters.agentName.toLowerCase())
+        q &&
+        !(v.agentName?.toLowerCase().includes(q) || v.category?.toLowerCase().includes(q))
       )
+        return false;
+      if (filters.categories.length && !filters.categories.includes(v.category))
         return false;
       if (filters.hotelBRN === "yes" && !v.hotelBRN) return false;
       if (filters.hotelBRN === "no" && v.hotelBRN) return false;
@@ -260,14 +267,14 @@ const VisaList = () => {
       return true;
     });
 
-    if (filters.sortByPrice === "asc") {
+    if (sortByPrice === "asc") {
       list.sort((a, b) => Number(a.price) - Number(b.price));
-    } else if (filters.sortByPrice === "desc") {
+    } else if (sortByPrice === "desc") {
       list.sort((a, b) => Number(b.price) - Number(a.price));
     }
 
     return list;
-  }, [visas, filters]);
+  }, [visas, filters, search, sortByPrice]);
 
   const clearFilters = () => setFilters(emptyFilters);
 
@@ -482,14 +489,6 @@ const VisaList = () => {
           onBack={handleBack}
           actions={
             <>
-              <Button
-                variant="secondary"
-                icon={SlidersHorizontal}
-                onClick={() => setShowFilters((v) => !v)}
-                className="lg:hidden"
-              >
-                Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
-              </Button>
               <Button variant="secondary" icon={Printer} onClick={handlePrint}>
                 Print
               </Button>
@@ -503,17 +502,50 @@ const VisaList = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
-        {/* FILTER PANEL */}
-        <aside
-          className={`no-print min-w-0 ${showFilters ? "block" : "hidden"} lg:block`}
-        >
-          <div className="table-card p-5 lg:sticky lg:top-20 space-y-5">
+      <div className="space-y-4">
+        {/* TOP BAR — Filters | Sort By | Search, in one row. No more left
+            sidebar, so the table below gets the full page width. */}
+        <div className="no-print flex flex-nowrap items-center gap-3">
+          <Button
+            variant="secondary"
+            icon={SlidersHorizontal}
+            iconRight={showFilters ? ChevronUp : ChevronDown}
+            onClick={() => setShowFilters((v) => !v)}
+            className="shrink-0"
+          >
+            Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </Button>
+
+          <select
+            value={sortByPrice}
+            onChange={(e) => setSortByPrice(e.target.value)}
+            className="shrink-0 w-40 rounded-xl border border-hair bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink cursor-pointer focus:border-brand-400 focus:bg-surface focus:ring-2 focus:ring-brand-100 focus:outline-none"
+          >
+            <option value="">Sort: Default</option>
+            <option value="asc">Cheapest First</option>
+            <option value="desc">Most Expensive</option>
+          </select>
+
+          <div className="relative flex-1 min-w-40">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-soft pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="Search category or agent..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`${inputClass} pl-9`}
+            />
+          </div>
+        </div>
+
+        {/* COLLAPSIBLE FILTER PANEL — full width, only rendered when open. */}
+        {showFilters && (
+          <div className="no-print table-card p-5 space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink flex items-center gap-2">
-                <SlidersHorizontal size={16} className="text-brand-600" />
-                Filters
-              </h3>
+              <h3 className="text-sm font-bold text-ink">Filters</h3>
               {activeFilterCount > 0 && (
                 <button
                   onClick={clearFilters}
@@ -524,132 +556,108 @@ const VisaList = () => {
               )}
             </div>
 
-            <Field label="Category">
-              <div className="flex flex-wrap gap-1.5">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => toggleFilterArray("categories", cat)}
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                      filters.categories.includes(cat)
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <Field label="Hotel BRN">
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: "yes", label: "Included" },
+                    { value: "no", label: "Not Included" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() =>
+                        setFilters({
+                          ...filters,
+                          hotelBRN: filters.hotelBRN === opt.value ? "" : opt.value,
+                        })
+                      }
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                        filters.hotelBRN === opt.value
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
 
-            <Field label="Agent Name">
-              <input
-                type="text"
-                placeholder="Search agent..."
-                value={filters.agentName}
-                onChange={(e) =>
-                  setFilters({ ...filters, agentName: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
+              <Field label="Food BRN">
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: "yes", label: "Included" },
+                    { value: "no", label: "Not Included" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() =>
+                        setFilters({
+                          ...filters,
+                          foodBRN: filters.foodBRN === opt.value ? "" : opt.value,
+                        })
+                      }
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                        filters.foodBRN === opt.value
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
 
-            <Field label="Hotel BRN">
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { value: "yes", label: "Included" },
-                  { value: "no", label: "Not Included" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() =>
-                      setFilters({
-                        ...filters,
-                        hotelBRN: filters.hotelBRN === opt.value ? "" : opt.value,
-                      })
+              <Field label="Price Range" className="sm:col-span-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, minPrice: e.target.value })
                     }
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                      filters.hotelBRN === opt.value
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </Field>
-
-            <Field label="Food BRN">
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { value: "yes", label: "Included" },
-                  { value: "no", label: "Not Included" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() =>
-                      setFilters({
-                        ...filters,
-                        foodBRN: filters.foodBRN === opt.value ? "" : opt.value,
-                      })
+                    className={inputClass}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, maxPrice: e.target.value })
                     }
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                      filters.foodBRN === opt.value
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </Field>
+                    className={inputClass}
+                  />
+                </div>
+              </Field>
 
-            <Field label="Price Range">
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={filters.minPrice}
-                  onChange={(e) =>
-                    setFilters({ ...filters, minPrice: e.target.value })
-                  }
-                  className={inputClass}
-                />
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={filters.maxPrice}
-                  onChange={(e) =>
-                    setFilters({ ...filters, maxPrice: e.target.value })
-                  }
-                  className={inputClass}
-                />
-              </div>
-            </Field>
-
-            <Field label="Sort by Price">
-              <select
-                value={filters.sortByPrice}
-                onChange={(e) =>
-                  setFilters({ ...filters, sortByPrice: e.target.value })
-                }
-                className={inputClass}
-              >
-                <option value="">Default</option>
-                <option value="asc">Cheapest first</option>
-                <option value="desc">Most expensive first</option>
-              </select>
-            </Field>
+              <Field label="Category" className="sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-wrap gap-1.5">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => toggleFilterArray("categories", cat)}
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                        filters.categories.includes(cat)
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </div>
           </div>
-        </aside>
+        )}
 
         {/* LISTING */}
-        <div className="min-w-0">
+        <div>
           {/* PRINTABLE AREA */}
           <div id="print-area">
             {/* PRINT-ONLY HEADER */}
@@ -662,10 +670,10 @@ const VisaList = () => {
                   {filteredVisas.length}
                 </span>{" "}
                 of {visas.length} visas
-                {filters.sortByPrice && (
+                {sortByPrice && (
                   <span className="inline-flex items-center gap-1 ml-2 text-brand-600 font-medium">
                     <ArrowUpDown size={13} />
-                    {filters.sortByPrice === "asc"
+                    {sortByPrice === "asc"
                       ? "Cheapest first"
                       : "Most expensive first"}
                   </span>

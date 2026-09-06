@@ -8,6 +8,9 @@ import {
   SlidersHorizontal,
   X,
   ArrowUpDown,
+  Search,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../../../Main/Modal";
@@ -23,17 +26,17 @@ import EmptyState from "../../../../UI/EmptyState";
 import { useAuth } from "../../../../../context/AuthContext";
 import { toUpper } from "../../../../../utils/text";
 import { API_BASE_URL } from "../../../../../config/api";
+import TransportRoutesMatrix from "./TransportRoutesMatrix";
 
+// `route`/`agentName` were folded into the always-visible top Search box
+// (below) — everything else stays a discrete "Filters" panel control.
 const emptyFilters = {
   carTypes: [],
   tripTypes: [],
   capacity: "",
-  route: "",
-  agentName: "",
   minLuggage: "",
   minPrice: "",
   maxPrice: "",
-  sortByPrice: "",
 };
 
 const TransportList = () => {
@@ -42,6 +45,14 @@ const TransportList = () => {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState(emptyFilters);
+  // Always-visible top-level controls, deliberately separate from the
+  // collapsible Filters panel.
+  const [search, setSearch] = useState("");
+  const [sortByPrice, setSortByPrice] = useState("");
+
+  // "list" = the existing flat listing (unchanged); "routes" = the new
+  // company-wise rate matrix.
+  const [viewMode, setViewMode] = useState("list");
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -231,6 +242,28 @@ const TransportList = () => {
     }
   };
 
+  // OPEN ADD MODAL — used by the Show Routes matrix to pre-fill a new rate
+  // for the exact company/route/vehicle cell that was clicked. Opens the
+  // same Add modal/flow as the "Add Transport" button; nothing about that
+  // flow changes.
+  const openAddModalWithPrefill = ({ agentName, route, carType, capacity, luggage }) => {
+    // Same trip-type detection as openEditModal, below — otherwise a
+    // roundtrip-only route (e.g. "MAKKAH & MADINAH ZIYARAT") would be
+    // pre-filled while the Route dropdown is still showing oneway options,
+    // which don't include it.
+    const tripType = roundTripRoutes.includes(route) ? "roundtrip" : "oneway";
+    setNewTransport({
+      carType: carType || "",
+      capacity: capacity || "",
+      tripType,
+      route: route || "",
+      agentName: agentName || "",
+      price: "",
+      luggage: luggage || "",
+    });
+    setShowAddModal(true);
+  };
+
   // OPEN EDIT MODAL
   const openEditModal = (item) => {
     // determine tripType based on whether route matches round trip options
@@ -339,11 +372,23 @@ const TransportList = () => {
     });
   };
 
+  // Car Type filter options are DYNAMIC — always exactly whatever carType
+  // values actually exist in the live Transport data right now, so a
+  // brand-new vehicle (e.g. "ABC") shows up here automatically with no
+  // code change. "SUV" is deliberately excluded from this filter (it's
+  // only kept elsewhere for editing old records, not as a forward-looking
+  // filter option).
+  const carTypeFilterOptions = useMemo(
+    () =>
+      [...new Set(transports.map((t) => t.carType).filter(Boolean))]
+        .filter((c) => c.trim().toUpperCase() !== "SUV")
+        .sort(),
+    [transports]
+  );
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.capacity) count++;
-    if (filters.route) count++;
-    if (filters.agentName) count++;
     if (filters.minLuggage) count++;
     if (filters.minPrice) count++;
     if (filters.maxPrice) count++;
@@ -353,7 +398,17 @@ const TransportList = () => {
   }, [filters]);
 
   const filteredTransports = useMemo(() => {
+    const q = search.trim().toLowerCase();
     const list = transports.filter((t) => {
+      if (
+        q &&
+        !(
+          t.routeString?.toLowerCase().includes(q) ||
+          t.agentName?.toLowerCase().includes(q) ||
+          t.carType?.toLowerCase().includes(q)
+        )
+      )
+        return false;
       if (filters.carTypes.length && !filters.carTypes.includes(t.carType))
         return false;
       if (filters.tripTypes.length && !filters.tripTypes.includes(t.tripType))
@@ -365,16 +420,6 @@ const TransportList = () => {
           .includes(filters.capacity.toLowerCase())
       )
         return false;
-      if (
-        filters.route &&
-        !t.routeString?.toLowerCase().includes(filters.route.toLowerCase())
-      )
-        return false;
-      if (
-        filters.agentName &&
-        !t.agentName?.toLowerCase().includes(filters.agentName.toLowerCase())
-      )
-        return false;
       if (filters.minLuggage && Number(t.luggage) < Number(filters.minLuggage))
         return false;
       if (filters.minPrice && Number(t.price) < Number(filters.minPrice))
@@ -384,14 +429,14 @@ const TransportList = () => {
       return true;
     });
 
-    if (filters.sortByPrice === "asc") {
+    if (sortByPrice === "asc") {
       list.sort((a, b) => Number(a.price) - Number(b.price));
-    } else if (filters.sortByPrice === "desc") {
+    } else if (sortByPrice === "desc") {
       list.sort((a, b) => Number(b.price) - Number(a.price));
     }
 
     return list;
-  }, [transports, filters]);
+  }, [transports, filters, search, sortByPrice]);
 
   const clearFilters = () => setFilters(emptyFilters);
 
@@ -591,46 +636,105 @@ const TransportList = () => {
         `}
       </style>
 
-      <div className="no-print mb-8">
+      <div className="no-print mb-6">
         <PageHeader
           title="Transport"
           subtitle="Vehicles, routes & trip pricing"
           icon={Car}
           onBack={handleBack}
           actions={
-            <>
-              <Button
-                variant="secondary"
-                icon={SlidersHorizontal}
-                onClick={() => setShowFilters((v) => !v)}
-                className="lg:hidden"
-              >
-                Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
-              </Button>
-              <Button variant="secondary" icon={Printer} onClick={handlePrint}>
-                Print
-              </Button>
-              {isAdmin && (
-                <Button icon={Plus} onClick={() => setShowAddModal(true)}>
-                  Add Transport
+            viewMode === "list" ? (
+              <>
+                <Button variant="secondary" icon={Printer} onClick={handlePrint}>
+                  Print
                 </Button>
-              )}
-            </>
+                {isAdmin && (
+                  <Button icon={Plus} onClick={() => setShowAddModal(true)}>
+                    Add Transport
+                  </Button>
+                )}
+              </>
+            ) : null
           }
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
-        {/* FILTER PANEL */}
-        <aside
-          className={`no-print min-w-0 ${showFilters ? "block" : "hidden"} lg:block`}
-        >
-          <div className="table-card p-5 lg:sticky lg:top-20 space-y-5">
+      {/* VIEW TOGGLE — "Show All Lists" is the existing flat listing,
+          unchanged; "Show Routes" is the new company-wise rate matrix. */}
+      <div className="no-print flex flex-wrap gap-2 mb-6">
+        {[
+          { key: "list", label: "Show All Lists" },
+          { key: "routes", label: "Show Routes" },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setViewMode(tab.key)}
+            className={`px-4 py-2 text-sm font-semibold rounded-xl border transition-colors cursor-pointer ${
+              viewMode === tab.key
+                ? "bg-brand-600 text-white border-brand-600"
+                : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {viewMode === "routes" && (
+        <TransportRoutesMatrix
+          transports={transports}
+          isAdmin={isAdmin}
+          onAddRate={openAddModalWithPrefill}
+          onEditRate={openEditModal}
+        />
+      )}
+
+      {viewMode === "list" && (
+      <div className="space-y-4">
+        {/* TOP BAR — Filters | Sort By | Search, in one row. No more left
+            sidebar, so the table below gets the full page width. */}
+        <div className="no-print flex flex-nowrap items-center gap-3">
+          <Button
+            variant="secondary"
+            icon={SlidersHorizontal}
+            iconRight={showFilters ? ChevronUp : ChevronDown}
+            onClick={() => setShowFilters((v) => !v)}
+            className="shrink-0"
+          >
+            Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </Button>
+
+          <select
+            value={sortByPrice}
+            onChange={(e) => setSortByPrice(e.target.value)}
+            className="shrink-0 w-40 rounded-xl border border-hair bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink cursor-pointer focus:border-brand-400 focus:bg-surface focus:ring-2 focus:ring-brand-100 focus:outline-none"
+          >
+            <option value="">Sort: Default</option>
+            <option value="asc">Cheapest First</option>
+            <option value="desc">Most Expensive</option>
+          </select>
+
+          <div className="relative flex-1 min-w-40">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-soft pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="Search route, agent, or car type..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`${inputClass} pl-9`}
+            />
+          </div>
+        </div>
+
+        {/* COLLAPSIBLE FILTER PANEL — full width, only rendered when open. */}
+        {showFilters && (
+          <div className="no-print table-card p-5 space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink flex items-center gap-2">
-                <SlidersHorizontal size={16} className="text-brand-600" />
-                Filters
-              </h3>
+              <h3 className="text-sm font-bold text-ink">Filters</h3>
               {activeFilterCount > 0 && (
                 <button
                   onClick={clearFilters}
@@ -641,136 +745,100 @@ const TransportList = () => {
               )}
             </div>
 
-            <Field label="Car Type">
-              <div className="flex flex-wrap gap-1.5">
-                {carTypes.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => toggleFilterArray("carTypes", c)}
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                      filters.carTypes.includes(c)
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <Field label="Car Type" className="sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-wrap gap-1.5">
+                  {carTypeFilterOptions.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => toggleFilterArray("carTypes", c)}
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                        filters.carTypes.includes(c)
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </Field>
 
-            <Field label="Trip Type">
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { value: "oneway", label: "One Way" },
-                  { value: "roundtrip", label: "Round Trip" },
-                ].map((tt) => (
-                  <button
-                    key={tt.value}
-                    type="button"
-                    onClick={() => toggleFilterArray("tripTypes", tt.value)}
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                      filters.tripTypes.includes(tt.value)
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                    }`}
-                  >
-                    {tt.label}
-                  </button>
-                ))}
-              </div>
-            </Field>
+              <Field label="Trip Type" className="sm:col-span-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: "oneway", label: "One Way" },
+                    { value: "roundtrip", label: "Round Trip" },
+                  ].map((tt) => (
+                    <button
+                      key={tt.value}
+                      type="button"
+                      onClick={() => toggleFilterArray("tripTypes", tt.value)}
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                        filters.tripTypes.includes(tt.value)
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                      }`}
+                    >
+                      {tt.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
 
-            <Field label="Capacity">
-              <input
-                type="text"
-                placeholder="Search capacity..."
-                value={filters.capacity}
-                onChange={(e) =>
-                  setFilters({ ...filters, capacity: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Route">
-              <input
-                type="text"
-                placeholder="Search route..."
-                value={filters.route}
-                onChange={(e) =>
-                  setFilters({ ...filters, route: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Agent Name">
-              <input
-                type="text"
-                placeholder="Search agent..."
-                value={filters.agentName}
-                onChange={(e) =>
-                  setFilters({ ...filters, agentName: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Min Bags">
-              <input
-                type="number"
-                placeholder="e.g. 4"
-                value={filters.minLuggage}
-                onChange={(e) =>
-                  setFilters({ ...filters, minLuggage: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Price Range">
-              <div className="grid grid-cols-2 gap-2">
+              <Field label="Capacity">
                 <input
-                  type="number"
-                  placeholder="Min"
-                  value={filters.minPrice}
+                  type="text"
+                  placeholder="Search capacity..."
+                  value={filters.capacity}
                   onChange={(e) =>
-                    setFilters({ ...filters, minPrice: e.target.value })
+                    setFilters({ ...filters, capacity: e.target.value })
                   }
                   className={inputClass}
                 />
+              </Field>
+
+              <Field label="Min Bags">
                 <input
                   type="number"
-                  placeholder="Max"
-                  value={filters.maxPrice}
+                  placeholder="e.g. 4"
+                  value={filters.minLuggage}
                   onChange={(e) =>
-                    setFilters({ ...filters, maxPrice: e.target.value })
+                    setFilters({ ...filters, minLuggage: e.target.value })
                   }
                   className={inputClass}
                 />
-              </div>
-            </Field>
+              </Field>
 
-            <Field label="Sort by Price">
-              <select
-                value={filters.sortByPrice}
-                onChange={(e) =>
-                  setFilters({ ...filters, sortByPrice: e.target.value })
-                }
-                className={inputClass}
-              >
-                <option value="">Default</option>
-                <option value="asc">Cheapest first</option>
-                <option value="desc">Most expensive first</option>
-              </select>
-            </Field>
+              <Field label="Price Range" className="sm:col-span-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, minPrice: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, maxPrice: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </Field>
+            </div>
           </div>
-        </aside>
+        )}
 
         {/* LISTING */}
-        <div className="min-w-0">
+        <div>
           {/* PRINTABLE AREA */}
           <div id="print-area">
             {/* PRINT-ONLY HEADER */}
@@ -783,10 +851,10 @@ const TransportList = () => {
                   {filteredTransports.length}
                 </span>{" "}
                 of {transports.length} transport options
-                {filters.sortByPrice && (
+                {sortByPrice && (
                   <span className="inline-flex items-center gap-1 ml-2 text-brand-600 font-medium">
                     <ArrowUpDown size={13} />
-                    {filters.sortByPrice === "asc"
+                    {sortByPrice === "asc"
                       ? "Cheapest first"
                       : "Most expensive first"}
                   </span>
@@ -794,7 +862,10 @@ const TransportList = () => {
               </p>
             )}
 
-            {/* Table - Different styling for screen vs print */}
+            {/* Table - Different styling for screen vs print. Route wraps
+                (inline style beats the shared .data-table nowrap rule)
+                instead of forcing the whole table wider, which is what was
+                pushing the last columns off-screen. */}
             <div className="table-card mt-2 print:shadow-none print:rounded-none print:border-0">
               <table className="data-table print-table">
                 <thead>
@@ -837,7 +908,9 @@ const TransportList = () => {
                   >
                     <td className="py-3 px-4">{item.carType}</td>
                     <td className="py-3 px-4">{item.capacity}</td>
-                    <td className="py-3 px-4">{item.routeString}</td>
+                    <td className="py-3 px-4 max-w-xs" style={{ whiteSpace: "normal" }}>
+                      {item.routeString}
+                    </td>
                     <td className="py-3 px-4">{item.agentName}</td>
                     <td className="py-3 px-4">{item.price}</td>
                     <td className="py-3 px-4">{item.luggage}</td>
@@ -867,6 +940,7 @@ const TransportList = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* ADD MODAL */}
       <Modal

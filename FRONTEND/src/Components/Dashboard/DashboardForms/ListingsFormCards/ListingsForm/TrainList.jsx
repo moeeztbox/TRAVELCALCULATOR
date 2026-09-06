@@ -8,6 +8,9 @@ import {
   SlidersHorizontal,
   X,
   ArrowUpDown,
+  Search,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../../../Main/Modal";
@@ -36,16 +39,13 @@ const emptyTrain = {
   price: "",
 };
 
+// `trainName`/`route`/`departure`/`arrival`/`agentName` were folded into
+// the always-visible top Search box (below) — everything else stays a
+// discrete "Filters" panel control.
 const emptyFilters = {
-  trainName: "",
-  route: "",
-  departure: "",
-  arrival: "",
   classes: [],
-  agentName: "",
   minPrice: "",
   maxPrice: "",
-  sortByPrice: "",
 };
 
 const TrainList = () => {
@@ -54,6 +54,10 @@ const TrainList = () => {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState(emptyFilters);
+  // Always-visible top-level controls, deliberately separate from the
+  // collapsible Filters panel.
+  const [search, setSearch] = useState("");
+  const [sortByPrice, setSortByPrice] = useState("");
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -224,11 +228,6 @@ const TrainList = () => {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.trainName) count++;
-    if (filters.route) count++;
-    if (filters.departure) count++;
-    if (filters.arrival) count++;
-    if (filters.agentName) count++;
     if (filters.minPrice) count++;
     if (filters.maxPrice) count++;
     count += filters.classes.length;
@@ -236,33 +235,20 @@ const TrainList = () => {
   }, [filters]);
 
   const filteredTrains = useMemo(() => {
+    const q = search.trim().toLowerCase();
     const list = trains.filter((t) => {
       if (
-        filters.trainName &&
-        !t.trainName?.toLowerCase().includes(filters.trainName.toLowerCase())
-      )
-        return false;
-      if (
-        filters.route &&
-        !t.route?.toLowerCase().includes(filters.route.toLowerCase())
-      )
-        return false;
-      if (
-        filters.departure &&
-        !t.departure?.toLowerCase().includes(filters.departure.toLowerCase())
-      )
-        return false;
-      if (
-        filters.arrival &&
-        !t.arrival?.toLowerCase().includes(filters.arrival.toLowerCase())
+        q &&
+        !(
+          t.trainName?.toLowerCase().includes(q) ||
+          t.route?.toLowerCase().includes(q) ||
+          t.departure?.toLowerCase().includes(q) ||
+          t.arrival?.toLowerCase().includes(q) ||
+          t.agentName?.toLowerCase().includes(q)
+        )
       )
         return false;
       if (filters.classes.length && !filters.classes.includes(t.trainClass))
-        return false;
-      if (
-        filters.agentName &&
-        !t.agentName?.toLowerCase().includes(filters.agentName.toLowerCase())
-      )
         return false;
       if (filters.minPrice && Number(t.price) < Number(filters.minPrice))
         return false;
@@ -271,14 +257,14 @@ const TrainList = () => {
       return true;
     });
 
-    if (filters.sortByPrice === "asc") {
+    if (sortByPrice === "asc") {
       list.sort((a, b) => Number(a.price) - Number(b.price));
-    } else if (filters.sortByPrice === "desc") {
+    } else if (sortByPrice === "desc") {
       list.sort((a, b) => Number(b.price) - Number(a.price));
     }
 
     return list;
-  }, [trains, filters]);
+  }, [trains, filters, search, sortByPrice]);
 
   const clearFilters = () => setFilters(emptyFilters);
 
@@ -469,14 +455,6 @@ const TrainList = () => {
           onBack={handleBack}
           actions={
             <>
-              <Button
-                variant="secondary"
-                icon={SlidersHorizontal}
-                onClick={() => setShowFilters((v) => !v)}
-                className="lg:hidden"
-              >
-                Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
-              </Button>
               <Button variant="secondary" icon={Printer} onClick={handlePrint}>
                 Print
               </Button>
@@ -490,17 +468,50 @@ const TrainList = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
-        {/* FILTER PANEL */}
-        <aside
-          className={`no-print min-w-0 ${showFilters ? "block" : "hidden"} lg:block`}
-        >
-          <div className="table-card p-5 lg:sticky lg:top-20 space-y-5">
+      <div className="space-y-4">
+        {/* TOP BAR — Filters | Sort By | Search, in one row. No more left
+            sidebar, so the table below gets the full page width. */}
+        <div className="no-print flex flex-nowrap items-center gap-3">
+          <Button
+            variant="secondary"
+            icon={SlidersHorizontal}
+            iconRight={showFilters ? ChevronUp : ChevronDown}
+            onClick={() => setShowFilters((v) => !v)}
+            className="shrink-0"
+          >
+            Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </Button>
+
+          <select
+            value={sortByPrice}
+            onChange={(e) => setSortByPrice(e.target.value)}
+            className="shrink-0 w-40 rounded-xl border border-hair bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink cursor-pointer focus:border-brand-400 focus:bg-surface focus:ring-2 focus:ring-brand-100 focus:outline-none"
+          >
+            <option value="">Sort: Default</option>
+            <option value="asc">Cheapest First</option>
+            <option value="desc">Most Expensive</option>
+          </select>
+
+          <div className="relative flex-1 min-w-40">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-soft pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="Search train, route, departure, arrival, or agent..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`${inputClass} pl-9`}
+            />
+          </div>
+        </div>
+
+        {/* COLLAPSIBLE FILTER PANEL — full width, only rendered when open. */}
+        {showFilters && (
+          <div className="no-print table-card p-5 space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink flex items-center gap-2">
-                <SlidersHorizontal size={16} className="text-brand-600" />
-                Filters
-              </h3>
+              <h3 className="text-sm font-bold text-ink">Filters</h3>
               {activeFilterCount > 0 && (
                 <button
                   onClick={clearFilters}
@@ -511,126 +522,54 @@ const TrainList = () => {
               )}
             </div>
 
-            <Field label="Train Name">
-              <input
-                type="text"
-                placeholder="Search train..."
-                value={filters.trainName}
-                onChange={(e) =>
-                  setFilters({ ...filters, trainName: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <Field label="Price Range" className="sm:col-span-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, minPrice: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, maxPrice: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </Field>
 
-            <Field label="Route">
-              <input
-                type="text"
-                placeholder="Search route..."
-                value={filters.route}
-                onChange={(e) =>
-                  setFilters({ ...filters, route: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Departure">
-              <input
-                type="text"
-                placeholder="Search departure..."
-                value={filters.departure}
-                onChange={(e) =>
-                  setFilters({ ...filters, departure: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Arrival">
-              <input
-                type="text"
-                placeholder="Search arrival..."
-                value={filters.arrival}
-                onChange={(e) =>
-                  setFilters({ ...filters, arrival: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Class">
-              <div className="flex flex-wrap gap-1.5">
-                {TRAIN_CLASSES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => toggleFilterArray("classes", c)}
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                      filters.classes.includes(c)
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </Field>
-
-            <Field label="Agent Name">
-              <input
-                type="text"
-                placeholder="Search agent..."
-                value={filters.agentName}
-                onChange={(e) =>
-                  setFilters({ ...filters, agentName: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Price Range">
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={filters.minPrice}
-                  onChange={(e) =>
-                    setFilters({ ...filters, minPrice: e.target.value })
-                  }
-                  className={inputClass}
-                />
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={filters.maxPrice}
-                  onChange={(e) =>
-                    setFilters({ ...filters, maxPrice: e.target.value })
-                  }
-                  className={inputClass}
-                />
-              </div>
-            </Field>
-
-            <Field label="Sort by Price">
-              <select
-                value={filters.sortByPrice}
-                onChange={(e) =>
-                  setFilters({ ...filters, sortByPrice: e.target.value })
-                }
-                className={inputClass}
-              >
-                <option value="">Default</option>
-                <option value="asc">Cheapest first</option>
-                <option value="desc">Most expensive first</option>
-              </select>
-            </Field>
+              <Field label="Class" className="sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-wrap gap-1.5">
+                  {TRAIN_CLASSES.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => toggleFilterArray("classes", c)}
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                        filters.classes.includes(c)
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </div>
           </div>
-        </aside>
+        )}
 
         {/* LISTING */}
-        <div className="min-w-0">
+        <div>
           {/* PRINTABLE AREA */}
           <div id="print-area">
             {/* PRINT-ONLY HEADER */}
@@ -643,10 +582,10 @@ const TrainList = () => {
                   {filteredTrains.length}
                 </span>{" "}
                 of {trains.length} trains
-                {filters.sortByPrice && (
+                {sortByPrice && (
                   <span className="inline-flex items-center gap-1 ml-2 text-brand-600 font-medium">
                     <ArrowUpDown size={13} />
-                    {filters.sortByPrice === "asc"
+                    {sortByPrice === "asc"
                       ? "Cheapest first"
                       : "Most expensive first"}
                   </span>

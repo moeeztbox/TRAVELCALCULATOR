@@ -258,10 +258,11 @@ const NormalPackage = () => {
   // User selections
   const [clientName, setClientName] = useState("");
 
-  // Travel Dates — Total Days/Nights are derived from these, never
-  // manually typed (see tripDaysRaw/totalDaysNum/totalNightsNum below).
+  // Travel Dates — Total Nights is derived from these (see tripDaysRaw/
+  // totalNightsNum below); Total Days is its own independent manual field.
   const [checkInDate, setCheckInDate] = useState("");
   const [checkOutDate, setCheckOutDate] = useState("");
+  const [totalDays, setTotalDays] = useState("");
 
   // Single manually entered rate. Conversion Rate governs every Original
   // (cost) price AND every Selling price — there is no separate Selling
@@ -508,25 +509,36 @@ const NormalPackage = () => {
   const makkahHotels = hotels.filter((h) => h.city === "Makkah");
   const madinahHotels = hotels.filter((h) => h.city === "Madinah");
 
-  // Distinct route labels from the existing Transport listing — reused as
-  // the selectable options for each dynamic Route row below.
+  // Distinct route labels / car types from the existing Transport listing —
+  // Route and Car Type are selected completely independently of each other
+  // (neither filters the other's options); only the Company/Rate step
+  // afterward is scoped to the exact (route, carType) pair.
   const uniqueRoutes = [
     ...new Set(transports.map((t) => routeLabel(t)).filter(Boolean)),
   ];
+  const uniqueCarTypes = [
+    ...new Set(transports.map((t) => t.carType).filter(Boolean)),
+  ].sort();
 
-  // Vehicles available for one row are whichever Transport records
-  // actually service THAT row's selected route — same cascading idea as
-  // Car Type → Trip Type → Route elsewhere in this app, just scoped per
-  // row instead of per page (different routes can use different vehicles).
-  const vehiclesForRoute = (route) =>
-    !route ? [] : transports.filter((t) => routeLabel(t) === route);
+  // Every actual Transport record quoting this exact route+carType — one
+  // row per company, so the user can pick any of them (never auto-picked,
+  // not even when there's only one match).
+  const ratesFor = (route, carType) =>
+    !route || !carType
+      ? []
+      : transports.filter((t) => routeLabel(t) === route && t.carType === carType);
 
   const emptyRouteRow = () => ({
     route: "",
     carType: "",
+    // Which exact backend Transport record (company + rate) was chosen for
+    // this row — this is the only thing allowed to set originalSAR.
+    selectedTransportId: "",
+    agentName: "",
     originalSAR: "",
     sellingSAR: "",
     passengers: "",
+    showRateOptions: false,
   });
 
   const growRoutes = (rows, count) =>
@@ -555,29 +567,54 @@ const NormalPackage = () => {
     );
   };
 
-  // Route changes reset that row's vehicle/price (a vehicle servicing
-  // "JEDDAH > MAKKAH" may not even exist for "MAKKAH > MADINAH"). Vehicle
-  // selection auto-fills Original SAR from the matched DB record — Selling
-  // SAR and Passengers are always independently, manually entered per row.
+  // Route and Car Type are independent selections — changing either one
+  // never touches the other, it only clears whichever company/rate was
+  // chosen (that choice was scoped to the OLD route+carType pair, so it's
+  // no longer valid). Original SAR is only ever set by actually picking a
+  // company's rate below — never auto-filled just from picking a vehicle.
   const updateRouteRow = (index, field, value) => {
     setRouteRows((prev) =>
       prev.map((row, i) => {
         if (i !== index) return row;
-        if (field === "route") {
-          return { ...row, route: value, carType: "", originalSAR: "" };
-        }
-        if (field === "carType") {
-          const match = vehiclesForRoute(row.route).find(
-            (t) => t.carType === value
-          );
+        if (field === "route" || field === "carType") {
           return {
             ...row,
-            carType: value,
-            originalSAR: match ? String(safePrice(match.price)) : "",
+            [field]: value,
+            selectedTransportId: "",
+            agentName: "",
+            originalSAR: "",
+            showRateOptions: false,
           };
         }
         return { ...row, [field]: value };
       })
+    );
+  };
+
+  const toggleRouteRowRates = (index) => {
+    setRouteRows((prev) =>
+      prev.map((row, i) =>
+        i === index ? { ...row, showRateOptions: !row.showRateOptions } : row
+      )
+    );
+  };
+
+  // The only place Original SAR (and which company/record was chosen) is
+  // ever set — always an explicit click on one real backend Transport
+  // record, never automatic, even when only one company matches.
+  const selectRouteRowRate = (index, record) => {
+    setRouteRows((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              selectedTransportId: record._id,
+              agentName: record.agentName,
+              originalSAR: String(safePrice(record.price)),
+              showRateOptions: false,
+            }
+          : row
+      )
     );
   };
 
@@ -603,11 +640,12 @@ const NormalPackage = () => {
     };
   };
 
-  // Total Days/Nights are derived from Check-in/Check-out — never manually
-  // typed. Total Days is the inclusive calendar-day count of the trip
-  // (departure day through return day); Total Nights is exactly
-  // Total Days - 1 (the exclusive nights-between convention already used
-  // for hotel stays elsewhere in this app).
+  // Total Nights is derived from Check-in/Check-out — never manually typed
+  // (exclusive nights-between convention already used for hotel stays
+  // elsewhere in this app; e.g. 1st to 15th = 14 nights). Total Days is a
+  // completely independent manual input — deliberately NOT validated
+  // against Total Nights, so e.g. Total Days can be 30 while calculated
+  // Nights are 14.
   const tripDaysRaw =
     checkInDate && checkOutDate
       ? Math.round((new Date(checkOutDate) - new Date(checkInDate)) / MS_PER_DAY)
@@ -617,8 +655,8 @@ const NormalPackage = () => {
     checkInDate && checkOutDate && !tripDatesValid
       ? "Return/Check-out date must be after Departure/Check-in date."
       : "";
-  const totalDaysNum = tripDatesValid ? tripDaysRaw + 1 : 0;
   const totalNightsNum = tripDatesValid ? tripDaysRaw : 0;
+  const totalDaysNum = toPositiveNumber(totalDays);
 
   // Total Days vs. Makkah/Madinah nights validation. Makkah Nights +
   // Madinah Nights must equal Total Days EXACTLY — no tolerance. This is
@@ -788,7 +826,7 @@ const NormalPackage = () => {
         } else {
           const origNum = Number(r.originalSAR);
           if (!(Number.isFinite(origNum) && origNum > 0)) {
-            errs.push(`Route ${idx + 1} has no valid original price.`);
+            errs.push(`Select a company rate for Route ${idx + 1}.`);
           }
         }
         const sellNum = Number(r.sellingSAR);
@@ -818,6 +856,7 @@ const NormalPackage = () => {
     clientName.trim() ||
     checkInDate ||
     checkOutDate ||
+    totalDays ||
     conversionRate ||
     totalPassengers ||
     pricingInUse
@@ -1218,6 +1257,7 @@ const NormalPackage = () => {
     setClientName("");
     setCheckInDate("");
     setCheckOutDate("");
+    setTotalDays("");
     setConversionRate("");
     setTotalPassengers("");
 
@@ -1368,8 +1408,10 @@ const NormalPackage = () => {
               </Field>
             </div>
 
-            {/* Travel Dates — Total Days/Nights are read-only, derived
-                automatically from Check-in/Check-out. */}
+            {/* Travel Dates — Total Nights is read-only, derived
+                automatically from Check-in/Check-out. Total Days is a
+                separate, independent manual field (not validated against
+                Total Nights). */}
             <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
               <Field label="Check-in / Departure Date">
                 <input
@@ -1390,10 +1432,12 @@ const NormalPackage = () => {
               </Field>
               <Field label="Total Days">
                 <input
-                  type="text"
-                  readOnly
-                  value={tripDatesValid ? String(totalDaysNum) : "—"}
-                  className={`${inputClass} bg-gray-100 text-gray-600 cursor-not-allowed`}
+                  type="number"
+                  min="1"
+                  placeholder="e.g. 14"
+                  value={totalDays}
+                  onChange={(e) => setTotalDays(e.target.value)}
+                  className={inputClass}
                 />
               </Field>
               <Field label="Total Nights">
@@ -1696,79 +1740,121 @@ const NormalPackage = () => {
                     {routeRows.length > 0 && (
                       <div className="mt-2 space-y-2">
                         {routeRows.map((row, idx) => {
-                          const vehicleOptions = [
-                            ...new Map(
-                              vehiclesForRoute(row.route).map((t) => [t.carType, t])
-                            ).values(),
-                          ];
+                          const matchingRates = ratesFor(row.route, row.carType);
                           return (
                             <div
                               key={idx}
-                              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.3fr_1.3fr_1fr_1fr_0.8fr] gap-3 items-end"
+                              className="rounded-lg border border-gray-100 p-2"
                             >
-                              <Field label={`Route ${idx + 1}`}>
-                                <select
-                                  className="w-full p-2 border border-gray-300 rounded-lg bg-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                  value={row.route}
-                                  onChange={(e) =>
-                                    updateRouteRow(idx, "route", e.target.value)
-                                  }
-                                >
-                                  <option value="">Select Route</option>
-                                  {uniqueRoutes.map((r) => (
-                                    <option key={r} value={r}>
-                                      {r}
-                                    </option>
-                                  ))}
-                                </select>
-                              </Field>
-                              <Field label="Transport/Vehicle">
-                                <select
-                                  className={`w-full p-2 border rounded-lg text-sm focus:ring-1 focus:ring-blue-500 ${
-                                    row.route
-                                      ? "border-gray-300 bg-white focus:border-blue-500"
-                                      : "border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed"
-                                  }`}
-                                  value={row.carType}
-                                  onChange={(e) =>
-                                    updateRouteRow(idx, "carType", e.target.value)
-                                  }
-                                  disabled={!row.route}
-                                >
-                                  <option value="">
-                                    {row.route ? "Select vehicle" : "Select route first"}
-                                  </option>
-                                  {vehicleOptions.map((t) => (
-                                    <option key={t.carType} value={t.carType}>
-                                      {t.carType}
-                                    </option>
-                                  ))}
-                                </select>
-                              </Field>
-                              <CompactPriceField
-                                label="Orig SAR"
-                                value={row.originalSAR}
-                                onChange={(v) => updateRouteRow(idx, "originalSAR", v)}
-                                readOnly={!!row.carType}
-                              />
-                              <CompactPriceField
-                                label="Sell SAR"
-                                value={row.sellingSAR}
-                                onChange={(v) => updateRouteRow(idx, "sellingSAR", v)}
-                                readOnly={false}
-                              />
-                              <Field label="Passengers">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  placeholder="e.g. 5"
-                                  value={row.passengers}
-                                  onChange={(e) =>
-                                    updateRouteRow(idx, "passengers", e.target.value)
-                                  }
-                                  className={inputClass}
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-[1.2fr_1.2fr_1.2fr_1fr_1fr_0.8fr] gap-3 items-end">
+                                {/* Route and Car Type are independent — picking
+                                    one never filters or resets the other. */}
+                                <Field label={`Route ${idx + 1}`}>
+                                  <select
+                                    className="w-full p-2 border border-gray-300 rounded-lg bg-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                    value={row.route}
+                                    onChange={(e) =>
+                                      updateRouteRow(idx, "route", e.target.value)
+                                    }
+                                  >
+                                    <option value="">Select Route</option>
+                                    {uniqueRoutes.map((r) => (
+                                      <option key={r} value={r}>
+                                        {r}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </Field>
+                                <Field label="Transport/Vehicle">
+                                  <select
+                                    className="w-full p-2 border border-gray-300 rounded-lg bg-white text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                    value={row.carType}
+                                    onChange={(e) =>
+                                      updateRouteRow(idx, "carType", e.target.value)
+                                    }
+                                  >
+                                    <option value="">Select vehicle</option>
+                                    {uniqueCarTypes.map((c) => (
+                                      <option key={c} value={c}>
+                                        {c}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </Field>
+
+                                {/* Company/Rate — only enabled once both Route
+                                    and Car Type are chosen; opens the list of
+                                    every real Transport record matching that
+                                    exact pair, so Original SAR always comes
+                                    from an actual backend rate, never typed. */}
+                                <Field label="Company / Rate">
+                                  <button
+                                    type="button"
+                                    disabled={!row.route || !row.carType}
+                                    onClick={() => toggleRouteRowRates(idx)}
+                                    className={`w-full p-2 border rounded-lg text-sm text-left truncate cursor-pointer transition-colors ${
+                                      !row.route || !row.carType
+                                        ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                        : row.agentName
+                                        ? "border-brand-300 bg-brand-50 text-brand-700 font-medium"
+                                        : "border-gray-300 bg-white text-gray-700 hover:border-brand-300"
+                                    }`}
+                                  >
+                                    {row.agentName || "View Rates"}
+                                  </button>
+                                </Field>
+
+                                <CompactPriceField
+                                  label="Orig SAR"
+                                  value={row.originalSAR}
+                                  readOnly
                                 />
-                              </Field>
+                                <CompactPriceField
+                                  label="Sell SAR"
+                                  value={row.sellingSAR}
+                                  onChange={(v) => updateRouteRow(idx, "sellingSAR", v)}
+                                  readOnly={false}
+                                />
+                                <Field label="Passengers">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    placeholder="e.g. 5"
+                                    value={row.passengers}
+                                    onChange={(e) =>
+                                      updateRouteRow(idx, "passengers", e.target.value)
+                                    }
+                                    className={inputClass}
+                                  />
+                                </Field>
+                              </div>
+
+                              {row.showRateOptions && (
+                                <div className="mt-2 rounded-lg border border-gray-200 bg-white p-1.5 space-y-1">
+                                  {matchingRates.length === 0 ? (
+                                    <p className="text-xs text-gray-400 px-2 py-1">
+                                      No company has quoted this exact route +
+                                      vehicle yet.
+                                    </p>
+                                  ) : (
+                                    matchingRates.map((t) => (
+                                      <button
+                                        key={t._id}
+                                        type="button"
+                                        onClick={() => selectRouteRowRate(idx, t)}
+                                        className={`w-full flex justify-between items-center gap-3 text-sm px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${
+                                          row.selectedTransportId === t._id
+                                            ? "bg-brand-50 text-brand-700 font-semibold"
+                                            : "text-gray-700 hover:bg-gray-50"
+                                        }`}
+                                      >
+                                        <span>{t.agentName}</span>
+                                        <span>{safePrice(t.price)} SAR</span>
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}

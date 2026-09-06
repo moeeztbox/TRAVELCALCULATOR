@@ -8,6 +8,9 @@ import {
   SlidersHorizontal,
   X,
   ArrowUpDown,
+  Search,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Modal from "../../../../Main/Modal";
@@ -43,17 +46,16 @@ const emptyHotelBase = {
   address: "",
 };
 
+// `hotelName`/`agentName`/`area` were folded into the always-visible top
+// Search box (below) — everything else stays a discrete "Filters" panel
+// control.
 const emptyFilters = {
-  hotelName: "",
-  agentName: "",
-  area: "",
   city: "",
   categories: [],
   roomTypes: [],
   maxDistance: "",
   minPrice: "",
   maxPrice: "",
-  sortByPrice: "",
 };
 
 const HotelList = () => {
@@ -77,6 +79,10 @@ const HotelList = () => {
   });
 
   const [filters, setFilters] = useState(emptyFilters);
+  // Always-visible top-level controls, deliberately separate from the
+  // collapsible Filters panel.
+  const [search, setSearch] = useState("");
+  const [sortByPrice, setSortByPrice] = useState("");
 
   // Fetch hotels
   useEffect(() => {
@@ -277,11 +283,17 @@ const HotelList = () => {
     });
   };
 
+  // City filter options are DYNAMIC — always exactly whatever city values
+  // actually exist in the live Hotel data right now, so a newly-added city
+  // shows up here automatically with no code change. (The Add/Edit form's
+  // own City dropdown is unrelated and stays exactly as it was.)
+  const cityFilterOptions = useMemo(
+    () => [...new Set(hotels.map((h) => h.city).filter(Boolean))].sort(),
+    [hotels]
+  );
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.hotelName) count++;
-    if (filters.agentName) count++;
-    if (filters.area) count++;
     if (filters.city) count++;
     if (filters.maxDistance) count++;
     if (filters.minPrice) count++;
@@ -292,20 +304,17 @@ const HotelList = () => {
   }, [filters]);
 
   const filteredHotels = useMemo(() => {
+    const q = search.trim().toLowerCase();
     const list = hotels.filter((h) => {
       if (
-        filters.hotelName &&
-        !h.hotelName?.toLowerCase().includes(filters.hotelName.toLowerCase())
-      )
-        return false;
-      if (
-        filters.agentName &&
-        !h.agentName?.toLowerCase().includes(filters.agentName.toLowerCase())
-      )
-        return false;
-      if (
-        filters.area &&
-        !h.area?.toLowerCase().includes(filters.area.toLowerCase())
+        q &&
+        !(
+          h.hotelName?.toLowerCase().includes(q) ||
+          h.agentName?.toLowerCase().includes(q) ||
+          h.area?.toLowerCase().includes(q) ||
+          h.city?.toLowerCase().includes(q) ||
+          h.address?.toLowerCase().includes(q)
+        )
       )
         return false;
       if (filters.city && h.city !== filters.city) return false;
@@ -322,14 +331,14 @@ const HotelList = () => {
       return true;
     });
 
-    if (filters.sortByPrice === "asc") {
+    if (sortByPrice === "asc") {
       list.sort((a, b) => Number(a.price) - Number(b.price));
-    } else if (filters.sortByPrice === "desc") {
+    } else if (sortByPrice === "desc") {
       list.sort((a, b) => Number(b.price) - Number(a.price));
     }
 
     return list;
-  }, [hotels, filters]);
+  }, [hotels, filters, search, sortByPrice]);
 
   const clearFilters = () => setFilters(emptyFilters);
 
@@ -666,14 +675,6 @@ const HotelList = () => {
           onBack={handleBack}
           actions={
             <>
-              <Button
-                variant="secondary"
-                icon={SlidersHorizontal}
-                onClick={() => setShowFilters((v) => !v)}
-                className="lg:hidden"
-              >
-                Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
-              </Button>
               <Button variant="secondary" icon={Printer} onClick={handlePrint}>
                 Print
               </Button>
@@ -687,17 +688,50 @@ const HotelList = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
-        {/* FILTER PANEL */}
-        <aside
-          className={`no-print min-w-0 ${showFilters ? "block" : "hidden"} lg:block`}
-        >
-          <div className="table-card p-5 lg:sticky lg:top-20 space-y-5">
+      <div className="space-y-4">
+        {/* TOP BAR — Filters | Sort By | Search, in one row. No more left
+            sidebar, so the table below gets the full page width. */}
+        <div className="no-print flex flex-nowrap items-center gap-3">
+          <Button
+            variant="secondary"
+            icon={SlidersHorizontal}
+            iconRight={showFilters ? ChevronUp : ChevronDown}
+            onClick={() => setShowFilters((v) => !v)}
+            className="shrink-0"
+          >
+            Filters{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </Button>
+
+          <select
+            value={sortByPrice}
+            onChange={(e) => setSortByPrice(e.target.value)}
+            className="shrink-0 w-40 rounded-xl border border-hair bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink cursor-pointer focus:border-brand-400 focus:bg-surface focus:ring-2 focus:ring-brand-100 focus:outline-none"
+          >
+            <option value="">Sort: Default</option>
+            <option value="asc">Cheapest First</option>
+            <option value="desc">Most Expensive</option>
+          </select>
+
+          <div className="relative flex-1 min-w-40">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-soft pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="Search hotel, agent, area, city, or address..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`${inputClass} pl-9`}
+            />
+          </div>
+        </div>
+
+        {/* COLLAPSIBLE FILTER PANEL — full width, only rendered when open. */}
+        {showFilters && (
+          <div className="no-print table-card p-5 space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-ink flex items-center gap-2">
-                <SlidersHorizontal size={16} className="text-brand-600" />
-                Filters
-              </h3>
+              <h3 className="text-sm font-bold text-ink">Filters</h3>
               {activeFilterCount > 0 && (
                 <button
                   onClick={clearFilters}
@@ -708,147 +742,102 @@ const HotelList = () => {
               )}
             </div>
 
-            <Field label="Hotel Name">
-              <input
-                type="text"
-                placeholder="Search hotel..."
-                value={filters.hotelName}
-                onChange={(e) =>
-                  setFilters({ ...filters, hotelName: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <Field label="City">
+                <select
+                  value={filters.city}
+                  onChange={(e) =>
+                    setFilters({ ...filters, city: e.target.value })
+                  }
+                  className={inputClass}
+                >
+                  <option value="">Any city</option>
+                  {cityFilterOptions.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-            <Field label="Agent Name">
-              <input
-                type="text"
-                placeholder="Search agent..."
-                value={filters.agentName}
-                onChange={(e) =>
-                  setFilters({ ...filters, agentName: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Area">
-              <input
-                type="text"
-                placeholder="Search area..."
-                value={filters.area}
-                onChange={(e) =>
-                  setFilters({ ...filters, area: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="City">
-              <select
-                value={filters.city}
-                onChange={(e) =>
-                  setFilters({ ...filters, city: e.target.value })
-                }
-                className={inputClass}
-              >
-                <option value="">Any city</option>
-                <option value="Makkah">Makkah</option>
-                <option value="Madinah">Madinah</option>
-              </select>
-            </Field>
-
-            <Field label="Category">
-              <div className="flex flex-wrap gap-1.5">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => toggleFilterArray("categories", cat)}
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-                      filters.categories.includes(cat)
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </Field>
-
-            <Field label="Room Type">
-              <div className="flex flex-wrap gap-1.5">
-                {ROOM_TYPES.map((rt) => (
-                  <button
-                    key={rt}
-                    type="button"
-                    onClick={() => toggleFilterArray("roomTypes", rt)}
-                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border capitalize transition-colors cursor-pointer ${
-                      filters.roomTypes.includes(rt)
-                        ? "bg-brand-600 text-white border-brand-600"
-                        : "bg-surface-2 text-muted border-hair hover:border-brand-300"
-                    }`}
-                  >
-                    {rt}
-                  </button>
-                ))}
-              </div>
-            </Field>
-
-            <Field label="Max Distance (m)">
-              <input
-                type="number"
-                placeholder="e.g. 500"
-                value={filters.maxDistance}
-                onChange={(e) =>
-                  setFilters({ ...filters, maxDistance: e.target.value })
-                }
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Price Range">
-              <div className="grid grid-cols-2 gap-2">
+              <Field label="Max Distance (m)">
                 <input
                   type="number"
-                  placeholder="Min"
-                  value={filters.minPrice}
+                  placeholder="e.g. 500"
+                  value={filters.maxDistance}
                   onChange={(e) =>
-                    setFilters({ ...filters, minPrice: e.target.value })
+                    setFilters({ ...filters, maxDistance: e.target.value })
                   }
                   className={inputClass}
                 />
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={filters.maxPrice}
-                  onChange={(e) =>
-                    setFilters({ ...filters, maxPrice: e.target.value })
-                  }
-                  className={inputClass}
-                />
-              </div>
-            </Field>
+              </Field>
 
-            <Field label="Sort by Price">
-              <select
-                value={filters.sortByPrice}
-                onChange={(e) =>
-                  setFilters({ ...filters, sortByPrice: e.target.value })
-                }
-                className={inputClass}
-              >
-                <option value="">Default</option>
-                <option value="asc">Cheapest first</option>
-                <option value="desc">Most expensive first</option>
-              </select>
-            </Field>
+              <Field label="Price Range" className="sm:col-span-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, minPrice: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxPrice}
+                    onChange={(e) =>
+                      setFilters({ ...filters, maxPrice: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </Field>
+
+              <Field label="Category" className="sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-wrap gap-1.5">
+                  {CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => toggleFilterArray("categories", cat)}
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+                        filters.categories.includes(cat)
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <Field label="Room Type" className="sm:col-span-2 lg:col-span-4">
+                <div className="flex flex-wrap gap-1.5">
+                  {ROOM_TYPES.map((rt) => (
+                    <button
+                      key={rt}
+                      type="button"
+                      onClick={() => toggleFilterArray("roomTypes", rt)}
+                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border capitalize transition-colors cursor-pointer ${
+                        filters.roomTypes.includes(rt)
+                          ? "bg-brand-600 text-white border-brand-600"
+                          : "bg-surface-2 text-muted border-hair hover:border-brand-300"
+                      }`}
+                    >
+                      {rt}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            </div>
           </div>
-        </aside>
+        )}
 
         {/* LISTING */}
-        <div className="min-w-0">
+        <div>
           {/* PRINTABLE AREA */}
           <div id="print-area">
             {/* PRINT-ONLY HEADER */}
@@ -858,10 +847,10 @@ const HotelList = () => {
               <p className="no-print text-sm text-muted mb-3">
                 Showing <span className="font-semibold text-ink">{filteredHotels.length}</span> of{" "}
                 {hotels.length} hotels
-                {filters.sortByPrice && (
+                {sortByPrice && (
                   <span className="inline-flex items-center gap-1 ml-2 text-brand-600 font-medium">
                     <ArrowUpDown size={13} />
-                    {filters.sortByPrice === "asc" ? "Cheapest first" : "Most expensive first"}
+                    {sortByPrice === "asc" ? "Cheapest first" : "Most expensive first"}
                   </span>
                 )}
               </p>
@@ -916,7 +905,9 @@ const HotelList = () => {
                         <td className="py-3 px-4 capitalize">{hotel.roomType}</td>
                         <td className="py-3 px-4">{hotel.area}</td>
                         <td className="py-3 px-4">{hotel.city}</td>
-                        <td className="py-3 px-4">{hotel.address || "-"}</td>
+                        <td className="py-3 px-4 max-w-xs" style={{ whiteSpace: "normal" }}>
+                          {hotel.address || "-"}
+                        </td>
                         <td className="py-3 px-4">{hotel.distance}</td>
                         <td className="py-3 px-4">{hotel.agentName}</td>
                         <td className="py-3 px-4">{hotel.price}</td>
